@@ -714,6 +714,50 @@
 				updateOfflineButton(!!registration);
 			}
 
+			/*
+				SGML renderer/parser escaping
+
+				Backticks are structural string wrappers inside parsed fields.
+
+				Examples:
+					[`Washington, D.C.`,Manila,Cebu]
+					[`Hello, \`world\``,Apple]
+
+				Supported escapes:
+					\,  literal comma
+					\|  literal pipe
+					\`  literal backtick
+					\\  literal backslash
+
+				Other structural characters can also be escaped:
+					\[ \] \( \) \{ \} \< \>
+
+				Backslash escaping is handled before delimiter detection.
+			*/
+			function isSGMLEscapable(char){
+				return "\\`,|[](){}<>".includes(char);
+			}
+
+			function decodeSGMLEscapes(str){
+				if(!str)return'';
+
+				let result='';
+
+				for(let i=0;i<str.length;i++){
+					const c=str[i];
+
+					if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
+						result+=str[i+1];
+						i++;
+						continue;
+					}
+
+					result+=c;
+				}
+
+				return result;
+			}
+
 			function extractTrueText(rawStr){
 				if(!rawStr)return'';
 
@@ -727,6 +771,7 @@
 				}
 
 				str=str.replace(/<\/?[^>]+(>|$)/g,'');
+				str=decodeSGMLEscapes(str);
 				str=str.replace(/[*_~`#]/g,'');
 				return str.trim();
 			}
@@ -737,36 +782,94 @@
 				const result=[];
 				let current='';
 				let depth=0;
+				let inBackticks=false;
 
 				for(let i=0;i<str.length;i++){
 					const c=str[i];
 
-					if(c==='<'||c==='['||c==='('||c==='{')depth++;
-					else if(c==='>'||c===']'||c===')'||c==='}')depth--;
-
-					if(c===charToSplit&&depth===0){
-						result.push(current.trim());
-						current='';
-					}else{
-						current+=c;
+					/*
+						Escapes are processed before checking backticks
+						or delimiters. This prevents:
+							\, from splitting
+							\| from splitting
+							\` from toggling literal mode
+							\\ from escaping the next character
+					*/
+					if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
+						current+=str[i+1];
+						i++;
+						continue;
 					}
+
+					/*
+						Backticks wrap a literal value.
+
+						While inside backticks:
+							, does not split
+							| does not split
+							brackets do not affect depth
+					*/
+					if(c==='`'){
+						inBackticks=!inBackticks;
+						continue;
+					}
+
+					if(!inBackticks){
+						if(c==='<'||c==='['||c==='('||c==='{')depth++;
+						else if(c==='>'||c===']'||c===')'||c==='}')depth--;
+
+						if(c===charToSplit&&depth===0){
+							result.push(current.trim());
+							current='';
+							continue;
+						}
+					}
+
+					current+=c;
 				}
 
 				if(current.trim())result.push(current.trim());
+
 				return result;
 			}
 
 			function extractBalanced(text,startIdx,openChar,closeChar){
 				let count=0;
 				let content='';
+				let inBackticks=false;
 
 				for(let i=startIdx;i<text.length;i++){
-					if(text[i]===openChar){
+					const c=text[i];
+
+					/*
+						Escaped structural characters must not affect
+						balancing. Keep the original escape sequence here;
+						splitByChar will decode it later when appropriate.
+					*/
+					if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
+						content+=c+text[i+1];
+						i++;
+						continue;
+					}
+
+					if(c==='`'){
+						inBackticks=!inBackticks;
+						content+=c;
+						continue;
+					}
+
+					if(inBackticks){
+						content+=c;
+						continue;
+					}
+
+					if(c===openChar){
 						count++;
+
 						if(count===1)continue;
 					}
 
-					if(text[i]===closeChar){
+					if(c===closeChar){
 						count--;
 
 						if(count===0){
@@ -777,7 +880,7 @@
 						}
 					}
 
-					if(count>0)content+=text[i];
+					if(count>0)content+=c;
 				}
 
 				return null;
@@ -1666,6 +1769,54 @@ Another example:
 
 ---
 
+### Commas Inside Choices
+
+A comma normally separates choices.
+
+When a choice contains a comma, wrap that entire value in backticks.
+
+Example:
+
+<Choices:(Which city contains a comma in its name?)[Manila, \`Washington, D.C.\`, Cebu]{[idx:1]}>
+
+The backticks tell the parser that the comma inside the wrapped value is part of the text and is not a choice separator.
+
+This works for answers as well:
+
+<Fillin:(Enter the full city name)[]{\`Washington, D.C.\`}>
+
+The rendered answer is:
+
+<st col:#0066ff>Washington, D.C.</st>
+
+---
+
+### Escaping
+
+SGML supports backslash escaping for structural characters.
+
+<st col:#0066ff>&#92;,</st>
+
+means a literal comma.
+
+<st col:#0066ff>&#92;|</st>
+
+means a literal pipe.
+
+<st col:#0066ff>&#92;&#96;</st>
+
+means a literal backtick.
+
+<st col:#0066ff>&#92;&#92;</st>
+
+means a literal backslash.
+
+Other structural characters can also be escaped when necessary.
+
+Backslash escaping is processed before separators and backtick wrapping.
+
+---
+
 ### Fill-in-the-Blank
 
 Use \`<Fillin:...>\` when the learner must enter an answer.
@@ -1677,6 +1828,12 @@ Multiple accepted answers can be separated by commas.
 <Fillin:(What is 2 + 2?)[]{4,Four}>
 
 Both \`4\` and \`Four\` are accepted.
+
+A value containing a comma can be wrapped:
+
+<Fillin:(What exact phrase is shown?)[]{\`Hello, world\`}>
+
+Only one answer is defined here because the comma is inside the backtick-wrapped value.
 
 ---
 
@@ -1756,6 +1913,13 @@ is recognized as a fill-in-the-blank question.
 
 is recognized as an enumeration question.
 
+When parsing a choice list:
+
+- commas outside backticks separate values
+- commas inside backticks are literal
+- escaped separators are literal
+- escaped backticks do not start or end a wrapped value
+
 ---
 
 ## 3. Formatting
@@ -1805,6 +1969,12 @@ Correct answer:
 \`[idx:0]\`
 
 Therefore the viewer knows which answer should be accepted.
+
+A wrapped choice is parsed as one value:
+
+<Choices:(Example)[Apple, \`Washington, D.C.\`, Banana]{[idx:1]}>
+
+The comma inside \`Washington, D.C.\` does not create another choice.
 
 ---
 
@@ -1893,6 +2063,10 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 
 <Enumeration:(Put these SGML processing stages in order)[Validation, Source, Parser, Formatting]{Source,Parser,Formatting,Validation|type:order}>
 
+<Choices:(Which answer contains a comma?)[Apple, \`Washington, D.C.\`, Banana]{[idx:1]}>
+
+<Fillin:(Enter this exact phrase)[]{\`Hello, world\`}>
+
 ---
 
 # Remember
@@ -1904,6 +2078,10 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 <st col:#0066ff>SGML tags add formatting and interactive behavior.</st>
 
 <st col:#aa00aa>The viewer parses the source and turns it into an interactive study guide.</st>
+
+<st col:#0066ff>Use backticks to wrap a value containing a separator such as a comma.</st>
+
+<st bg:#e0f2fe>Escaped characters are treated as literal characters instead of structural syntax.</st>
 
 <st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>
 

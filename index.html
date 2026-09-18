@@ -346,364 +346,491 @@
 	</head>
 	<body>
 		<div class="sgml-toolbar">
-		<button onclick="createNewSGML()">
-		New SGML
-		</button>
-		<button onclick="openLibrary()">
-		Load SGML
-		</button>
-		<button onclick="document.getElementById('file-upload-input').click()">
-		Upload File
-		</button>
-		<button onclick="downloadSGML()">
-		Download SGML
-		</button>
-		<button onclick="toggleEditor()">
-		Edit Code
-		</button>
-		<button class="btn-submit" onclick="checkAllQuestions()">
-		Check All Answers
-		</button>
-		<button id="offline-button" onclick="handleOfflineButton()">
-		Enable Offline
-		</button>
-		<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none;" type="file"/>
+			<button onclick="createNewSGML()">New SGML</button>
+			<button onclick="openLibrary()">Load SGML</button>
+			<button onclick="document.getElementById('file-upload-input').click()">Upload File</button>
+			<button onclick="downloadSGML()">Download SGML</button>
+			<button onclick="toggleEditor()">Edit Code</button>
+			<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
+			<button id="offline-button" onclick="handleOfflineButton()">Enable Offline</button>
+			<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none;" type="file"/>
 		</div>
-		<div class="sgml-current-name" id="sgml-current-name">
-		</div>
+
+		<div class="sgml-current-name" id="sgml-current-name"></div>
+
 		<div id="editor-drawer">
-		<textarea id="sgml-input" placeholder="Paste SGML content here..."></textarea>
-		<div style="margin-top: 8px; display: flex; gap: 8px;">
-		<button class="btn-submit" onclick="loadSGMLFromEditor()">
-		Render SGML
-		</button>
-		<button onclick="loadDefaultSample()">
-		Load Sample
-		</button>
+			<textarea id="sgml-input" placeholder="Paste SGML content here..."></textarea>
+			<div style="margin-top:8px;display:flex;gap:8px;">
+				<button class="btn-submit" onclick="loadSGMLFromEditor()">Render SGML</button>
+				<button onclick="loadDefaultSample()">Load Sample</button>
+			</div>
 		</div>
-		</div>
-		<main id="sgml-output">
-		</main>
+
+		<main id="sgml-output"></main>
+
 		<div aria-hidden="true" class="sgml-modal-backdrop confirm-layer" id="confirm-modal">
-		<div aria-labelledby="confirm-title" aria-modal="true" class="sgml-modal" role="dialog">
-		<div class="sgml-modal-header" id="confirm-title">
-		Confirm
+			<div aria-labelledby="confirm-title" aria-modal="true" class="sgml-modal" role="dialog">
+				<div class="sgml-modal-header" id="confirm-title">Confirm</div>
+				<div class="sgml-modal-body">
+					<div class="sgml-modal-message" id="confirm-message"></div>
+				</div>
+				<div class="sgml-modal-footer">
+					<button id="confirm-cancel">Cancel</button>
+					<button class="btn-submit" id="confirm-ok">Confirm</button>
+				</div>
+			</div>
 		</div>
-		<div class="sgml-modal-body">
-		<div class="sgml-modal-message" id="confirm-message">
-		</div>
-		</div>
-		<div class="sgml-modal-footer">
-		<button id="confirm-cancel">
-		Cancel
-		</button>
-		<button class="btn-submit" id="confirm-ok">
-		Confirm
-		</button>
-		</div>
-		</div>
-		</div>
+
 		<div aria-hidden="true" class="sgml-modal-backdrop" id="library-modal">
-		<div aria-labelledby="library-title" aria-modal="true" class="sgml-modal" role="dialog">
-		<div class="sgml-modal-header" id="library-title">
-		Saved SGML
+			<div aria-labelledby="library-title" aria-modal="true" class="sgml-modal" role="dialog">
+				<div class="sgml-modal-header" id="library-title">Saved SGML</div>
+				<div class="sgml-modal-body">
+					<div class="sgml-library-list" id="library-list"></div>
+				</div>
+				<div class="sgml-modal-footer">
+					<button onclick="closeLibrary()">Close</button>
+				</div>
+			</div>
 		</div>
-		<div class="sgml-modal-body">
-		<div class="sgml-library-list" id="library-list">
-		</div>
-		</div>
-		<div class="sgml-modal-footer">
-		<button onclick="closeLibrary()">
-		Close
-		</button>
-		</div>
-		</div>
-		</div>
+
 		<script src="./marked.js"></script>
 		<script>
-			let parsedQuestions=  {
-			};  const STORAGE_DOCS='sgml_viewer_documents';  const STORAGE_CURRENT_ID='sgml_viewer_current_id';  const STORAGE_CURRENT_CONTENT='sgml_viewer_current_sgml';  const STORAGE_DEFAULT_MADE='sgml_viewer_default_created';  let currentDocumentId=null;  function makeId()  {
-				return 'sgml_'+Date.now()+ '_'+Math.random().toString(36).slice(2,  9);
+			let parsedQuestions={};
+			const STORAGE_DOCS='sgml_viewer_documents';
+			const STORAGE_CURRENT_ID='sgml_viewer_current_id';
+			const STORAGE_CURRENT_CONTENT='sgml_viewer_current_sgml';
+			const STORAGE_DEFAULT_MADE='sgml_viewer_default_created';
+			let currentDocumentId=null;
+
+			function makeId(){
+				return 'sgml_'+Date.now()+'_'+Math.random().toString(36).slice(2,9);
 			}
-			function loadDocuments()  {
-				try  {
+
+			function loadDocuments(){
+				try{
 					const raw=localStorage.getItem(STORAGE_DOCS);
-					if (!raw) return[];
+					if(!raw)return[];
 					const docs=JSON.parse(raw);
-					return Array.isArray(docs)?  docs:  [];
-				}
-				catch (error)  {
-					console.error('Could not load SGML library:',  error);
+					return Array.isArray(docs)?docs:[];
+				}catch(error){
+					console.error('Could not load SGML library:',error);
 					return[];
 				}
 			}
-			function saveDocuments(docs)  {
-				localStorage.setItem(STORAGE_DOCS,  JSON.stringify(docs));
+
+			function saveDocuments(docs){
+				localStorage.setItem(STORAGE_DOCS,JSON.stringify(docs));
 			}
-			function getCurrentDocument()  {
+
+			function getCurrentDocument(){
 				const docs=loadDocuments();
 				return docs.find(doc=>doc.id===currentDocumentId)||null;
 			}
-			function setCurrentDocumentId(id)  {
+
+			function setCurrentDocumentId(id){
 				currentDocumentId=id;
-				localStorage.setItem(STORAGE_CURRENT_ID,  id);
+				localStorage.setItem(STORAGE_CURRENT_ID,id);
 			}
-			function saveCurrentSGML(nameOverride=null)  {
+
+			function saveCurrentSGML(nameOverride=null){
 				const input=document.getElementById('sgml-input');
-				const content=input?  input.value:  '';
+				const content=input?input.value:'';
 				let docs=loadDocuments();
 				let doc=docs.find(item=>item.id===currentDocumentId);
-				if (!doc)  {
-					doc=  {
-						id:  makeId(),
-						title:  nameOverride|| 'Untitled SGML',
-						content:  '',
-						createdAt:  Date.now(),
-						updatedAt:  Date.now()
+
+				if(!doc){
+					doc={
+						id:makeId(),
+						title:nameOverride||'Untitled SGML',
+						content:'',
+						createdAt:Date.now(),
+						updatedAt:Date.now()
 					};
 					docs.push(doc);
 					setCurrentDocumentId(doc.id);
 				}
-				if (nameOverride!==null)  {
-					doc.title=nameOverride;
-				}
+
+				if(nameOverride!==null)doc.title=nameOverride;
 				doc.content=content;
 				doc.updatedAt=Date.now();
 				saveDocuments(docs);
-				localStorage.setItem(STORAGE_CURRENT_CONTENT,  content);
+				localStorage.setItem(STORAGE_CURRENT_CONTENT,content);
 				updateCurrentName(doc);
 			}
-			function loadDocumentIntoEditor(doc)  {
-				if (!doc) return;
+
+			function loadDocumentIntoEditor(doc){
+				if(!doc)return;
 				setCurrentDocumentId(doc.id);
-				document.getElementById('sgml-input').value=doc.content|| '';
-				localStorage.setItem(STORAGE_CURRENT_CONTENT,  doc.content|| '');
+				document.getElementById('sgml-input').value=doc.content||'';
+				localStorage.setItem(STORAGE_CURRENT_CONTENT,doc.content||'');
 				updateCurrentName(doc);
-				renderSGML(doc.content|| '');
+				renderSGML(doc.content||'');
 			}
-			function updateCurrentName(doc=getCurrentDocument())  {
+
+			function updateCurrentName(doc=getCurrentDocument()){
 				const el=document.getElementById('sgml-current-name');
-				if (!el) return;
-				el.textContent=doc?  `Current SGML: ${doc.title}`:  '';
-				el.title=doc?  doc.title:  '';
+				if(!el)return;
+				el.textContent=doc?`Current SGML: ${doc.title}`:'';
+				el.title=doc?doc.title:'';
 			}
-			function setupAutosave()  {
+
+			function setupAutosave(){
 				const input=document.getElementById('sgml-input');
-				input.addEventListener('input',  ()=>  {
+				input.addEventListener('input',()=>{
 					saveCurrentSGML();
 				});
 			}
-			function confirmDialog(message,  title='Confirm',  confirmText='Confirm')  {
-				return new Promise(resolve=>  {
-					const backdrop=document.getElementById('confirm-modal');  const titleEl=document.getElementById('confirm-title');  const messageEl=document.getElementById('confirm-message');  const okBtn=document.getElementById('confirm-ok');  const cancelBtn=document.getElementById('confirm-cancel');  titleEl.textContent=title;  messageEl.textContent=message;  okBtn.textContent=confirmText;  backdrop.classList.add('open');  backdrop.setAttribute('aria-hidden',  'false');  let finished=false;  const finish=value=>  {
-						if (finished) return;  finished=true;  backdrop.classList.remove('open');  backdrop.setAttribute('aria-hidden',  'true');  okBtn.removeEventListener('click',  onOk);  cancelBtn.removeEventListener('click',  onCancel);  backdrop.removeEventListener('click',  onBackdrop);  document.removeEventListener('keydown',  onKeyDown);  resolve(value);
-					};  const onOk=()=>finish(true);  const onCancel=()=>finish(false);  const onBackdrop=event=>  {
-						if (event.target===backdrop) finish(false);
-					};  const onKeyDown=event=>  {
-						if (event.key==='Escape') finish(false);
-					};  okBtn.addEventListener('click',  onOk);  cancelBtn.addEventListener('click',  onCancel);  backdrop.addEventListener('click',  onBackdrop);  document.addEventListener('keydown',  onKeyDown);
+
+			function confirmDialog(message,title='Confirm',confirmText='Confirm'){
+				return new Promise(resolve=>{
+					const backdrop=document.getElementById('confirm-modal');
+					const titleEl=document.getElementById('confirm-title');
+					const messageEl=document.getElementById('confirm-message');
+					const okBtn=document.getElementById('confirm-ok');
+					const cancelBtn=document.getElementById('confirm-cancel');
+
+					titleEl.textContent=title;
+					messageEl.textContent=message;
+					okBtn.textContent=confirmText;
+					backdrop.classList.add('open');
+					backdrop.setAttribute('aria-hidden','false');
+
+					let finished=false;
+
+					const finish=value=>{
+						if(finished)return;
+						finished=true;
+						backdrop.classList.remove('open');
+						backdrop.setAttribute('aria-hidden','true');
+						okBtn.removeEventListener('click',onOk);
+						cancelBtn.removeEventListener('click',onCancel);
+						backdrop.removeEventListener('click',onBackdrop);
+						document.removeEventListener('keydown',onKeyDown);
+						resolve(value);
+					};
+
+					const onOk=()=>finish(true);
+					const onCancel=()=>finish(false);
+					const onBackdrop=event=>{
+						if(event.target===backdrop)finish(false);
+					};
+					const onKeyDown=event=>{
+						if(event.key==='Escape')finish(false);
+					};
+
+					okBtn.addEventListener('click',onOk);
+					cancelBtn.addEventListener('click',onCancel);
+					backdrop.addEventListener('click',onBackdrop);
+					document.addEventListener('keydown',onKeyDown);
 				});
 			}
-			async function getServiceWorkerRegistration()  {
-				if (!('serviceWorker'in navigator)) return null;
-				try  {
+
+			async function getServiceWorkerRegistration(){
+				if(!('serviceWorker'in navigator))return null;
+				try{
 					return await navigator.serviceWorker.getRegistration('./');
-				}
-				catch (error)  {
+				}catch(error){
 					console.error(error);
 					return null;
 				}
 			}
-			function waitForController(timeout=5000)  {
-				if (navigator.serviceWorker.controller) return Promise.resolve();
-				return new Promise(resolve=>  {
-					let done=false;  const finish=()=>  {
-						if (done) return;  done=true;  navigator.serviceWorker.removeEventListener('controllerchange',  finish);  clearTimeout(timer);  resolve();
-					};  const timer=setTimeout(finish,  timeout);  navigator.serviceWorker.addEventListener('controllerchange',  finish);
+
+			function waitForController(timeout=5000){
+				if(navigator.serviceWorker.controller)return Promise.resolve();
+
+				return new Promise(resolve=>{
+					let done=false;
+
+					const finish=()=>{
+						if(done)return;
+						done=true;
+						navigator.serviceWorker.removeEventListener('controllerchange',finish);
+						clearTimeout(timer);
+						resolve();
+					};
+
+					const timer=setTimeout(finish,timeout);
+					navigator.serviceWorker.addEventListener('controllerchange',finish);
 				});
 			}
-			async function cacheCurrentPageWithServiceWorker(registration)  {
+
+			async function cacheCurrentPageWithServiceWorker(registration){
 				await waitForController();
+
 				const worker=navigator.serviceWorker.controller||registration.active||registration.waiting||registration.installing;
-				if (!worker) throw new Error('Service Worker is not active yet.');
-				await new Promise((resolve,  reject)=>  {
-					const channel=new MessageChannel();  const timeout=setTimeout(()=>reject(new Error('Offline cache request timed out.')),  10000);  channel.port1.onmessage=event=>  {
-						clearTimeout(timeout);  if (event.data&&event.data.ok) resolve();  else reject(new Error(event.data&&event.data.error?  event.data.error:  'Offline cache failed.'));
-					};  worker.postMessage(  {
-						type:  'CACHE_URL',  url:  location.href
-					},  [channel.port2]);
+				if(!worker)throw new Error('Service Worker is not active yet.');
+
+				await new Promise((resolve,reject)=>{
+					const channel=new MessageChannel();
+					const timeout=setTimeout(()=>reject(new Error('Offline cache request timed out.')),10000);
+
+					channel.port1.onmessage=event=>{
+						clearTimeout(timeout);
+						if(event.data&&event.data.ok)resolve();
+						else reject(new Error(event.data&&event.data.error?event.data.error:'Offline cache failed.'));
+					};
+
+					worker.postMessage({
+						type:'CACHE_URL',
+						url:location.href
+					},[channel.port2]);
 				});
 			}
-			async function enableOffline()  {
-				if (!('serviceWorker'in navigator))  {
-					await confirmDialog('This browser/WebView does not support Service Workers, so Offline mode cannot be enabled here.',  'Offline unavailable',  'OK');
+
+			async function enableOffline(){
+				if(!('serviceWorker'in navigator)){
+					await confirmDialog(
+						'This browser/WebView does not support Service Workers, so Offline mode cannot be enabled here.',
+						'Offline unavailable',
+						'OK'
+					);
 					return;
 				}
-				try  {
-					const registration=await navigator.serviceWorker.register('./sw.js',   {
-						scope:  './'
-					});
+
+				try{
+					const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
 					await registration.update();
-					if (registration.waiting)  {
-						registration.waiting.postMessage(  {
-							type:  'SKIP_WAITING'
-						});
+
+					if(registration.waiting){
+						registration.waiting.postMessage({type:'SKIP_WAITING'});
 					}
+
 					await waitForController(6000);
 					await cacheCurrentPageWithServiceWorker(registration);
 					updateOfflineButton(true);
-					await confirmDialog('Offline mode is enabled. This browser page can now be opened from its offline cache.',  'Offline enabled',  'OK');
-				}
-				catch (error)  {
-					console.error('Offline setup failed:',  error);
-					await confirmDialog('Offline mode could not be enabled. Make sure this page is being served from HTTP(S) and that sw.js is in the same folder.',  'Offline setup failed',  'OK');
+
+					await confirmDialog(
+						'Offline mode is enabled. This browser page can now be opened from its offline cache.',
+						'Offline enabled',
+						'OK'
+					);
+				}catch(error){
+					console.error('Offline setup failed:',error);
+
+					await confirmDialog(
+						'Offline mode could not be enabled. Make sure this page is being served from HTTP(S) and that sw.js is in the same folder.',
+						'Offline setup failed',
+						'OK'
+					);
 				}
 			}
-			async function disableOfflineAndRefresh()  {
-				const confirmed=await confirmDialog('This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, it cannot be accessed offline anymore unless you enable Offline again.',  'Refresh browser?',  'Refresh');
-				if (!confirmed) return;
-				try  {
+
+			async function disableOfflineAndRefresh(){
+				const confirmed=await confirmDialog(
+					'This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, it cannot be accessed offline anymore unless you enable Offline again.',
+					'Refresh browser?',
+					'Refresh'
+				);
+
+				if(!confirmed)return;
+
+				try{
 					const registration=await getServiceWorkerRegistration();
-					if (registration)  {
-						try  {
-							await new Promise(resolve=>  {
-								const worker=navigator.serviceWorker.controller||registration.active;  if (!worker)  {
-									resolve();  return;
+
+					if(registration){
+						try{
+							await new Promise(resolve=>{
+								const worker=navigator.serviceWorker.controller||registration.active;
+
+								if(!worker){
+									resolve();
+									return;
 								}
-								const channel=new MessageChannel();  let finished=false;  const finish=()=>  {
-									if (finished) return;  finished=true;  clearTimeout(timeout);  resolve();
-								};  const timeout=setTimeout(finish,  3000);  channel.port1.onmessage=finish;  worker.postMessage(  {
-									type:  'DISABLE_OFFLINE'
-								},  [channel.port2]);
+
+								const channel=new MessageChannel();
+								let finished=false;
+
+								const finish=()=>{
+									if(finished)return;
+									finished=true;
+									clearTimeout(timeout);
+									resolve();
+								};
+
+								const timeout=setTimeout(finish,3000);
+								channel.port1.onmessage=finish;
+
+								worker.postMessage({type:'DISABLE_OFFLINE'},[channel.port2]);
 							});
+						}catch(error){
+							console.warn('Could not ask worker to clear cache:',error);
 						}
-						catch (error)  {
-							console.warn('Could not ask worker to clear cache:',  error);
-						}
+
 						await registration.unregister();
 					}
-					if ('caches'in window)  {
+
+					if('caches'in window){
 						const keys=await caches.keys();
-						await Promise.all(keys.filter(key=>key.startsWith('sgml-viewer-offline-')).map(key=>caches.delete(key)));
+
+						await Promise.all(
+							keys
+								.filter(key=>key.startsWith('sgml-viewer-offline-'))
+								.map(key=>caches.delete(key))
+						);
 					}
+
 					updateOfflineButton(false);
+
 					const url=new URL(location.href);
-					url.searchParams.set('__sgml_refresh',  String(Date.now()));
+					url.searchParams.set('__sgml_refresh',String(Date.now()));
 					location.replace(url.href);
-				}
-				catch (error)  {
-					console.error('Refresh cleanup failed:',  error);
+				}catch(error){
+					console.error('Refresh cleanup failed:',error);
+
 					const url=new URL(location.href);
-					url.searchParams.set('__sgml_refresh',  String(Date.now()));
+					url.searchParams.set('__sgml_refresh',String(Date.now()));
 					location.replace(url.href);
 				}
 			}
-			async function handleOfflineButton()  {
+
+			async function handleOfflineButton(){
 				const button=document.getElementById('offline-button');
-				if (button.dataset.mode==='refresh')  {
+
+				if(button.dataset.mode==='refresh'){
 					await disableOfflineAndRefresh();
-				}
-				else  {
+				}else{
 					await enableOffline();
 				}
 			}
-			function updateOfflineButton(enabled)  {
+
+			function updateOfflineButton(enabled){
 				const button=document.getElementById('offline-button');
-				button.textContent=enabled?  'Refresh':  'Enable Offline';
-				button.dataset.mode=enabled?  'refresh':  'enable';
+				button.textContent=enabled?'Refresh':'Enable Offline';
+				button.dataset.mode=enabled?'refresh':'enable';
 			}
-			async function updateOfflineButtonFromState()  {
-				if (!('serviceWorker'in navigator))  {
+
+			async function updateOfflineButtonFromState(){
+				if(!('serviceWorker'in navigator)){
 					updateOfflineButton(false);
 					return;
 				}
+
 				const registration=await getServiceWorkerRegistration();
 				updateOfflineButton(!!registration);
 			}
-			function extractTrueText(rawStr)  {
-				if (!rawStr) return '';
+
+			function extractTrueText(rawStr){
+				if(!rawStr)return'';
+
 				let str=rawStr;
-				while (/<st\b[^>]*>/gi.test(str)||/<\/st>/gi.test(str))  {
-					str=str.replace(/<st\b[^>]*>/gi,  '').replace(/<\/str>/gi,  '').replace(/<\/st>/gi,  '');
+
+				while(/<st\b[^>]*>/gi.test(str)||/<\/st>/gi.test(str)){
+					str=str
+						.replace(/<st\b[^>]*>/gi,'')
+						.replace(/<\/str>/gi,'')
+						.replace(/<\/st>/gi,'');
 				}
-				str=str.replace(/<\/?[^>]+(>|$)/g,  '');
-				str=str.replace(/[*_~`#]/g,  '');
+
+				str=str.replace(/<\/?[^>]+(>|$)/g,'');
+				str=str.replace(/[*_~`#]/g,'');
 				return str.trim();
 			}
-			function splitByChar(str,  charToSplit)  {
-				if (!str) return [];
-				const result = [];
-				let current = '';
-				let depth = 0;
-				for (let i = 0;  i < str.length;  i++)  {
-					const c = str[i];
-					if (c === '<' || c === '[' || c === '(' || c === '{') depth++;
-					else if (c === '>' || c === ']' || c === ')' || c === '}') depth--;
-					if (c === charToSplit && depth === 0)  {
+
+			function splitByChar(str,charToSplit){
+				if(!str)return[];
+
+				const result=[];
+				let current='';
+				let depth=0;
+
+				for(let i=0;i<str.length;i++){
+					const c=str[i];
+
+					if(c==='<'||c==='['||c==='('||c==='{')depth++;
+					else if(c==='>'||c===']'||c===')'||c==='}')depth--;
+
+					if(c===charToSplit&&depth===0){
 						result.push(current.trim());
-						current = '';
-					}
-					else  {
-						current += c;
+						current='';
+					}else{
+						current+=c;
 					}
 				}
-				if (current.trim()) result.push(current.trim());
+
+				if(current.trim())result.push(current.trim());
 				return result;
 			}
-			function extractBalanced(text,  startIdx,  openChar,  closeChar)  {
-				let count = 0;
-				let content = '';
-				for (let i = startIdx;  i < text.length;  i++)  {
-					if (text[i] === openChar)  {
+
+			function extractBalanced(text,startIdx,openChar,closeChar){
+				let count=0;
+				let content='';
+
+				for(let i=startIdx;i<text.length;i++){
+					if(text[i]===openChar){
 						count++;
-						if (count === 1) continue;
+						if(count===1)continue;
 					}
-					if (text[i] === closeChar)  {
+
+					if(text[i]===closeChar){
 						count--;
-						if (count === 0)  {
-							return  {
+
+						if(count===0){
+							return{
 								content,
-								nextIdx:  i + 1
+								nextIdx:i+1
 							};
 						}
 					}
-					if (count > 0) content += text[i];
+
+					if(count>0)content+=text[i];
 				}
+
 				return null;
 			}
-			function parseQuestionBlocks(inputStr)  {
-				const questions = [];
-				let i = 0;
-				let output = '';
-				while (i < inputStr.length)  {
-					const match = inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
-					if (match)  {
-						const type = match[1];
-						let cur = i + match[0].length;
-						while (cur < inputStr.length && /\s/.test(inputStr[cur])) cur++;
-						if (inputStr[cur] === '(')  {
-							const qRes = extractBalanced(inputStr,  cur,  '(',  ')');
-							if (qRes)  {
-								cur = qRes.nextIdx;
-								while (cur < inputStr.length && /\s/.test(inputStr[cur])) cur++;
-								if (inputStr[cur] === '[')  {
-									const aRes = extractBalanced(inputStr,  cur,  '[',  ']');
-									if (aRes)  {
-										cur = aRes.nextIdx;
-										while (cur < inputStr.length && /\s/.test(inputStr[cur])) cur++;
-										if (inputStr[cur] === '{')  {
-											const cRes = extractBalanced(inputStr,  cur,  '{',  '}');
-											if (cRes)  {
-												cur = cRes.nextIdx;
-												while (cur < inputStr.length && /\s/.test(inputStr[cur])) cur++;
-												if (inputStr[cur] === '>')  {
+
+			function parseQuestionBlocks(inputStr){
+				const questions=[];
+				let i=0;
+				let output='';
+
+				while(i<inputStr.length){
+					const match=inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
+
+					if(match){
+						const type=match[1];
+						let cur=i+match[0].length;
+
+						while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+						if(inputStr[cur]==='('){
+							const qRes=extractBalanced(inputStr,cur,'(',')');
+
+							if(qRes){
+								cur=qRes.nextIdx;
+
+								while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+								if(inputStr[cur]==='['){
+									const aRes=extractBalanced(inputStr,cur,'[',']');
+
+									if(aRes){
+										cur=aRes.nextIdx;
+
+										while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+										if(inputStr[cur]==='{'){
+											const cRes=extractBalanced(inputStr,cur,'{','}');
+
+											if(cRes){
+												cur=cRes.nextIdx;
+
+												while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+												if(inputStr[cur]==='>'){
 													cur++;
-													const qId = 'sgmlq' + questions.length;
-													questions.push(  {
-														id:  qId,  type:  type.toLowerCase(),  questionRaw:  qRes.content,  answersRaw:  aRes.content,  correctAndPropsRaw:  cRes.content
+
+													const qId='sgmlq'+questions.length;
+
+													questions.push({
+														id:qId,
+														type:type.toLowerCase(),
+														questionRaw:qRes.content,
+														answersRaw:aRes.content,
+														correctAndPropsRaw:cRes.content
 													});
-													output += `\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
-													i = cur;
+
+													output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
+													i=cur;
 													continue;
 												}
 											}
@@ -713,522 +840,818 @@
 							}
 						}
 					}
-					output += inputStr[i];
+
+					output+=inputStr[i];
 					i++;
 				}
-				return  {
-					processedText:  output,
+
+				return{
+					processedText:output,
 					questions
 				};
 			}
-			function parsePropsAndAnswers(correctAndPropsRaw,  answersList)  {
-				const result =  {
-					props:   {
-						case:  false,
-						inorder:  false,
-						count:  null,
-						type:  null
+
+			function parsePropsAndAnswers(correctAndPropsRaw,answersList){
+				const result={
+					props:{
+						case:false,
+						inorder:false,
+						count:null,
+						type:null
 					},
-					correctAnswers:  []
+					correctAnswers:[]
 				};
-				const segments = splitByChar(correctAndPropsRaw,  '|');
-				segments.forEach(seg =>  {
-					const propMatch = seg.match(/^([a-zA-Z]+)\s*:\s*(.+)$/);  if (propMatch)  {
-						const key = propMatch[1].toLowerCase();  const val = propMatch[2].trim().toLowerCase();  if (key === 'case') result.props.case = (val === 'true');  else if (key === 'inorder') result.props.inorder = (val === 'true');  else if (key === 'count') result.props.count = parseInt(val,  10);  else if (key === 'type') result.props.type = val;  else if (key === 'order' && val === 'true') result.props.type = 'order';
-					}
-					else  {
-						const idxMatches = [...seg.matchAll(/\[idx:(\d+)\]/gi)];  if (idxMatches.length > 0)  {
-							idxMatches.forEach(m =>  {
-								const idx = parseInt(m[1],  10);  if (answersList[idx] !== undefined)  {
+
+				const segments=splitByChar(correctAndPropsRaw,'|');
+
+				segments.forEach(seg=>{
+					const propMatch=seg.match(/^([a-zA-Z]+)\s*:\s*(.+)$/);
+
+					if(propMatch){
+						const key=propMatch[1].toLowerCase();
+						const val=propMatch[2].trim().toLowerCase();
+
+						if(key==='case')result.props.case=(val==='true');
+						else if(key==='inorder')result.props.inorder=(val==='true');
+						else if(key==='count')result.props.count=parseInt(val,10);
+						else if(key==='type')result.props.type=val;
+						else if(key==='order'&&val==='true')result.props.type='order';
+					}else{
+						const idxMatches=[...seg.matchAll(/\[idx:(\d+)\]/gi)];
+
+						if(idxMatches.length>0){
+							idxMatches.forEach(m=>{
+								const idx=parseInt(m[1],10);
+
+								if(answersList[idx]!==undefined){
 									result.correctAnswers.push(answersList[idx]);
 								}
 							});
-						}
-						else if (seg)  {
-							const rawAnswers = splitByChar(seg,  ',');  result.correctAnswers.push(...rawAnswers);
+						}else if(seg){
+							const rawAnswers=splitByChar(seg,',');
+							result.correctAnswers.push(...rawAnswers);
 						}
 					}
 				});
-				if (result.correctAnswers.length === 0 && answersList.length > 0)  {
-					result.correctAnswers = [...answersList];
+
+				if(result.correctAnswers.length===0&&answersList.length>0){
+					result.correctAnswers=[...answersList];
 				}
+
 				return result;
 			}
-			function renderST(str)  {
-				if (!str)return'';
-				return str.replace(/<st\s+([^>]*?)>/gi,  (m,  a)=>  {
-					const rules=[];  a.trim().split(/\s+/).forEach(p=>  {
-						const i=p.indexOf(':');  if (i<0)return;  let k=p.slice(0,  i).trim(),  v=p.slice(i+1).trim();  if (k==='col')k='color';  else if (k==='bg')k='background-color';  else if (k==='fontSize')k='font-size';  else if (k==='fontFamily')k='font-family';  rules.push(`${k}:${v}`);
-					});  return `<span style="${rules.join(';')}">`;
-				}).replace(/<\/st>/gi,  '</span>');
+
+			function renderST(str){
+				if(!str)return'';
+
+				return str
+					.replace(/<st\s+([^>]*?)>/gi,(m,a)=>{
+						const rules=[];
+
+						a.trim().split(/\s+/).forEach(p=>{
+							const i=p.indexOf(':');
+
+							if(i<0)return;
+
+							let k=p.slice(0,i).trim();
+							let v=p.slice(i+1).trim();
+
+							if(k==='col')k='color';
+							else if(k==='bg')k='background-color';
+							else if(k==='fontSize')k='font-size';
+							else if(k==='fontFamily')k='font-family';
+
+							rules.push(`${k}:${v}`);
+						});
+
+						return `<span style="${rules.join(';')}">`;
+					})
+					.replace(/<\/st>/gi,'</span>');
 			}
-			function renderMarkdown(mdText)  {
-				if (!mdText)return'';
+
+			function renderMarkdown(mdText){
+				if(!mdText)return'';
+			
 				const saved=[];
-				const source=String(mdText).replace(/<st\b[^>]*>|<\/st>/gi,  tag=>  {
-					const id=saved.length;  saved.push(tag);  return `<!--SGML_ST_${id}-->`;
+			
+				const source=String(mdText).replace(
+					/<st\b[^>]*>|<\/st>/gi,
+					tag=>{
+						const id=saved.length;
+						saved.push(tag);
+						return`\uE000SGMLST${id}\uE001`;
+					}
+				);
+			
+				let result=marked.parse(source,{
+					gfm:true,
+					breaks:true
 				});
-				let result=marked.parse(source,   {
-					gfm:  true,  breaks:  true
-				});
-				result=result.replace(/<!--SGML_ST_(\d+)-->/g,  (m,  i)=>saved[Number(i)]||m);
+			
+				result=result.replace(
+					/\uE000SGMLST(\d+)\uE001/g,
+					(_,i)=>saved[Number(i)]||''
+				);
+			
 				return renderST(result);
 			}
-			function buildChoicesHTML(q)  {
+
+			function buildChoicesHTML(q){
 				const qHTML=renderMarkdown(q.questionRaw);
-				const options=splitByChar(q.answersRaw,  ',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,  options);
-				parsedQuestions[q.id]=  {
-					type:  'choices',
-					options:  options,
-					correctAnswers:  parsed.correctAnswers,
-					props:  parsed.props
+				const options=splitByChar(q.answersRaw,',');
+				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,options);
+
+				parsedQuestions[q.id]={
+					type:'choices',
+					options:options,
+					correctAnswers:parsed.correctAnswers,
+					props:parsed.props
 				};
+
 				let optionsHTML='';
-				options.forEach((opt,  idx)=>  {
+
+				options.forEach((opt,idx)=>{
 					optionsHTML+=`
-			          <label class="sgml-option">
-			            <input type="radio" name="radio_${q.id}" value="${idx}">
-			            <span>${renderMarkdown(opt)}</span>
-			          </label>`;
+						<label class="sgml-option">
+							<input type="radio" name="radio_${q.id}" value="${idx}">
+							<span>${renderMarkdown(opt)}</span>
+						</label>`;
 				});
+
 				return `
-			        <div class="sgml-qblock" id="${q.id}">
-			          <div class="sgml-qtitle">${qHTML}</div>
-			          <div class="sgml-options">${optionsHTML}</div>
-			          <div class="sgml-controls">
-			            <button onclick="checkChoicesAnswer('${q.id}')">Check Answer</button>
-			            <span class="sgml-feedback" id="fb_${q.id}"></span>
-			          </div>
-			        </div>`;
+					<div class="sgml-qblock" id="${q.id}">
+						<div class="sgml-qtitle">${qHTML}</div>
+						<div class="sgml-options">${optionsHTML}</div>
+						<div class="sgml-controls">
+							<button onclick="checkChoicesAnswer('${q.id}')">Check Answer</button>
+							<span class="sgml-feedback" id="fb_${q.id}"></span>
+						</div>
+					</div>`;
 			}
-			function buildFillinHTML(q)  {
+
+			function buildFillinHTML(q){
 				const qHTML=renderMarkdown(q.questionRaw);
-				const answersList=splitByChar(q.answersRaw,  ',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,  answersList);
-				parsedQuestions[q.id]=  {
-					type:  'fillin',
-					correctAnswers:  parsed.correctAnswers,
-					props:  parsed.props
+				const answersList=splitByChar(q.answersRaw,',');
+				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+
+				parsedQuestions[q.id]={
+					type:'fillin',
+					correctAnswers:parsed.correctAnswers,
+					props:parsed.props
 				};
+
 				return `
-			        <div class="sgml-qblock" id="${q.id}">
-			          <div class="sgml-qtitle">${qHTML}</div>
-			          <div class="sgml-inputs">
-			            <input type="text" class="sgml-text-input" id="input_${q.id}" placeholder="Type answer..." autocomplete="off">
-			          </div>
-			          <div class="sgml-controls">
-			            <button onclick="checkFillinAnswer('${q.id}')">Check Answer</button>
-			            <span class="sgml-feedback" id="fb_${q.id}"></span>
-			          </div>
-			        </div>`;
+					<div class="sgml-qblock" id="${q.id}">
+						<div class="sgml-qtitle">${qHTML}</div>
+						<div class="sgml-inputs">
+							<input type="text" class="sgml-text-input" id="input_${q.id}" placeholder="Type answer..." autocomplete="off">
+						</div>
+						<div class="sgml-controls">
+							<button onclick="checkFillinAnswer('${q.id}')">Check Answer</button>
+							<span class="sgml-feedback" id="fb_${q.id}"></span>
+						</div>
+					</div>`;
 			}
-			function buildEnumerationHTML(q)  {
+
+			function buildEnumerationHTML(q){
 				const qHTML=renderMarkdown(q.questionRaw);
-				const answersList=splitByChar(q.answersRaw,  ',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,  answersList);
-				if (parsed.props.type==='order')  {
-					const items=answersList.length>0?  answersList:  parsed.correctAnswers;
-					parsedQuestions[q.id]=  {
-						type:  'enum_order',
-						correctAnswers:  parsed.correctAnswers,
-						props:  parsed.props
+				const answersList=splitByChar(q.answersRaw,',');
+				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+
+				if(parsed.props.type==='order'){
+					const items=answersList.length>0?answersList:parsed.correctAnswers;
+
+					parsedQuestions[q.id]={
+						type:'enum_order',
+						correctAnswers:parsed.correctAnswers,
+						props:parsed.props
 					};
+
 					let listItemsHTML='';
-					items.forEach((item)=>  {
+
+					items.forEach(item=>{
 						listItemsHTML+=`
-			            <li class="sgml-order-item" draggable="true" data-raw="${encodeURIComponent(item)}">
-			              <span>${renderMarkdown(item)}</span>
-			              <div class="sgml-item-actions">
-			                <button type="button" onclick="moveOrderItem('${q.id}', this, -1)">▲</button>
-			                <button type="button" onclick="moveOrderItem('${q.id}', this, 1)">▼</button>
-			              </div>
-			            </li>`;
+							<li class="sgml-order-item" draggable="true" data-raw="${encodeURIComponent(item)}">
+								<span>${renderMarkdown(item)}</span>
+								<div class="sgml-item-actions">
+									<button type="button" onclick="moveOrderItem('${q.id}', this, -1)">▲</button>
+									<button type="button" onclick="moveOrderItem('${q.id}', this, 1)">▼</button>
+								</div>
+							</li>`;
 					});
+
 					return `
-			          <div class="sgml-qblock" id="${q.id}">
-			            <div class="sgml-qtitle">${qHTML}</div>
-			            <ul class="sgml-order-list" id="order_list_${q.id}">${listItemsHTML}</ul>
-			            <div class="sgml-controls">
-			              <button onclick="checkEnumOrderAnswer('${q.id}')">Check Order</button>
-			              <span class="sgml-feedback" id="fb_${q.id}"></span>
-			            </div>
-			          </div>`;
-				}
-				else  {
+						<div class="sgml-qblock" id="${q.id}">
+							<div class="sgml-qtitle">${qHTML}</div>
+							<ul class="sgml-order-list" id="order_list_${q.id}">${listItemsHTML}</ul>
+							<div class="sgml-controls">
+								<button onclick="checkEnumOrderAnswer('${q.id}')">Check Order</button>
+								<span class="sgml-feedback" id="fb_${q.id}"></span>
+							</div>
+						</div>`;
+				}else{
 					const count=parsed.props.count||parsed.correctAnswers.length||1;
-					parsedQuestions[q.id]=  {
-						type:  'enum_written',
-						count:  count,
-						correctAnswers:  parsed.correctAnswers,
-						props:  parsed.props
+
+					parsedQuestions[q.id]={
+						type:'enum_written',
+						count:count,
+						correctAnswers:parsed.correctAnswers,
+						props:parsed.props
 					};
+
 					let inputsHTML='';
-					for (let i=0;  i<count;  i++)  {
+
+					for(let i=0;i<count;i++){
 						inputsHTML+=`
-			            <div class="sgml-enum-row">
-			              <span>${i + 1}.</span>
-			              <input type="text" class="sgml-text-input input_${q.id}" placeholder="Answer ${i + 1}" autocomplete="off">
-			            </div>`;
+							<div class="sgml-enum-row">
+								<span>${i+1}.</span>
+								<input type="text" class="sgml-text-input input_${q.id}" placeholder="Answer ${i+1}" autocomplete="off">
+							</div>`;
 					}
+
 					return `
-			          <div class="sgml-qblock" id="${q.id}">
-			            <div class="sgml-qtitle">${qHTML}</div>
-			            <div class="sgml-inputs">${inputsHTML}</div>
-			            <div class="sgml-controls">
-			              <button onclick="checkEnumWrittenAnswer('${q.id}')">Check Answers</button>
-			              <span class="sgml-feedback" id="fb_${q.id}"></span>
-			            </div>
-			          </div>`;
+						<div class="sgml-qblock" id="${q.id}">
+							<div class="sgml-qtitle">${qHTML}</div>
+							<div class="sgml-inputs">${inputsHTML}</div>
+							<div class="sgml-controls">
+								<button onclick="checkEnumWrittenAnswer('${q.id}')">Check Answers</button>
+								<span class="sgml-feedback" id="fb_${q.id}"></span>
+							</div>
+						</div>`;
 				}
 			}
-			function checkChoicesAnswer(qId)  {
+
+			function checkChoicesAnswer(qId){
 				const q=parsedQuestions[qId];
 				const selected=document.querySelector(`input[name="radio_${qId}"]:checked`);
 				const fb=document.getElementById(`fb_${qId}`);
-				if (!selected)  {
+
+				if(!selected){
 					fb.className='sgml-feedback incorrect';
 					fb.textContent='Select an option.';
 					return;
 				}
-				const selectedIdx=parseInt(selected.value,  10);
+
+				const selectedIdx=parseInt(selected.value,10);
 				const userSelectedRaw=q.options[selectedIdx];
 				const userTrueText=extractTrueText(userSelectedRaw);
-				const isCorrect=q.correctAnswers.some(cRaw=>  {
-					const cTrueText=extractTrueText(cRaw);  return q.props.case?  userTrueText===cTrueText:  userTrueText.toLowerCase()===cTrueText.toLowerCase();
+
+				const isCorrect=q.correctAnswers.some(cRaw=>{
+					const cTrueText=extractTrueText(cRaw);
+					return q.props.case
+						?userTrueText===cTrueText
+						:userTrueText.toLowerCase()===cTrueText.toLowerCase();
 				});
-				setFeedback(fb,  isCorrect);
+
+				setFeedback(fb,isCorrect);
 			}
-			function checkFillinAnswer(qId)  {
+
+			function checkFillinAnswer(qId){
 				const q=parsedQuestions[qId];
 				const input=document.getElementById(`input_${qId}`);
 				const fb=document.getElementById(`fb_${qId}`);
 				const userTrueText=extractTrueText(input.value);
-				const isCorrect=q.correctAnswers.some(cRaw=>  {
-					const cTrueText=extractTrueText(cRaw);  return q.props.case?  userTrueText===cTrueText:  userTrueText.toLowerCase()===cTrueText.toLowerCase();
+
+				const isCorrect=q.correctAnswers.some(cRaw=>{
+					const cTrueText=extractTrueText(cRaw);
+					return q.props.case
+						?userTrueText===cTrueText
+						:userTrueText.toLowerCase()===cTrueText.toLowerCase();
 				});
-				setFeedback(fb,  isCorrect);
+
+				setFeedback(fb,isCorrect);
 			}
-			function checkEnumOrderAnswer(qId)  {
+
+			function checkEnumOrderAnswer(qId){
 				const q=parsedQuestions[qId];
 				const list=document.getElementById(`order_list_${qId}`);
 				const fb=document.getElementById(`fb_${qId}`);
 				const currentItems=Array.from(list.querySelectorAll('.sgml-order-item'));
+
 				const userTrueList=currentItems.map(li=>extractTrueText(decodeURIComponent(li.dataset.raw)));
 				const correctTrueList=q.correctAnswers.map(cRaw=>extractTrueText(cRaw));
+
 				let isCorrect=userTrueList.length===correctTrueList.length;
-				if (isCorrect)  {
-					for (let i=0;  i<userTrueList.length;  i++)  {
+
+				if(isCorrect){
+					for(let i=0;i<userTrueList.length;i++){
 						const u=userTrueList[i];
 						const c=correctTrueList[i];
-						const match=q.props.case?  u===c:  u.toLowerCase()===c.toLowerCase();
-						if (!match)  {
+						const match=q.props.case?u===c:u.toLowerCase()===c.toLowerCase();
+
+						if(!match){
 							isCorrect=false;
 							break;
 						}
 					}
 				}
-				setFeedback(fb,  isCorrect);
+
+				setFeedback(fb,isCorrect);
 			}
-			function checkEnumWrittenAnswer(qId)  {
+
+			function checkEnumWrittenAnswer(qId){
 				const q=parsedQuestions[qId];
 				const inputs=Array.from(document.querySelectorAll(`.input_${qId}`));
 				const fb=document.getElementById(`fb_${qId}`);
+
 				const userTrueTexts=inputs.map(inp=>extractTrueText(inp.value)).filter(t=>t.length>0);
 				const correctTrueTexts=q.correctAnswers.map(cRaw=>extractTrueText(cRaw));
+
 				let isCorrect=true;
-				if (userTrueTexts.length<q.count)  {
+
+				if(userTrueTexts.length<q.count){
 					isCorrect=false;
-				}
-				else if (q.props.inorder)  {
-					for (let i=0;  i<q.count;  i++)  {
-						const u=userTrueTexts[i]|| '';
-						const c=correctTrueTexts[i]|| '';
-						const match=q.props.case?  u===c:  u.toLowerCase()===c.toLowerCase();
-						if (!match)  {
+				}else if(q.props.inorder){
+					for(let i=0;i<q.count;i++){
+						const u=userTrueTexts[i]||'';
+						const c=correctTrueTexts[i]||'';
+						const match=q.props.case?u===c:u.toLowerCase()===c.toLowerCase();
+
+						if(!match){
 							isCorrect=false;
 							break;
 						}
 					}
-				}
-				else  {
+				}else{
 					const availableCorrect=[...correctTrueTexts];
-					for (let u of userTrueTexts)  {
-						const matchIdx=availableCorrect.findIndex(c=>q.props.case?  u===c:  u.toLowerCase()===c.toLowerCase());
-						if (matchIdx!==-1)  {
-							availableCorrect.splice(matchIdx,  1);
-						}
-						else  {
+
+					for(let u of userTrueTexts){
+						const matchIdx=availableCorrect.findIndex(c=>
+							q.props.case?u===c:u.toLowerCase()===c.toLowerCase()
+						);
+
+						if(matchIdx!==-1){
+							availableCorrect.splice(matchIdx,1);
+						}else{
 							isCorrect=false;
 							break;
 						}
 					}
 				}
-				setFeedback(fb,  isCorrect);
+
+				setFeedback(fb,isCorrect);
 			}
-			function setFeedback(element,  isCorrect)  {
-				if (isCorrect)  {
+
+			function setFeedback(element,isCorrect){
+				if(isCorrect){
 					element.className='sgml-feedback correct';
 					element.textContent='Correct!';
-				}
-				else  {
+				}else{
 					element.className='sgml-feedback incorrect';
 					element.textContent='Incorrect!';
 				}
 			}
-			function checkAllQuestions()  {
-				Object.keys(parsedQuestions).forEach(qId=>  {
-					const q=parsedQuestions[qId];  if (q.type==='choices') checkChoicesAnswer(qId);  else if (q.type==='fillin') checkFillinAnswer(qId);  else if (q.type==='enum_order') checkEnumOrderAnswer(qId);  else if (q.type==='enum_written') checkEnumWrittenAnswer(qId);
+
+			function checkAllQuestions(){
+				Object.keys(parsedQuestions).forEach(qId=>{
+					const q=parsedQuestions[qId];
+
+					if(q.type==='choices')checkChoicesAnswer(qId);
+					else if(q.type==='fillin')checkFillinAnswer(qId);
+					else if(q.type==='enum_order')checkEnumOrderAnswer(qId);
+					else if(q.type==='enum_written')checkEnumWrittenAnswer(qId);
 				});
 			}
-			function moveOrderItem(qId,  btn,  direction)  {
+
+			function moveOrderItem(qId,btn,direction){
 				const li=btn.closest('.sgml-order-item');
 				const list=document.getElementById(`order_list_${qId}`);
-				if (direction===-1&&li.previousElementSibling)  {
-					list.insertBefore(li,  li.previousElementSibling);
-				}
-				else if (direction===1&&li.nextElementSibling)  {
-					list.insertBefore(li.nextElementSibling,  li);
+
+				if(direction===-1&&li.previousElementSibling){
+					list.insertBefore(li,li.previousElementSibling);
+				}else if(direction===1&&li.nextElementSibling){
+					list.insertBefore(li.nextElementSibling,li);
 				}
 			}
-			function setupDragAndDrop()  {
-				document.querySelectorAll('.sgml-order-list').forEach(list=>  {
-					let draggedItem=null;  list.addEventListener('dragstart',  (e)=>  {
-						draggedItem=e.target.closest('.sgml-order-item');  if (draggedItem) draggedItem.classList.add('dragging');
-					});  list.addEventListener('dragend',  ()=>  {
-						if (draggedItem) draggedItem.classList.remove('dragging');  draggedItem=null;
-					});  list.addEventListener('dragover',  (e)=>  {
-						e.preventDefault();  const draggableElements=[...list.querySelectorAll('.sgml-order-item:not(.dragging)')];  const afterElement=draggableElements.reduce((closest,  child)=>  {
-							const box=child.getBoundingClientRect();  const offset=e.clientY-box.top-box.height/2;  if (offset<0&&offset>closest.offset)  {
-								return  {
-									offset:  offset,  element:  child
+
+			function setupDragAndDrop(){
+				document.querySelectorAll('.sgml-order-list').forEach(list=>{
+					let draggedItem=null;
+
+					list.addEventListener('dragstart',e=>{
+						draggedItem=e.target.closest('.sgml-order-item');
+
+						if(draggedItem)draggedItem.classList.add('dragging');
+					});
+
+					list.addEventListener('dragend',()=>{
+						if(draggedItem)draggedItem.classList.remove('dragging');
+						draggedItem=null;
+					});
+
+					list.addEventListener('dragover',e=>{
+						e.preventDefault();
+
+						const draggableElements=[
+							...list.querySelectorAll('.sgml-order-item:not(.dragging)')
+						];
+
+						const afterElement=draggableElements.reduce((closest,child)=>{
+							const box=child.getBoundingClientRect();
+							const offset=e.clientY-box.top-box.height/2;
+
+							if(offset<0&&offset>closest.offset){
+								return{
+									offset,
+									element:child
 								};
 							}
+
 							return closest;
-						},   {
-							offset:  Number.NEGATIVE_INFINITY
-						}).element;  if (draggedItem)  {
-							if (afterElement==null) list.appendChild(draggedItem);  else list.insertBefore(draggedItem,  afterElement);
+						},{
+							offset:Number.NEGATIVE_INFINITY
+						}).element;
+
+						if(draggedItem){
+							if(afterElement==null)list.appendChild(draggedItem);
+							else list.insertBefore(draggedItem,afterElement);
 						}
 					});
 				});
 			}
-			function renderSGML(sgmlContent)  {
-				parsedQuestions=  {
-				};
-				const  {
+
+			function renderSGML(sgmlContent){
+				parsedQuestions={};
+
+				const{
 					processedText,
 					questions
-				}
-				=parseQuestionBlocks(sgmlContent);
+				}=parseQuestionBlocks(sgmlContent);
+
 				let renderedDoc=renderMarkdown(processedText);
-				questions.forEach(q=>  {
-					let qHtml='';  if (q.type==='choices') qHtml=buildChoicesHTML(q);  else if (q.type==='fillin') qHtml=buildFillinHTML(q);  else if (q.type==='enumeration') qHtml=buildEnumerationHTML(q);  renderedDoc=renderedDoc.replace(`%%QBLOCKTOKEN${q.id}%%`,  qHtml);
+
+				questions.forEach(q=>{
+					let qHtml='';
+
+					if(q.type==='choices')qHtml=buildChoicesHTML(q);
+					else if(q.type==='fillin')qHtml=buildFillinHTML(q);
+					else if(q.type==='enumeration')qHtml=buildEnumerationHTML(q);
+
+					renderedDoc=renderedDoc.replace(`%%QBLOCKTOKEN${q.id}%%`,qHtml);
 				});
+
 				document.getElementById('sgml-output').innerHTML=renderedDoc;
 				setupDragAndDrop();
 			}
-			function handleFileUpload(event)  {
+
+			function handleFileUpload(event){
 				const file=event.target.files[0];
 				event.target.value='';
-				if (!file) return;
+
+				if(!file)return;
+
 				const reader=new FileReader();
-				reader.onload=function(e)  {
-					const content=String(e.target.result|| '');
+
+				reader.onload=function(e){
+					const content=String(e.target.result||'');
 					const current=getCurrentDocument();
-					if (!current||!(current.content|| '').trim())  {
-						if (!current)  {
+
+					if(!current||!(current.content||'').trim()){
+						if(!current){
 							const docs=loadDocuments();
-							const doc=  {
-								id:  makeId(),
-								title:  'Upload',
+
+							const doc={
+								id:makeId(),
+								title:'Upload',
 								content,
-								createdAt:  Date.now(),
-								updatedAt:  Date.now()
+								createdAt:Date.now(),
+								updatedAt:Date.now()
 							};
+
 							docs.push(doc);
 							saveDocuments(docs);
 							setCurrentDocumentId(doc.id);
 							loadDocumentIntoEditor(doc);
-						}
-						else  {
+						}else{
 							current.title='Upload';
 							current.content=content;
 							current.updatedAt=Date.now();
-							const docs=loadDocuments().map(doc=>doc.id===current.id?  current:  doc);
+
+							const docs=loadDocuments().map(doc=>
+								doc.id===current.id?current:doc
+							);
+
 							saveDocuments(docs);
-							localStorage.setItem(STORAGE_CURRENT_CONTENT,  content);
+							localStorage.setItem(STORAGE_CURRENT_CONTENT,content);
 							document.getElementById('sgml-input').value=content;
 							updateCurrentName(current);
 							renderSGML(content);
 						}
-					}
-					else  {
+					}else{
 						const docs=loadDocuments();
-						const baseName=file.name.replace(/\.[^.]+$/,  '')|| 'Upload';
-						const doc=  {
-							id:  makeId(),
-							title:  baseName,
+						const baseName=file.name.replace(/\.[^.]+$/,'')||'Upload';
+
+						const doc={
+							id:makeId(),
+							title:baseName,
 							content,
-							createdAt:  Date.now(),
-							updatedAt:  Date.now()
+							createdAt:Date.now(),
+							updatedAt:Date.now()
 						};
+
 						docs.push(doc);
 						saveDocuments(docs);
 						loadDocumentIntoEditor(doc);
 					}
 				};
+
 				reader.readAsText(file);
 			}
-			function downloadSGML()  {
+
+			function downloadSGML(){
 				const doc=getCurrentDocument();
 				const content=String(document.getElementById('sgml-input').value||'');
-				const base=String(doc&&doc.title||'Untitled SGML').replace(/\.[^.]+$/,  '').replace(/[\\/:*?"<>|]+/g,  '_').trim()||'Untitled SGML';
-				const blob=new Blob([content],   {
-					type:  'text/plain;charset=utf-8'
+				const base=String(doc&&doc.title||'Untitled SGML')
+					.replace(/\.[^.]+$/,'')
+					.replace(/[\\/:*?"<>|]+/g,'_')
+					.trim()||'Untitled SGML';
+
+				const blob=new Blob([content],{
+					type:'text/plain;charset=utf-8'
 				});
+
 				const url=URL.createObjectURL(blob);
 				const a=document.createElement('a');
+
 				a.href=url;
 				a.download=base+'.sgml';
-				a.setAttribute('download',  base+'.sgml');
+				a.setAttribute('download',base+'.sgml');
+
 				document.body.appendChild(a);
 				a.click();
 				a.remove();
-				setTimeout(()=>URL.revokeObjectURL(url),  1000);
+
+				setTimeout(()=>URL.revokeObjectURL(url),1000);
 			}
-			function toggleEditor()  {
-				const drawer = document.getElementById('editor-drawer');
+
+			function toggleEditor(){
+				const drawer=document.getElementById('editor-drawer');
 				drawer.classList.toggle('open');
 			}
-			function loadSGMLFromEditor()  {
-				const code = document.getElementById('sgml-input').value;
+
+			function loadSGMLFromEditor(){
+				const code=document.getElementById('sgml-input').value;
 				saveCurrentSGML();
 				renderSGML(code);
 				document.getElementById('editor-drawer').classList.remove('open');
 			}
-			async function createNewSGML()  {
-				const docs = loadDocuments();
-				const doc =  {
-					id:  makeId(),
-					title:  'Untitled SGML',
-					content:  '',
-					createdAt:  Date.now(),
-					updatedAt:  Date.now()
+
+			async function createNewSGML(){
+				const docs=loadDocuments();
+
+				const doc={
+					id:makeId(),
+					title:'Untitled SGML',
+					content:'',
+					createdAt:Date.now(),
+					updatedAt:Date.now()
 				};
+
 				docs.push(doc);
 				saveDocuments(docs);
 				loadDocumentIntoEditor(doc);
+
 				document.getElementById('editor-drawer').classList.add('open');
 				document.getElementById('sgml-input').focus();
 			}
-			function openLibrary()  {
+
+			function openLibrary(){
 				renderLibraryList();
+
 				document.getElementById('library-modal').classList.add('open');
-				document.getElementById('library-modal').setAttribute('aria-hidden',  'false');
+				document.getElementById('library-modal').setAttribute('aria-hidden','false');
 			}
-			function closeLibrary()  {
+
+			function closeLibrary(){
 				document.getElementById('library-modal').classList.remove('open');
-				document.getElementById('library-modal').setAttribute('aria-hidden',  'true');
+				document.getElementById('library-modal').setAttribute('aria-hidden','true');
 			}
-			function renderLibraryList()  {
+
+			function renderLibraryList(){
 				const list=document.getElementById('library-list');
-				const docs=loadDocuments().sort((a,  b)=>(b.updatedAt||0)-(a.updatedAt||0));
+
+				const docs=loadDocuments().sort(
+					(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
+				);
+
 				list.innerHTML='';
-				if (!docs.length)  {
+
+				if(!docs.length){
 					list.innerHTML='<div class="sgml-library-empty">No saved SGML documents yet.</div>';
 					return;
 				}
-				docs.forEach(doc=>  {
-					const row=document.createElement('div');  row.className='sgml-library-item';  const loadButton=document.createElement('button');  loadButton.className='sgml-library-load';  loadButton.type='button';  const title=document.createElement('div');  title.className='sgml-library-item-title';  title.textContent=doc.title||'Untitled SGML';  const preview=document.createElement('div');  preview.className='sgml-library-item-preview';  const firstLine=String(doc.content||'').split(/\r?\n/,  1)[0]||'(empty)';  preview.textContent=firstLine;  preview.title=firstLine;  loadButton.appendChild(title);  loadButton.appendChild(preview);  loadButton.addEventListener('click',  async()=>  {
-						const current=getCurrentDocument();  const currentIsSame=current&&current.id===doc.id;  if (!currentIsSame)  {
-							const ok=await confirmDialog(`Load "${doc.title||'Untitled SGML'}"?\n\nThis will replace the SGML currently open in the editor.`,  'Load SGML',  'Load');  if (!ok)return;
+
+				docs.forEach(doc=>{
+					const row=document.createElement('div');
+					row.className='sgml-library-item';
+
+					const loadButton=document.createElement('button');
+					loadButton.className='sgml-library-load';
+					loadButton.type='button';
+
+					const title=document.createElement('div');
+					title.className='sgml-library-item-title';
+					title.textContent=doc.title||'Untitled SGML';
+
+					const preview=document.createElement('div');
+					preview.className='sgml-library-item-preview';
+
+					const firstLine=String(doc.content||'')
+						.split(/\r?\n/,1)[0]||'(empty)';
+
+					preview.textContent=firstLine;
+					preview.title=firstLine;
+
+					loadButton.appendChild(title);
+					loadButton.appendChild(preview);
+
+					loadButton.addEventListener('click',async()=>{
+						const current=getCurrentDocument();
+						const currentIsSame=current&&current.id===doc.id;
+
+						if(!currentIsSame){
+							const ok=await confirmDialog(
+								`Load "${doc.title||'Untitled SGML'}"?\n\nThis will replace the SGML currently open in the editor.`,
+								'Load SGML',
+								'Load'
+							);
+
+							if(!ok)return;
 						}
-						closeLibrary();  loadDocumentIntoEditor(doc);
-					});  const deleteButton=document.createElement('button');  deleteButton.className='sgml-library-delete';  deleteButton.type='button';  deleteButton.textContent='X';  deleteButton.setAttribute('aria-label',  `Delete ${doc.title||'Untitled SGML'}`);  deleteButton.addEventListener('click',  async event=>  {
-						event.stopPropagation();  const ok=await confirmDialog(`Delete "${doc.title||'Untitled SGML'}"?\n\nThis saved SGML will be permanently removed from local storage.`,  'Delete SGML',  'Delete');  if (!ok)return;  const docsNow=loadDocuments();  const remaining=docsNow.filter(item=>item.id!==doc.id);  saveDocuments(remaining);  if (currentDocumentId===doc.id)  {
-							if (remaining.length)  {
-								const next=remaining.slice().sort((a,  b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];  loadDocumentIntoEditor(next);
-							}
-							else  {
-								const next=  {
-									id:  makeId(),  title:  'Untitled SGML',  content:  '',  createdAt:  Date.now(),  updatedAt:  Date.now()
-								};  saveDocuments([next]);  loadDocumentIntoEditor(next);
+
+						closeLibrary();
+						loadDocumentIntoEditor(doc);
+					});
+
+					const deleteButton=document.createElement('button');
+					deleteButton.className='sgml-library-delete';
+					deleteButton.type='button';
+					deleteButton.textContent='X';
+					deleteButton.setAttribute(
+						'aria-label',
+						`Delete ${doc.title||'Untitled SGML'}`
+					);
+
+					deleteButton.addEventListener('click',async event=>{
+						event.stopPropagation();
+
+						const ok=await confirmDialog(
+							`Delete "${doc.title||'Untitled SGML'}"?\n\nThis saved SGML will be permanently removed from local storage.`,
+							'Delete SGML',
+							'Delete'
+						);
+
+						if(!ok)return;
+
+						const docsNow=loadDocuments();
+						const remaining=docsNow.filter(item=>item.id!==doc.id);
+
+						saveDocuments(remaining);
+
+						if(currentDocumentId===doc.id){
+							if(remaining.length){
+								const next=remaining.slice().sort(
+									(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
+								)[0];
+
+								loadDocumentIntoEditor(next);
+							}else{
+								const next={
+									id:makeId(),
+									title:'Untitled SGML',
+									content:'',
+									createdAt:Date.now(),
+									updatedAt:Date.now()
+								};
+
+								saveDocuments([next]);
+								loadDocumentIntoEditor(next);
 							}
 						}
+
 						renderLibraryList();
-					});  row.appendChild(loadButton);  row.appendChild(deleteButton);  list.appendChild(row);
+					});
+
+					row.appendChild(loadButton);
+					row.appendChild(deleteButton);
+					list.appendChild(row);
 				});
 			}
-			const defaultSGML = `# Study Guide Markup Language (SGML)
-			SGML is a Markdown-based markup language for study guides and interactive quizzes.
-			---
-			## Formatting
-			Plain text with <st col:#ff0000>Red Text</st> and <st col:#12ABEF bg:#f0f8ff>Blue Text with Background</st>.
-			Nested formatting: <st col:#ff0000>Red outer <st col:#00aa00>Green inner</st> back to red.</st>
-			---
-			## Interactive Questions
-			### Multiple Choice
-			<Choices:(What is <st col:#ff0000>2 + 2</st>?)[<st bg:#e0f2fe>4</st>, 3, 5, 6]{[idx:0]}>
-			<Choices:(Which city is the capital of France?)[Berlin, Madrid, Paris, Rome]{Paris}>
-			### Fill-in-the-Blank
-			<Fillin:(What is the capital of France?)[]{Paris}>
-			<Fillin:(What is 2 + 2?)[]{4,Four}>
-			### Enumeration
-			<Enumeration:(Name 3 Primary Colors)[]{Red,Green,Blue|count:3|case:false|inorder:false}>
-			<Enumeration:(Arrange these numbers in ascending order)[3, 1, 4, 2]{1,2,3,4|type:order}>
-			`;  function loadDefaultSample()  {
-				const current = getCurrentDocument();
-				if (current)  {
-					document.getElementById('sgml-input').value = defaultSGML;
-					current.content = defaultSGML;
-					current.title = current.title === 'Untitled SGML' || current.title === 'Upload' ?  'Sample SGML' :  current.title;
-					current.updatedAt = Date.now();
-					saveDocuments(loadDocuments().map(doc => doc.id === current.id ?  current :  doc));
-					localStorage.setItem(STORAGE_CURRENT_CONTENT,  defaultSGML);
+
+			const defaultSGML=`# Study Guide Markup Language (SGML)
+SGML is a Markdown-based markup language for study guides and interactive quizzes.
+---
+## Formatting
+Plain text with <st col:#ff0000>Red Text</st> and <st col:#12ABEF bg:#f0f8ff>Blue Text with Background</st>.
+Nested formatting: <st col:#ff0000>Red outer <st col:#00aa00>Green inner</st> back to red.</st>
+---
+## Interactive Questions
+### Multiple Choice
+<Choices:(What is <st col:#ff0000>2 + 2</st>?)[<st bg:#e0f2fe>4</st>, 3, 5, 6]{[idx:0]}>
+<Choices:(Which city is the capital of France?)[Berlin, Madrid, Paris, Rome]{Paris}>
+### Fill-in-the-Blank
+<Fillin:(What is the capital of France?)[]{Paris}>
+<Fillin:(What is 2 + 2?)[]{4,Four}>
+### Enumeration
+<Enumeration:(Name 3 Primary Colors)[]{Red,Green,Blue|count:3|case:false|inorder:false}>
+<Enumeration:(Arrange these numbers in ascending order)[3, 1, 4, 2]{1,2,3,4|type:order}>
+`;
+
+			function loadDefaultSample(){
+				const current=getCurrentDocument();
+
+				if(current){
+					document.getElementById('sgml-input').value=defaultSGML;
+
+					current.content=defaultSGML;
+					current.title=
+						current.title==='Untitled SGML'||current.title==='Upload'
+							?'Sample SGML'
+							:current.title;
+
+					current.updatedAt=Date.now();
+
+					saveDocuments(
+						loadDocuments().map(doc=>
+							doc.id===current.id?current:doc
+						)
+					);
+
+					localStorage.setItem(
+						STORAGE_CURRENT_CONTENT,
+						defaultSGML
+					);
+
 					updateCurrentName(current);
 					renderSGML(defaultSGML);
 				}
 			}
-			function initializeLibrary()  {
-				let docs = loadDocuments();
-				const savedId = localStorage.getItem(STORAGE_CURRENT_ID);
-				const savedContent = localStorage.getItem(STORAGE_CURRENT_CONTENT);
-				let current = docs.find(doc => doc.id === savedId);
-				if (!current && docs.length)  {
-					current = docs.slice().sort((a,  b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+
+			function initializeLibrary(){
+				let docs=loadDocuments();
+				const savedId=localStorage.getItem(STORAGE_CURRENT_ID);
+				const savedContent=localStorage.getItem(STORAGE_CURRENT_CONTENT);
+
+				let current=docs.find(doc=>doc.id===savedId);
+
+				if(!current&&docs.length){
+					current=docs.slice().sort(
+						(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
+					)[0];
 				}
-				if (!current)  {
-					current =  {
-						id:  makeId(),
-						title:  'Sample SGML',
-						content:  savedContent !== null ?  savedContent :  defaultSGML,
-						createdAt:  Date.now(),
-						updatedAt:  Date.now()
+
+				if(!current){
+					current={
+						id:makeId(),
+						title:'Sample SGML',
+						content:savedContent!==null?savedContent:defaultSGML,
+						createdAt:Date.now(),
+						updatedAt:Date.now()
 					};
+
 					docs.push(current);
 					saveDocuments(docs);
+				}else if(savedContent!==null&&current.id===savedId){
+					current.content=savedContent;
+					current.updatedAt=Date.now();
+
+					saveDocuments(
+						docs.map(doc=>
+							doc.id===current.id?current:doc
+						)
+					);
 				}
-				else if (savedContent !== null && current.id === savedId)  {
-					current.content = savedContent;
-					current.updatedAt = Date.now();
-					saveDocuments(docs.map(doc => doc.id === current.id ?  current :  doc));
-				}
-				currentDocumentId = current.id;
-				localStorage.setItem(STORAGE_CURRENT_ID,  current.id);
-				localStorage.setItem(STORAGE_CURRENT_CONTENT,  current.content || '');
-				document.getElementById('sgml-input').value = current.content || '';
+
+				currentDocumentId=current.id;
+
+				localStorage.setItem(
+					STORAGE_CURRENT_ID,
+					current.id
+				);
+
+				localStorage.setItem(
+					STORAGE_CURRENT_CONTENT,
+					current.content||''
+				);
+
+				document.getElementById('sgml-input').value=current.content||'';
 				updateCurrentName(current);
-				renderSGML(current.content || '');
+				renderSGML(current.content||'');
 			}
-			window.addEventListener('DOMContentLoaded',  async () =>  {
-				initializeLibrary();  setupAutosave();  await updateOfflineButtonFromState();  try  {
-					const url = new URL(location.href);  if (url.searchParams.has('__sgml_refresh'))  {
-						url.searchParams.delete('__sgml_refresh');  history.replaceState(null,  '',  url.href);
+
+			window.addEventListener('DOMContentLoaded',async()=>{
+				initializeLibrary();
+				setupAutosave();
+				await updateOfflineButtonFromState();
+
+				try{
+					const url=new URL(location.href);
+
+					if(url.searchParams.has('__sgml_refresh')){
+						url.searchParams.delete('__sgml_refresh');
+						history.replaceState(null,'',url.href);
 					}
-				}
-				catch (_)  {
-				}
+				}catch(_){}
 			});
 		</script>
 	</body>

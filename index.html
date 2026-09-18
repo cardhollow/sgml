@@ -1538,24 +1538,369 @@
 				});
 			}
 
-			const defaultSGML=`# Study Guide Markup Language (SGML)
-SGML is a Markdown-based markup language for study guides and interactive quizzes.
+			const defaultSGML=`# Study Guide: SGML — Study Guide Markup Language
+
+SGML is a Markdown-based markup language designed for study guides, formatted notes, and interactive quizzes.
+
 ---
-## Formatting
-Plain text with <st col:#ff0000>Red Text</st> and <st col:#12ABEF bg:#f0f8ff>Blue Text with Background</st>.
-Nested formatting: <st col:#ff0000>Red outer <st col:#00aa00>Green inner</st> back to red.</st>
+
+## Getting Started
+
+### Enable Offline Mode
+
+Enable Offline mode to allow the SGML viewer to work without an internet connection.
+
+When Offline mode is enabled:
+
+- Previously available SGML resources can be used offline.
+- The study guide can continue working without a network connection.
+- Cached resources may remain available after leaving the page.
+
+<st col:#00aa00>Tip:</st> Enable Offline mode before disconnecting from the internet so the required resources can be cached.
+
 ---
+
+### Load an SGML File
+
+To start studying:
+
+1. Open the SGML viewer.
+2. Choose an \`.sgml\` file.
+3. Load the file.
+4. The SGML content is parsed and displayed as a study guide.
+5. Interactive questions can then be answered directly.
+
+<st bg:#fff3cd col:#8a6d3b>Example:</st>
+
+<st col:#0066ff>my_study_guide.sgml</st>
+
+---
+
+### Start Studying
+
+Once an SGML file is loaded, read through the sections and answer the interactive questions.
+
+Interactive elements can include:
+
+<Choices:(Which feature allows an SGML study guide to work without an internet connection?)[Offline Mode, Markdown Mode, Quiz Mode, Edit Mode]{[idx:0]}>
+<Fillin:(What file extension is commonly used for an SGML study guide?)[]{sgml,.sgml}>
+
+---
+
+## Edit the Code
+
+SGML is text-based, so the study guide can be edited directly.
+
+Change the text, formatting, questions, and answers in the SGML source.
+
+### Example
+
+Original:
+
+<st col:#ff0000>This is red text.</st>
+
+Edited:
+
+<st col:#00aa00>This is now green text.</st>
+
+The SGML viewer reads the edited source and renders the result as a study guide.
+
+---
+
+## SGML Formatting
+
+### Plain Text
+
+Plain text can be written normally.
+
+This is ordinary SGML text.
+
+### Colored Text
+
+Use the \`<st>\` element to format text.
+
+<st col:#ff0000>Red Text</st>
+
+<st col:#12ABEF bg:#f0f8ff>Blue Text with Background</st>
+
+### Nested Formatting
+
+Formatting can be placed inside other formatting elements.
+
+<st col:#ff0000>
+Red outer
+<st col:#00aa00>Green inner</st>
+Back to red.
+</st>
+
+---
+
 ## Interactive Questions
+
 ### Multiple Choice
+
+Use \`<Choices:...>\` to create a multiple-choice question.
+
 <Choices:(What is <st col:#ff0000>2 + 2</st>?)[<st bg:#e0f2fe>4</st>, 3, 5, 6]{[idx:0]}>
+
+The first part is the question.
+
+The square brackets contain the available choices.
+
+The final section contains the answer.
+
+In this example:
+
+<st col:#00aa00>[idx:0]</st>
+
+means that the first choice is correct.
+
+Another example:
+
 <Choices:(Which city is the capital of France?)[Berlin, Madrid, Paris, Rome]{Paris}>
+
+---
+
 ### Fill-in-the-Blank
+
+Use \`<Fillin:...>\` when the learner must enter an answer.
+
 <Fillin:(What is the capital of France?)[]{Paris}>
+
+Multiple accepted answers can be separated by commas.
+
 <Fillin:(What is 2 + 2?)[]{4,Four}>
+
+Both \`4\` and \`Four\` are accepted.
+
+---
+
 ### Enumeration
+
+Use \`<Enumeration:...>\` for questions involving a collection of answers.
+
 <Enumeration:(Name 3 Primary Colors)[]{Red,Green,Blue|count:3|case:false|inorder:false}>
+
+The options after the answer separator can define additional rules.
+
+\`count:3\`
+
+Requires three answers.
+
+\`case:false\`
+
+Makes the answer comparison case-insensitive.
+
+\`inorder:false\`
+
+Does not require the answers to be entered in a particular order.
+
+---
+
+### Ordered Enumeration
+
+Enumeration can also require a specific order.
+
 <Enumeration:(Arrange these numbers in ascending order)[3, 1, 4, 2]{1,2,3,4|type:order}>
-`;
+
+Here:
+
+\`type:order\`
+
+means that the sequence must be entered in the specified order.
+
+---
+
+# How SGML Works
+
+SGML works by storing the study guide as plain text.
+
+The viewer reads the SGML source and processes its markup.
+
+---
+
+## 1. SGML Source
+
+The original document is text.
+
+Example:
+
+<Choices:(What is 2 + 2?)[4,3,5,6]{[idx:0]}>
+
+---
+
+## 2. Parser
+
+The SGML parser searches the document for recognized structures.
+
+For example:
+
+\`<st ...>\`
+
+is recognized as a formatting element.
+
+\`<Choices:...>\`
+
+is recognized as a multiple-choice question.
+
+\`<Fillin:...>\`
+
+is recognized as a fill-in-the-blank question.
+
+\`<Enumeration:...>\`
+
+is recognized as an enumeration question.
+
+---
+
+## 3. Formatting
+
+When the parser encounters formatting attributes such as:
+
+<st col:#ff0000>Red</st>
+
+it interprets:
+
+\`col:#ff0000\`
+
+as the text color.
+
+For example:
+
+<st col:#ff0000>Red</st>
+
+renders as red text.
+
+A background can also be supplied:
+
+<st col:#12ABEF bg:#f0f8ff>Blue Text</st>
+
+---
+
+## 4. Question Parsing
+
+An interactive question contains different parts.
+
+Example:
+
+<Choices:(What is 2 + 2?)[4,3,5,6]{[idx:0]}>
+
+The parser can interpret it as:
+
+Question:
+
+\`What is 2 + 2?\`
+
+Choices:
+
+\`4, 3, 5, 6\`
+
+Correct answer:
+
+\`[idx:0]\`
+
+Therefore the viewer knows which answer should be accepted.
+
+---
+
+## 5. Validation
+
+After the learner submits an answer, the viewer compares it with the answer stored in the SGML.
+
+For example:
+
+<Fillin:(What is 2 + 2?)[]{4,Four}>
+
+The viewer can accept:
+
+\`4\`
+
+or:
+
+\`Four\`
+
+depending on the answer rules implemented by the viewer.
+
+---
+
+## 6. Markdown Structure
+
+SGML also uses Markdown-style structure.
+
+A heading such as:
+
+## Formatting
+
+creates a section.
+
+A larger heading such as:
+
+# Study Guide: SGML
+
+creates the main title.
+
+This makes SGML easy to write and edit as ordinary text.
+
+---
+
+## 7. Offline Mode
+
+Offline Mode separates the study guide's content from its network dependency.
+
+The SGML document itself is still ordinary text, while the viewer can use cached resources and local browser storage to continue working offline.
+
+This means the general workflow can be:
+
+<st col:#00aa00>Load → Cache → Disconnect → Study Offline</st>
+
+---
+
+## SGML Structure Summary
+
+An SGML study guide can therefore contain:
+
+<st col:#0066ff>Markdown</st>
+for document structure.
+
+<st col:#0066ff>&lt;st&gt;</st>
+for formatting.
+
+<st col:#0066ff>&lt;Choices&gt;</st>
+for multiple-choice questions.
+
+<st col:#0066ff>&lt;Fillin&gt;</st>
+for text answers.
+
+<st col:#0066ff>&lt;Enumeration&gt;</st>
+for lists and ordered answers.
+
+Together, these components allow one \`.sgml\` file to contain both the learning material and the interactive quiz logic.
+
+---
+
+# Quick Practice
+
+<Choices:(What does \`<st>\` primarily control?)[Text formatting, File downloading, Network connection, Audio playback]{[idx:0]}>
+
+<Choices:(Which SGML element creates a multiple-choice question?)[<Fillin>, <Choices>, <Enumeration>, <st>]{<Choices>}>
+
+<Fillin:(What markup is used for a fill-in-the-blank question?)[]{Fillin,<Fillin>}>
+
+<Enumeration:(Put these SGML processing stages in order)[Validation, Source, Parser, Formatting]{Source,Parser,Formatting,Validation|type:order}>
+
+---
+
+# Remember
+
+<st col:#ff0000>SGML is text.</st>
+
+<st col:#00aa00>Markdown provides the document structure.</st>
+
+<st col:#0066ff>SGML tags add formatting and interactive behavior.</st>
+
+<st col:#aa00aa>The viewer parses the source and turns it into an interactive study guide.</st>
+
+<st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>`;
 
 			function loadDefaultSample(){
 				const current=getCurrentDocument();

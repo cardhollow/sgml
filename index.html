@@ -353,6 +353,7 @@
 			<button onclick="toggleEditor()">Edit Code</button>
 			<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
 			<button id="offline-button" onclick="handleOfflineButton()">Enable Offline</button>
+			<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
 			<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none;" type="file"/>
 		</div>
 
@@ -1900,7 +1901,10 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 
 <st col:#aa00aa>The viewer parses the source and turns it into an interactive study guide.</st>
 
-<st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>`;
+<st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>
+
+You can use SAIG to create SGML easily 
+https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 
 			function loadDefaultSample(){
 				const current=getCurrentDocument();

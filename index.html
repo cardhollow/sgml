@@ -129,6 +129,125 @@
 		.sgml-item-actions{display:flex;gap:4px;flex:0 0 auto}
 		.sgml-item-actions button{padding:2px 6px;font-size:12px}
 		.sgml-enum-row{display:flex;align-items:center;gap:8px}
+
+		.sgml-connect{padding:0}
+		.sgml-connect .sgml-qtitle{padding:12px 14px 0;margin:0}
+		.sgml-connect-board{
+			position:relative;
+			display:grid;
+			grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+			gap:60px;
+			padding:18px 18px 22px;
+			min-height:250px;
+		}
+		.sgml-connect-lines{
+			position:absolute;
+			inset:0;
+			width:100%;
+			height:100%;
+			pointer-events:none;
+			z-index:1;
+			overflow:visible;
+		}
+		.sgml-connect-column{position:relative;z-index:2;display:flex;flex-direction:column;gap:10px;min-width:0}
+		.sgml-connect-item p{margin:0}
+		.sgml-connect-heading{font-size:12px;font-weight:700;color:#666;text-align:center;margin-bottom:2px}
+		.sgml-connect-item{
+			position:relative;
+			width:100%;
+			min-height:44px;
+			padding:10px 12px;
+			border:1px solid #aaa;
+			border-radius:7px;
+			background:#fff;
+			display:flex;
+			align-items:center;
+			justify-content:center;
+			text-align:center;
+			cursor:pointer;
+			user-select:none;
+			-webkit-user-select:none;
+			touch-action:manipulation;
+			transition:.12s ease;
+		}
+		.sgml-connect-item.selected{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15);background:#eff6ff}
+		.sgml-connect-item.matched{background:#f8fafc}
+		.sgml-connect-item.flash-wrong{animation:sgmlConnectWrongFlash .62s ease}
+		@keyframes sgmlConnectWrongFlash{
+			0%,100%{background:#fff;border-color:#aaa;box-shadow:none}
+			25%{background:#fee2e2;border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.16)}
+			55%{background:#fecaca;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.13)}
+		}
+		.sgml-connect-item .idx{position:absolute;top:3px;font:10px monospace;color:#999}
+		.sgml-connect-item.left .idx{left:5px}
+		.sgml-connect-item.right .idx{right:5px}
+		.sgml-connect-status{font-size:12px;color:#666;padding:0 14px 10px}
+		.sgml-connect .sgml-controls{padding:0 14px 14px}
+
+		.sgml-flashcard{padding:0}
+		.sgml-flashcard-title p{margin:0}
+		.sgml-flashcard-card p{margin:0}
+		.sgml-flashcard-title{padding:12px 14px 0;font-weight:600}
+		.sgml-flashcard-progress{padding:8px 14px 10px;color:#666;font-size:12px}
+		.sgml-flashcard-card{
+			position:relative;
+			margin:0 14px 12px;
+			min-height:180px;
+			padding:28px 22px;
+			border:1px solid #bbb;
+			border-radius:10px;
+			background:#fff;
+			box-shadow:0 2px 8px rgba(0,0,0,.06);
+			cursor:pointer;
+			user-select:none;
+			-webkit-user-select:none;
+			touch-action:manipulation;
+			display:flex;
+			align-items:center;
+			justify-content:center;
+			text-align:center;
+			outline:none;
+		}
+		.sgml-flashcard-card:focus-visible{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.14)}
+		.sgml-flashcard-card.revealed{background:#f8fbff;border-color:#9eb7e8}
+		.sgml-flashcard-face{width:100%}
+		.sgml-flashcard-front{font-size:17px;font-weight:600}
+		.sgml-flashcard-back{margin-top:14px;padding-top:14px;border-top:1px solid #d9e0ea}
+		.sgml-flashcard-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#777;margin-bottom:5px}
+		.sgml-flashcard-card:not(.revealed) .sgml-flashcard-back{display:none}
+		.sgml-flashcard-hint{font-size:12px;color:#777;margin-top:12px}
+		.sgml-flashcard .sgml-controls{padding:0 14px 14px}
+		.sgml-flashcard-summary{padding:0 14px 14px;color:#444;font-size:13px}
+		.sgml-flashcard-summary strong{font-weight:700}
+
+		.sgml-spoiler{
+			position:relative;
+			display:inline-block;
+			vertical-align:baseline;
+			width:fit-content;
+			max-width:100%;
+		}
+		.sgml-spoiler-content{display:block;width:fit-content;max-width:100%}
+		.sgml-spoiler-content p{margin:0}
+		.sgml-spoiler-content img,.sgml-spoiler-content video,.sgml-spoiler-content canvas,.sgml-spoiler-content svg{max-width:100%;height:auto}
+		.sgml-spoiler-overlay{
+			position:absolute;
+			inset:0;
+			display:block;
+			width:100%;
+			height:100%;
+			margin:0;
+			padding:0;
+			border:0;
+			border-radius:inherit;
+			background:rgba(40,40,40,.94);
+			box-shadow:none;
+			cursor:pointer;
+			touch-action:manipulation;
+			z-index:2;
+		}
+		.sgml-spoiler-overlay:active{background:rgba(55,55,55,.97)}
+		.sgml-spoiler-revealed .sgml-spoiler-overlay{display:none}
 		.sgml-modal-backdrop{
 			position:fixed;inset:0;background:var(--modal-overlay);display:none;align-items:center;
 			justify-content:center;padding:16px;z-index:9999;
@@ -543,6 +662,7 @@
 		let parsedQuestions={};
 		let currentDocumentId=null;
 		let customComponentCounter=0;
+		let sgmlSpoilerIdCounter=0;
 		let questionCounter=0;
 		let infoCounter=0;
 		let openInfoWrap=null;
@@ -1395,6 +1515,8 @@ table{max-width:none}
 			if(q.type==='choices')return buildChoicesHTML(q);
 			if(q.type==='fillin')return buildFillinHTML(q);
 			if(q.type==='enumeration')return buildEnumerationHTML(q);
+			if(q.type==='connect')return buildConnectHTML(q);
+			if(q.type==='flashcard')return buildFlashcardHTML(q);
 			return'';
 		}
 
@@ -1404,43 +1526,81 @@ table{max-width:none}
 			let output='';
 
 			while(i<inputStr.length){
-				const match=inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
+				const connectMatch=inputStr.slice(i).match(/^<connect\s*:\s*/i);
+				const flashMatch=inputStr.slice(i).match(/^<flashcard\s*:?\s*/i);
+				const normalMatch=inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
 
-				if(match){
-					const type=match[1];
-					let cur=i+match[0].length;
+				if(connectMatch){
+					try{
+						const parsed=parseConnectAt(inputStr,i);
+						if(parsed){
+							const qId='sgmlq'+questionCounter++;
+							questions.push({
+								id:qId,
+								type:'connect',
+								questionRaw:parsed.question,
+								left:parsed.left,
+								right:parsed.right,
+								answers:parsed.answers,
+								attrs:parsed.attrs
+							});
+							output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
+							i=parsed.end;
+							continue;
+						}
+					}catch(error){
+						console.error('Connect parse error:',error);
+					}
+				}
 
+				if(flashMatch){
+					try{
+						const parsed=parseFlashcardAt(inputStr,i);
+						if(parsed){
+							const qId='sgmlq'+questionCounter++;
+							questions.push({
+								id:qId,
+								type:'flashcard',
+								title:parsed.title,
+								questions:parsed.questions,
+								answers:parsed.answers,
+								attrs:parsed.attrs
+							});
+							output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
+							i=parsed.end;
+							continue;
+						}
+					}catch(error){
+						console.error('Flashcard parse error:',error);
+					}
+				}
+
+				if(normalMatch){
+					const type=normalMatch[1];
+					let cur=i+normalMatch[0].length;
 					while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
 
 					if(inputStr[cur]==='('){
 						const qRes=extractBalanced(inputStr,cur,'(',')');
-
 						if(qRes){
 							cur=qRes.nextIdx;
-
 							while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
 
 							if(inputStr[cur]==='['){
 								const aRes=extractBalanced(inputStr,cur,'[',']');
-
 								if(aRes){
 									cur=aRes.nextIdx;
-
 									while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
 
 									if(inputStr[cur]==='{'){
 										const cRes=extractBalanced(inputStr,cur,'{','}');
-
 										if(cRes){
 											cur=cRes.nextIdx;
-
 											while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
 
 											if(inputStr[cur]==='>'){
 												cur++;
-
 												const qId='sgmlq'+questionCounter++;
-
 												questions.push({
 													id:qId,
 													type:type.toLowerCase(),
@@ -1448,7 +1608,6 @@ table{max-width:none}
 													answersRaw:aRes.content,
 													correctAndPropsRaw:cRes.content
 												});
-
 												output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
 												i=cur;
 												continue;
@@ -1516,6 +1675,594 @@ table{max-width:none}
 
 		function renderQuestionText(source){
 			return renderEmbeddedSGML(String(source||''));
+		}
+
+
+		function splitTopLevelListFlexible(raw,char=','){
+			return splitByChar(String(raw||''),char).filter(v=>v.trim()!=='');
+		}
+
+		function decodeInteractiveValue(raw){
+			let value=String(raw===undefined||raw===null?'':raw).trim();
+			if(value.length>=2&&value[0]==='`'&&value[value.length-1]==='`'){
+				value=value.slice(1,-1);
+			}
+			return decodeSGMLEscapes(value);
+		}
+
+		function parseSimpleAttributeMap(raw){
+			const attrs={};
+			for(const part of splitByChar(String(raw||''),',')){
+				if(!part)continue;
+				const i=part.indexOf(':');
+				if(i<0)continue;
+				const key=part.slice(0,i).trim().toLowerCase();
+				let value=part.slice(i+1).trim();
+				if(/^true$/i.test(value))value=true;
+				else if(/^false$/i.test(value))value=false;
+				else if(/^[-+]?\d+(?:\.\d+)?$/.test(value))value=Number(value);
+				attrs[key]=value;
+			}
+			return attrs;
+		}
+
+		function parseNestedBracketItems(raw){
+			const text=String(raw||'').trim();
+			const values=[];
+			let pos=0;
+			while(pos<text.length){
+				while(pos<text.length&&/[\s,]/.test(text[pos]))pos++;
+				if(pos>=text.length)break;
+				if(text[pos]!=='[')return null;
+				const part=extractBalanced(text,pos,'[',']');
+				if(!part)return null;
+				values.push(decodeInteractiveValue(part.content));
+				pos=part.nextIdx;
+			}
+			return values.length?values:null;
+		}
+
+		function parseConnectColumnsIntegrated(raw){
+			const first=extractBalanced(raw.trim(),0,'[',']');
+			if(!first)throw new Error('Could not parse Connect column 1.');
+			const rest=raw.slice(first.nextIdx).trim();
+			const second=extractBalanced(rest,0,'[',']');
+			if(!second)throw new Error('Could not parse Connect column 2.');
+
+			const parseList=part=>splitByChar(part,',').map(decodeInteractiveValue);
+			return{left:parseList(first.content),right:parseList(second.content)};
+		}
+
+		function parseConnectAnswersIntegrated(raw){
+			const answers=[];
+			let pos=0;
+			while(pos<String(raw||'').length){
+				const text=String(raw||'');
+				while(pos<text.length&&/[\s,]/.test(text[pos]))pos++;
+				if(pos>=text.length)break;
+				if(text[pos]!=='['||text[pos+1]!=='['){
+					throw new Error('Connect answers must use [[idx:n][idx:n]].');
+				}
+				const outer=extractBalanced(text,pos,'[',']');
+				if(!outer)throw new Error('Unclosed Connect answer pair.');
+				const inner=outer.content.trim();
+				const a=extractBalanced(inner,0,'[',']');
+				if(!a)throw new Error('Invalid first Connect answer index.');
+				const b=extractBalanced(inner.slice(a.nextIdx).trim(),0,'[',']');
+				if(!b)throw new Error('Invalid second Connect answer index.');
+				const m1=a.content.match(/^\s*idx\s*:\s*(\d+)\s*$/i);
+				const m2=b.content.match(/^\s*idx\s*:\s*(\d+)\s*$/i);
+				if(!m1||!m2)throw new Error('Connect answers must use [idx:n][idx:n].');
+				answers.push({left:Number(m1[1]),right:Number(m2[1])});
+				pos=outer.nextIdx;
+			}
+			return answers;
+		}
+
+		function parseConnectAt(text,startIndex){
+			const source=String(text||'');
+			const head=source.slice(startIndex).match(/^<connect\s*:\s*/i);
+			if(!head)return null;
+			let cur=startIndex+head[0].length;
+
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='(')throw new Error('Connect is missing question (...).');
+			const q=extractBalanced(source,cur,'(',')');
+			if(!q)throw new Error('Unclosed Connect question.');
+			cur=q.nextIdx;
+
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='[')throw new Error('Connect is missing columns [[...][...]].');
+			const cols=extractBalanced(source,cur,'[',']');
+			if(!cols)throw new Error('Unclosed Connect columns.');
+			cur=cols.nextIdx;
+
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='{')throw new Error('Connect is missing attributes {...}.');
+			const body=extractBalanced(source,cur,'{','}');
+			if(!body)throw new Error('Unclosed Connect {...}.');
+			cur=body.nextIdx;
+
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='>' )throw new Error('Connect is missing closing >.');
+			cur++;
+
+			const parts=splitByChar(body.content,'|');
+			const answersPart=(parts.shift()||'').trim();
+			const attrsRaw=parts.join('|').trim();
+			const answersText=answersPart.replace(/^answers\s*:\s*/i,'').trim();
+			const columns=parseConnectColumnsIntegrated(cols.content);
+			const answers=parseConnectAnswersIntegrated(answersText);
+			for(const pair of answers){
+				if(pair.left<0||pair.left>=columns.left.length||pair.right<0||pair.right>=columns.right.length){
+					throw new Error(`Connect answer index out of range: [${pair.left}] -> [${pair.right}]`);
+				}
+			}
+
+			return{
+				end:cur,
+				question:decodeInteractiveValue(q.content),
+				left:columns.left.map((value,index)=>({text:value,index})),
+				right:columns.right.map((value,index)=>({text:value,index})),
+				answers,
+				attrs:parseSimpleAttributeMap(attrsRaw)
+			};
+		}
+
+		function shuffleArrayCopy(array){
+			const a=array.slice();
+			for(let i=a.length-1;i>0;i--){
+				const j=Math.floor(Math.random()*(i+1));
+				[a[i],a[j]]=[a[j],a[i]];
+			}
+			return a;
+		}
+
+		function getConnectState(qId){
+			const q=parsedQuestions[qId];
+			return q&&q.type==='connect'?q:null;
+		}
+
+		function getConnectConnection(qId,side,index){
+			const q=getConnectState(qId);
+			if(!q)return null;
+			return q.connections.find(pair=>pair[side]===index)||null;
+		}
+
+		function removeConnectConnection(qId,leftIdx,rightIdx){
+			const q=getConnectState(qId);
+			if(!q)return;
+			q.connections=q.connections.filter(pair=>!(pair[0]===leftIdx&&pair[1]===rightIdx));
+		}
+
+		function toggleConnectLeft(qId,index){
+			const q=getConnectState(qId);
+			if(!q)return;
+			const existing=getConnectConnection(qId,0,index);
+			if(existing){
+				removeConnectConnection(qId,existing[0],existing[1]);
+				q.selectedLeft=null;
+				q.selectedRight=null;
+				drawConnectLines(qId);
+				updateConnectItemClasses(qId);
+				return;
+			}
+			q.selectedLeft=index;
+			q.selectedRight=null;
+			updateConnectItemClasses(qId);
+		}
+
+		function toggleConnectRight(qId,index){
+			const q=getConnectState(qId);
+			if(!q)return;
+			const existing=getConnectConnection(qId,1,index);
+			if(existing){
+				removeConnectConnection(qId,existing[0],existing[1]);
+				q.selectedLeft=null;
+				q.selectedRight=null;
+				drawConnectLines(qId);
+				updateConnectItemClasses(qId);
+				return;
+			}
+			if(q.selectedLeft===null)return;
+			const old=getConnectConnection(qId,1,index);
+			if(old)removeConnectConnection(qId,old[0],old[1]);
+			removeConnectConnection(qId,q.selectedLeft,index);
+			q.connections.push([q.selectedLeft,index]);
+			q.selectedLeft=null;
+			q.selectedRight=null;
+			drawConnectLines(qId);
+			updateConnectItemClasses(qId);
+		}
+
+		function updateConnectItemClasses(qId){
+			const q=getConnectState(qId);
+			const box=document.getElementById(qId);
+			if(!q||!box)return;
+			box.querySelectorAll('.sgml-connect-item.left').forEach(el=>{
+				const idx=Number(el.dataset.idx);
+				el.classList.toggle('selected',q.selectedLeft===idx);
+				el.classList.toggle('matched',!!getConnectConnection(qId,0,idx));
+			});
+			box.querySelectorAll('.sgml-connect-item.right').forEach(el=>{
+				const idx=Number(el.dataset.idx);
+				el.classList.toggle('selected',q.selectedRight===idx);
+				el.classList.toggle('matched',!!getConnectConnection(qId,1,idx));
+			});
+		}
+
+		function drawConnectLines(qId){
+			const q=getConnectState(qId);
+			const box=document.getElementById(qId);
+			if(!q||!box)return;
+			const board=box.querySelector('.sgml-connect-board');
+			const svg=box.querySelector('.sgml-connect-lines');
+			if(!board||!svg)return;
+			const rect=board.getBoundingClientRect();
+			svg.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
+			svg.innerHTML='';
+			for(const [li,ri] of q.connections){
+				const left=box.querySelector(`.sgml-connect-item.left[data-idx="${li}"]`);
+				const right=box.querySelector(`.sgml-connect-item.right[data-idx="${ri}"]`);
+				if(!left||!right)continue;
+				const a=left.getBoundingClientRect();
+				const b=right.getBoundingClientRect();
+				const x1=a.right-rect.left;
+				const y1=a.top+a.height/2-rect.top;
+				const x2=b.left-rect.left;
+				const y2=b.top+b.height/2-rect.top;
+				const bend=Math.max(24,(x2-x1)*0.45);
+				const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+				path.setAttribute('d',`M ${x1} ${y1} C ${x1+bend} ${y1}, ${x2-bend} ${y2}, ${x2} ${y2}`);
+				path.setAttribute('fill','none');
+				path.setAttribute('stroke','#2563eb');
+				path.setAttribute('stroke-width','3');
+				path.setAttribute('stroke-linecap','round');
+				svg.appendChild(path);
+			}
+			const status=box.querySelector('.sgml-connect-status');
+			if(status)status.textContent=`${q.connections.length} connection${q.connections.length===1?'':'s'} made.`;
+		}
+
+		function flashWrongConnectPair(qId,leftIdx,rightIdx){
+			const box=document.getElementById(qId);
+			if(!box)return;
+			const left=box.querySelector(`.sgml-connect-item.left[data-idx="${leftIdx}"]`);
+			const right=box.querySelector(`.sgml-connect-item.right[data-idx="${rightIdx}"]`);
+			[left,right].forEach(el=>{
+				if(!el)return;
+				el.classList.remove('flash-wrong');
+				void el.offsetWidth;
+				el.classList.add('flash-wrong');
+				setTimeout(()=>el.classList.remove('flash-wrong'),700);
+			});
+		}
+
+		function checkConnectAnswer(qId){
+			const q=getConnectState(qId);
+			if(!q)return;
+			const box=document.getElementById(qId);
+			const feedback=box?box.querySelector('.sgml-feedback'):null;
+			box&&box.querySelectorAll('.sgml-connect-item').forEach(el=>el.classList.remove('flash-wrong'));
+			const expected=new Set(q.answers.map(pair=>`${pair.left}:${pair.right}`));
+			const actual=new Set(q.connections.map(pair=>`${pair[0]}:${pair[1]}`));
+
+			if(actual.size<expected.size||q.connections.length<q.left.length){
+				if(feedback){feedback.className='sgml-feedback incorrect';feedback.textContent='Connect all items first.';}
+				return;
+			}
+
+			let correct=0;
+			for(const key of actual){if(expected.has(key))correct++;}
+			const allCorrect=correct===expected.size&&actual.size===expected.size;
+			if(!allCorrect){
+				for(const [left,right] of q.connections){
+					if(!expected.has(`${left}:${right}`))flashWrongConnectPair(qId,left,right);
+				}
+			}
+			if(feedback){
+				feedback.className='sgml-feedback '+(allCorrect?'correct':'incorrect');
+				feedback.textContent=allCorrect?'Correct!':'Incorrect!';
+			}
+		}
+
+		function resetConnect(qId){
+			const q=getConnectState(qId);
+			const old=document.getElementById(qId);
+			if(!q||!old)return;
+			const wrapper=document.createElement('div');
+			wrapper.innerHTML=buildConnectHTML({
+				id:qId,
+				questionRaw:q.questionRaw,
+				left:q.left,
+				right:q.right,
+				answers:q.answers,
+				attrs:q.attrs
+			});
+			const replacement=wrapper.firstElementChild;
+			if(!replacement)return;
+			old.replaceWith(replacement);
+			setupConnectComponents();
+			requestAnimationFrame(()=>drawConnectLines(qId));
+		}
+
+		function buildConnectHTML(q){
+			const attrs=q.attrs||{};
+			const displayLeft=attrs.shuffle===true?shuffleArrayCopy(q.left):q.left.slice();
+			const displayRight=attrs.shuffle===true?shuffleArrayCopy(q.right):q.right.slice();
+			parsedQuestions[q.id]={
+				type:'connect',
+				questionRaw:q.questionRaw,
+				left:q.left,
+				right:q.right,
+				answers:q.answers,
+				attrs,
+				displayLeft,
+				displayRight,
+				connections:[],
+				selectedLeft:null,
+				selectedRight:null
+			};
+
+			const leftHTML=displayLeft.map(item=>`<div class="sgml-connect-item left" data-idx="${item.index}"><span class="idx">${item.index}</span><span>${renderQuestionText(item.text)}</span></div>`).join('');
+			const rightHTML=displayRight.map(item=>`<div class="sgml-connect-item right" data-idx="${item.index}"><span class="idx">${item.index}</span><span>${renderQuestionText(item.text)}</span></div>`).join('');
+
+			return`\
+				<div class="sgml-qblock sgml-connect" id="${q.id}">\
+					<div class="sgml-qtitle">${renderQuestionText(q.questionRaw)}</div>\
+					<div class="sgml-connect-board">\
+						<svg class="sgml-connect-lines" aria-hidden="true"></svg>\
+						<div class="sgml-connect-column">\
+							<div class="sgml-connect-heading">Column 1</div>\
+							${leftHTML}\
+						</div>\
+						<div class="sgml-connect-column">\
+							<div class="sgml-connect-heading">Column 2</div>\
+							${rightHTML}\
+						</div>\
+					</div>\
+					<div class="sgml-connect-status">0 connections made.</div>\
+					<div class="sgml-controls">\
+						<button type="button" onclick="checkConnectAnswer('${q.id}')">Check Answer</button>\
+						<button type="button" onclick="resetConnect('${q.id}')">Reset</button>\
+						<span class="sgml-feedback" id="fb_${q.id}"></span>\
+					</div>\
+				</div>`;
+		}
+
+		function setupConnectComponents(){
+			document.querySelectorAll('.sgml-connect').forEach(box=>{
+				const qId=box.id;
+				box.querySelectorAll('.sgml-connect-item.left').forEach(item=>{
+					if(item.dataset.bound==='true')return;
+					item.dataset.bound='true';
+					item.addEventListener('click',()=>toggleConnectLeft(qId,Number(item.dataset.idx)));
+				});
+				box.querySelectorAll('.sgml-connect-item.right').forEach(item=>{
+					if(item.dataset.bound==='true')return;
+					item.dataset.bound='true';
+					item.addEventListener('click',()=>toggleConnectRight(qId,Number(item.dataset.idx)));
+				});
+				requestAnimationFrame(()=>drawConnectLines(qId));
+			});
+			if(!window.__sgmlConnectResizeBound){
+				window.__sgmlConnectResizeBound=true;
+				window.addEventListener('resize',()=>{
+					document.querySelectorAll('.sgml-connect').forEach(box=>drawConnectLines(box.id));
+				});
+			}
+		}
+
+		function parseFlashcardListIntegrated(raw){
+			const text=String(raw||'').trim();
+			if(!text)return[];
+
+			// Supports: [a,b,c], [a][b][c], and [[a][b][c]].
+			if(text[0]==='['){
+				const outer=extractBalanced(text,0,'[',']');
+				if(outer&&outer.nextIdx===text.length){
+					const inner=outer.content.trim();
+					const grouped=parseNestedBracketItems(inner);
+					if(grouped)return grouped;
+					return splitByChar(inner,',').map(decodeInteractiveValue);
+				}
+
+				const grouped=parseNestedBracketItems(text);
+				if(grouped)return grouped;
+			}
+
+			return splitByChar(text,',').map(decodeInteractiveValue);
+		}
+
+		function parseFlashcardAnswersIntegrated(raw){
+			return parseFlashcardListIntegrated(raw);
+		}
+
+		function parseFlashcardQuestionsIntegrated(raw){
+			return parseFlashcardListIntegrated(raw);
+		}
+
+		function parseFlashcardAt(text,startIndex){
+			const source=String(text||'');
+			const head=source.slice(startIndex).match(/^<flashcard\s*:?\s*/i);
+			if(!head)return null;
+			let cur=startIndex+head[0].length;
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='(')throw new Error('Flashcard is missing title (...).');
+			const title=extractBalanced(source,cur,'(',')');
+			if(!title)throw new Error('Unclosed Flashcard title.');
+			cur=title.nextIdx;
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='[')throw new Error('Flashcard is missing questions [...].');
+			const questions=extractBalanced(source,cur,'[',']');
+			if(!questions)throw new Error('Unclosed Flashcard questions.');
+			cur=questions.nextIdx;
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='{')throw new Error('Flashcard is missing answers {...}.');
+			const body=extractBalanced(source,cur,'{','}');
+			if(!body)throw new Error('Unclosed Flashcard answers.');
+			cur=body.nextIdx;
+			while(/\s/.test(source[cur]||''))cur++;
+			if(source[cur]!=='>')throw new Error('Flashcard is missing closing >.');
+			cur++;
+
+			const parts=splitByChar(body.content,'|');
+			const answersPart=(parts.shift()||'').trim();
+			const attrsRaw=parts.join('|').trim();
+			const answersText=answersPart.replace(/^answers\s*:\s*/i,'').trim();
+			const questionList=parseFlashcardQuestionsIntegrated(questions.content);
+			const answerList=parseFlashcardAnswersIntegrated(answersText);
+			if(questionList.length!==answerList.length){
+				throw new Error(`Flashcard needs the same number of questions and answers (${questionList.length} questions, ${answerList.length} answers).`);
+			}
+
+			return{
+				end:cur,
+				title:decodeInteractiveValue(title.content),
+				questions:questionList.map((value,index)=>({text:value,index})),
+				answers:answerList.map((value,index)=>({text:value,index})),
+				attrs:parseSimpleAttributeMap(attrsRaw)
+			};
+		}
+
+		function getFlashcardState(qId){
+			const q=parsedQuestions[qId];
+			return q&&q.type==='flashcard'?q:null;
+		}
+
+		function renderFlashcardCurrent(qId){
+			const q=getFlashcardState(qId);
+			const box=document.getElementById(qId);
+			if(!q||!box)return;
+			const progress=box.querySelector('.sgml-flashcard-progress');
+			const card=box.querySelector('.sgml-flashcard-card');
+			const front=box.querySelector('.sgml-flashcard-front');
+			const back=box.querySelector('.sgml-flashcard-back');
+			const summary=box.querySelector('.sgml-flashcard-summary');
+			const controls=box.querySelector('.sgml-flashcard-controls');
+			if(!q.deck.length){
+				if(progress)progress.textContent='No flashcards.';
+				if(card)card.style.display='none';
+				if(controls)controls.style.display='none';
+				return;
+			}
+			if(q.position>=q.deck.length){
+				if(progress)progress.textContent='Finished.';
+				if(card)card.style.display='none';
+				if(controls)controls.style.display='none';
+				if(summary){
+					summary.style.display='block';
+					summary.innerHTML=`Finished. <strong>${q.correct}</strong> Correct, <strong>${q.wrong}</strong> Wrong, <strong>${q.skipped}</strong> Skipped.`+
+						` <button type="button" onclick="restartFlashcards('${qId}')">Restart</button>`;
+				}
+				return;
+			}
+			const pair=q.deck[q.position];
+			if(progress)progress.textContent=`Card ${q.position+1} of ${q.deck.length}`;
+			if(front)front.innerHTML=renderQuestionText(pair.front);
+			if(back)back.innerHTML=renderQuestionText(pair.back);
+			if(card){
+				card.style.display='flex';
+				card.classList.toggle('revealed',q.revealed);
+				card.setAttribute('aria-expanded',q.revealed?'true':'false');
+			}
+			if(summary)summary.style.display='none';
+			if(controls)controls.style.display='flex';
+		}
+
+		function toggleFlashcard(qId){
+			const q=getFlashcardState(qId);
+			if(!q||q.position>=q.deck.length)return;
+			q.revealed=!q.revealed;
+			renderFlashcardCurrent(qId);
+		}
+
+		function revealFlashcard(qId){
+			const q=getFlashcardState(qId);
+			if(!q||q.position>=q.deck.length)return;
+			q.revealed=true;
+			renderFlashcardCurrent(qId);
+		}
+
+		function rateFlashcard(qId,rating){
+			const q=getFlashcardState(qId);
+			if(!q||q.position>=q.deck.length)return;
+			if(rating==='correct')q.correct++;
+			else if(rating==='wrong')q.wrong++;
+			else if(rating==='skip')q.skipped++;
+			q.position++;
+			q.revealed=false;
+			renderFlashcardCurrent(qId);
+		}
+
+		function restartFlashcards(qId){
+			const q=getFlashcardState(qId);
+			if(!q)return;
+			q.position=0;
+			q.correct=0;
+			q.wrong=0;
+			q.skipped=0;
+			q.revealed=false;
+			if(q.attrs.shuffle===true)q.deck=shuffleArrayCopy(q.baseDeck);
+			else q.deck=q.baseDeck.slice();
+			renderFlashcardCurrent(qId);
+		}
+
+		function buildFlashcardHTML(q){
+			const attrs=q.attrs||{};
+			const baseDeck=q.questions.map((question,index)=>({front:question.text,back:q.answers[index].text,index}));
+			const deck=attrs.shuffle===true?shuffleArrayCopy(baseDeck):baseDeck.slice();
+			parsedQuestions[q.id]={
+				type:'flashcard',
+				title:q.title,
+				baseDeck,
+				deck,
+				attrs,
+				position:0,
+				correct:0,
+				wrong:0,
+				skipped:0,
+				revealed:false
+			};
+			const card=deck[0];
+			return`\
+				<div class="sgml-qblock sgml-flashcard" id="${q.id}">\
+					<div class="sgml-flashcard-title">${renderQuestionText(q.title)}</div>\
+					<div class="sgml-flashcard-progress">Card 1 of ${deck.length}</div>\
+					<div class="sgml-flashcard-card" role="button" tabindex="0" aria-expanded="false" onclick="toggleFlashcard('${q.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFlashcard('${q.id}');}">\
+						<div class="sgml-flashcard-face">\
+							<div class="sgml-flashcard-front">${renderQuestionText(card?card.front:'')}</div>\
+							<div class="sgml-flashcard-back"><div class="sgml-flashcard-label">Answer</div>${renderQuestionText(card?card.back:'')}</div>\
+							<div class="sgml-flashcard-hint">Tap the card to reveal the answer.</div>\
+						</div>\
+					</div>\
+					<div class="sgml-controls sgml-flashcard-controls">\
+						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','correct')">Correct</button>\
+						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','wrong')">Wrong</button>\
+						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','skip')">Skip</button>\
+					</div>\
+					<div class="sgml-flashcard-summary" style="display:none"></div>\
+				</div>`;
+		}
+
+		function buildSpoilerHTML(component){
+			const id=`sgml-spoiler-${sgmlSpoilerIdCounter++}`;
+			let content=renderEmbeddedSGML(component.content||'');
+
+			// A spoiler behaves like an inline element. If the content rendered
+			// as one normal Markdown paragraph, remove only that generated
+			// paragraph wrapper so text stays in the surrounding line flow.
+			content=content.replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/i,'$1');
+
+			return`<span class="sgml-spoiler" id="${id}"><span class="sgml-spoiler-content">${content}</span><span class="sgml-spoiler-overlay" role="button" tabindex="0" aria-label="Reveal spoiler" onclick="revealSpoiler('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();revealSpoiler('${id}');}"></span></span>`;
+		}
+
+		function revealSpoiler(id){
+			const wrap=document.getElementById(id);
+			if(!wrap)return;
+			wrap.classList.add('sgml-spoiler-revealed');
+			const overlay=wrap.querySelector('.sgml-spoiler-overlay');
+			if(overlay)overlay.remove();
 		}
 
 		function buildChoicesHTML(q){
@@ -1889,13 +2636,14 @@ table{max-width:none}
 				if(component.type==='info')return allowInfo;
 				if(component.type==='root')return allowRoot;
 				if(component.type==='line')return allowLine;
+				if(component.type==='spoiler')return true;
 				return false;
 			});
 
-			allowedComponents.forEach((component,index)=>{
+			allowedComponents.forEach(component=>{
 				rebuilt+=text.slice(cursor,component.index);
 
-				if(component.type==='info'){
+				if(component.type==='info'||component.type==='spoiler'){
 					const id=inlineSlots.length;
 					inlineSlots.push(component);
 					rebuilt+=`\uE210SGMLINLINE${id}\uE211`;
@@ -1904,49 +2652,31 @@ table{max-width:none}
 					blockSlots.push(component);
 					rebuilt+=`\n\n<div data-sgml-block-slot="${id}"></div>\n\n`;
 				}
-
 				cursor=component.end;
 			});
 
-			if(!allowedComponents.length){
-				rebuilt=text;
-			}else{
-				rebuilt+=text.slice(cursor);
-			}
+			if(!allowedComponents.length)rebuilt=text;
+			else rebuilt+=text.slice(cursor);
 
 			const qResult=parseQuestionBlocks(rebuilt);
 			let result=renderMarkdown(qResult.processedText);
 
 			qResult.questions.forEach(q=>{
-				result=result.replace(
-					`%%QBLOCKTOKEN${q.id}%%`,
-					buildQuestionUI(q)
-				);
+				result=result.replace(`%%QBLOCKTOKEN${q.id}%%`,buildQuestionUI(q));
 			});
 
 			inlineSlots.forEach((component,index)=>{
 				let html='';
-				if(component.type==='info'){
-					html=buildInfoHTML(component,false);
-				}
-
-				result=result.replace(
-					`\uE210SGMLINLINE${index}\uE211`,
-					html
-				);
+				if(component.type==='info')html=buildInfoHTML(component,false);
+				else if(component.type==='spoiler')html=buildSpoilerHTML(component);
+				result=result.replace(`\uE210SGMLINLINE${index}\uE211`,html);
 			});
 
 			blockSlots.forEach((component,index)=>{
 				let html='';
-
-				if(component.type==='root'){
-					html=buildTreeHTML({content:component.content});
-				}else if(component.type==='line'){
-					html=buildLineHTML({content:component.content});
-				}
-
-				const slot=`<div data-sgml-block-slot="${index}"></div>`;
-				result=result.replace(slot,html);
+				if(component.type==='root')html=buildTreeHTML({content:component.content});
+				else if(component.type==='line')html=buildLineHTML({content:component.content});
+				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});
 
 			return result;
@@ -2413,102 +3143,31 @@ table{max-width:none}
 			while(cursor<text.length){
 				const candidates=[];
 
-				['info','root','line'].forEach(tag=>{
+				['info','root','line','spoiler'].forEach(tag=>{
 					const found=findTagStart(text,tag,cursor);
 					if(found)candidates.push({...found,tag});
 				});
 
 				if(!candidates.length)break;
-
 				candidates.sort((a,b)=>a.index-b.index);
 				const found=candidates[0];
 
-				if(found.tag==='root'){
-					const matched=findMatchingTag(
-						text,
-						'root',
-						found.end,
-						false
-					);
-
-					if(!matched){
-						cursor=found.end;
-						continue;
-					}
-
-					components.push({
-						type:'root',
-						content:matched.content,
-						index:found.index,
-						end:matched.end
-					});
-
-					spans.push({
-						start:found.index,
-						end:matched.end
-					});
-
-					cursor=matched.end;
+				const matched=findMatchingTag(text,found.tag,found.end,false);
+				if(!matched){
+					cursor=found.end;
 					continue;
 				}
 
-				if(found.tag==='line'){
-					const matched=findMatchingTag(
-						text,
-						'line',
-						found.end,
-						false
-					);
+				components.push({
+					type:found.tag,
+					open:found.open,
+					content:matched.content,
+					index:found.index,
+					end:matched.end
+				});
 
-					if(!matched){
-						cursor=found.end;
-						continue;
-					}
-
-					components.push({
-						type:'line',
-						content:matched.content,
-						index:found.index,
-						end:matched.end
-					});
-
-					spans.push({
-						start:found.index,
-						end:matched.end
-					});
-
-					cursor=matched.end;
-					continue;
-				}
-
-				if(found.tag==='info'){
-					const matched=findMatchingTag(
-						text,
-						'info',
-						found.end,
-						false
-					);
-
-					if(!matched){
-						cursor=found.end;
-						continue;
-					}
-
-					components.push({
-						type:'info',
-						open:found.open,
-						content:matched.content,
-						index:found.index,
-						end:matched.end
-					});
-
-					spans.push({
-						start:found.index,
-						end:matched.end
-					});
-
-					cursor=matched.end;
-				}
+				spans.push({start:found.index,end:matched.end});
+				cursor=matched.end;
 			}
 
 			return{components,spans};
@@ -2525,7 +3184,7 @@ table{max-width:none}
 			extracted.components.forEach(component=>{
 				rebuilt+=text.slice(cursor,component.index);
 
-				if(component.type==='info'){
+				if(component.type==='info'||component.type==='spoiler'){
 					const index=inline.length;
 					inline.push(component);
 					rebuilt+=`\uE210SGMLINLINE${index}\uE211`;
@@ -2534,7 +3193,6 @@ table{max-width:none}
 					blocks.push(component);
 					rebuilt+=`\n\n<div data-sgml-block-slot="${index}"></div>\n\n`;
 				}
-
 				cursor=component.end;
 			});
 
@@ -2544,32 +3202,21 @@ table{max-width:none}
 			let result=renderMarkdown(qResult.processedText);
 
 			qResult.questions.forEach(q=>{
-				result=result.replace(
-					`%%QBLOCKTOKEN${q.id}%%`,
-					buildQuestionUI(q)
-				);
+				result=result.replace(`%%QBLOCKTOKEN${q.id}%%`,buildQuestionUI(q));
 			});
 
 			inline.forEach((component,index)=>{
-				result=result.replace(
-					`\uE210SGMLINLINE${index}\uE211`,
-					buildInfoHTML(component,false)
-				);
+				let html='';
+				if(component.type==='info')html=buildInfoHTML(component,false);
+				else if(component.type==='spoiler')html=buildSpoilerHTML(component);
+				result=result.replace(`\uE210SGMLINLINE${index}\uE211`,html);
 			});
 
 			blocks.forEach((component,index)=>{
 				let html='';
-
-				if(component.type==='root'){
-					html=buildTreeHTML({content:component.content});
-				}else if(component.type==='line'){
-					html=buildLineHTML({content:component.content});
-				}
-
-				result=result.replace(
-					`<div data-sgml-block-slot="${index}"></div>`,
-					html
-				);
+				if(component.type==='root')html=buildTreeHTML({content:component.content});
+				else if(component.type==='line')html=buildLineHTML({content:component.content});
+				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});
 
 			return result;
@@ -2596,6 +3243,7 @@ table{max-width:none}
 			sgmlEscapedStore=[];
 			sgmlLiteralCounter=0;
 			questionCounter=0;
+			sgmlSpoilerIdCounter=0;
 			infoCounter=0;
 			sgmlInfoIdCounter=0;
 			openInfoWrap=null;
@@ -2619,6 +3267,7 @@ table{max-width:none}
 			setupICB();
 			setupVisualComponents();
 			setupInfoPanels();
+			setupConnectComponents();
 
 			if(window.MathJax&&window.MathJax.typesetPromise){
 				window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
@@ -2784,6 +3433,7 @@ table{max-width:none}
 				else if(q.type==='fillin')checkFillinAnswer(qId);
 				else if(q.type==='enum_order')checkEnumOrderAnswer(qId);
 				else if(q.type==='enum_written')checkEnumWrittenAnswer(qId);
+				else if(q.type==='connect')checkConnectAnswer(qId);
 			});
 		}
 
@@ -3176,6 +3826,32 @@ Interactive elements can include:
 
 <Choices:(Which feature allows an SGML study guide to work without an internet connection?)[Offline Mode, Markdown Mode, Quiz Mode, Edit Mode]{[idx:0]}>
 <Fillin:(What file extension is commonly used for an SGML study guide?)[]{sgml,.sgml}>
+
+---
+
+## More Interactive Elements
+
+### Connect
+
+Match items from the first column with their partners in the second column.
+
+<connect:(Match each element with its symbol)[[Hydrogen,Oxygen,Carbon][H,O,C]]{answers:[[idx:0][idx:0]],[[idx:1][idx:1]],[[idx:2][idx:2]]|shuffle:true}>
+
+### Flashcards
+
+Flashcards have no correct-answer validation. Reveal each card, study the answer, then mark yourself Correct, Wrong, or Skip.
+
+<flashcard(Science Review)[[What is H2O?][What gas do plants use in photosynthesis?][What is the center of an atom called?]]{answers:[Water,Carbon dioxide,Nucleus]|shuffle:true}>
+
+### Spoiler
+
+The \`<spoiler>...</spoiler>\` element places a plain overlay directly over its rendered content. It behaves as an inline element like \`<st>\` or ordinary text, so it does not insert paragraph breaks or generated newlines around the content. The overlay automatically follows the rendered width and height of the content. Clicking the overlay reveals the content.
+
+Inline example: This sentence contains <spoiler>hidden text</spoiler> and continues normally after it.
+
+Formatted example: <spoiler><st col:#ff0000>Hidden red text</st></spoiler> stays in the same text flow.
+
+The spoiler itself does not contain visible "Tap to reveal" text; the dark overlay is the only cover.
 
 ---
 

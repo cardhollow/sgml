@@ -1,1369 +1,1457 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8"/>
-		<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-		<title>SGML Viewer</title>
-		<style>
-			:root {
-				--bg-color:#ffffff;
-				--text-color:#111111;
-				--border-color:#cccccc;
-				--correct-color:#15803d;
-				--incorrect-color:#b91c1c;
-				--modal-overlay:rgba(0, 0, 0, 0.48);
-			}
-			* {
-				box-sizing:border-box;
-				margin:0;
-				padding:0;
-			}
-			::selection {
-			    background: #fff176;
-			    color: #000;
-			}
-			html, body {
-				min-height:100%;
-			}
-			body {
-				font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-				color:var(--text-color);
-				background-color:var(--bg-color);
-				line-height:1.6;
-				padding:16px;
-				max-width:760px;
-				margin:0 auto;
-			}
-			.sgml-toolbar {
-				border-bottom:1px solid var(--border-color);
-				padding-bottom:10px;
-				margin-bottom:20px;
-				display:flex;
-				gap:8px;
-				flex-wrap:nowrap;
-				align-items:center;
-				overflow-x:auto;
-				overflow-y:hidden;
-				white-space:nowrap;
-				-webkit-overflow-scrolling:touch;
-				scrollbar-width:thin;
-			}
-			.sgml-toolbar::-webkit-scrollbar {
-				height:5px;
-			}
-			.sgml-toolbar>* {
-				flex:0 0 auto;
-			}
-			button, .btn {
-				font-family:inherit;
-				font-size:14px;
-				padding:6px 12px;
-				background:#ffffff;
-				border:1px solid #777777;
-				border-radius:3px;
-				cursor:pointer;
-				touch-action:manipulation;
-			}
-			button:active {
-				background:#eeeeee;
-			}
-			.btn-submit {
-				font-weight:bold;
-				background:#f0f0f0;
-			}
-			#editor-drawer {
-				display:none;
-				width:100%;
-				margin-top:10px;
-				white-space:normal;
-			}
-			#editor-drawer.open {
-				display:block;
-			}
-			textarea#sgml-input {
-				width:100%;
-				height:220px;
-				font-family:monospace;
-				font-size:13px;
-				padding:8px;
-				border:1px solid var(--border-color);
-				border-radius:3px;
-				resize:vertical;
-				white-space:pre;
-				display:block;
-			}
-			#sgml-output {
-				width:100%;
-				word-wrap:break-word;
-			}
-			#sgml-output h1, #sgml-output h2, #sgml-output h3, #sgml-output h4, #sgml-output h5, #sgml-output h6 {
-				margin-top:1.2em;
-				margin-bottom:0.4em;
-				font-weight:600;
-			}
-			#sgml-output h1 {
-				font-size:1.75em;
-				border-bottom:1px solid #eee;
-				padding-bottom:0.2em;
-			}
-			#sgml-output h2 {
-				font-size:1.35em;
-				border-bottom:1px solid #eee;
-				padding-bottom:0.2em;
-			}
-			#sgml-output h3 {
-				font-size:1.15em;
-			}
-			#sgml-output p {
-				margin-bottom:1em;
-			}
-			#sgml-output ul, #sgml-output ol {
-				margin-bottom:1em;
-				padding-left:1.5em;
-			}
-			#sgml-output hr {
-				border:0;
-				border-top:1px solid var(--border-color);
-				margin:1.2em 0;
-			}
-			#sgml-output blockquote {
-				border-left:3px solid #ccc;
-				padding-left:0.8em;
-				color:#555;
-				margin-bottom:1em;
-			}
-			#sgml-output code {
-				font-family:monospace;
-				background:#f4f4f4;
-				padding:2px 4px;
-				border-radius:3px;
-			}
-			#sgml-output pre {
-				display:block;
-				width:100%;
-				max-width:100%;
-				margin:1em 0;
-				padding:10px 12px;
-				overflow-x:auto;
-				overflow-y:hidden;
-				background:#f4f4f4;
-				border:1px solid #ddd;
-				border-radius:3px;
-				font-family:monospace;
-				font-size:13px;
-				line-height:1.5;
-				white-space:pre;
-				-webkit-overflow-scrolling:touch;
-				scrollbar-width:thin;
-			}
+<head>
+	<meta charset="utf-8"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<title>SGML Viewer</title>
+	<style>
+		:root{
+			--bg-color:#ffffff;
+			--text-color:#111111;
+			--border-color:#cccccc;
+			--correct-color:#15803d;
+			--incorrect-color:#b91c1c;
+			--modal-overlay:rgba(0,0,0,.48);
+			--component-bg:#fff;
+			--component-header:#f8f8f8;
+			--component-border:#cfcfcf;
+			--component-line:#9ca3af;
+			--component-active:#2563eb;
+		}
+		*{box-sizing:border-box;margin:0;padding:0}
+		::selection{background:#fff176;color:#000}
+		html,body{min-height:100%}
+		body{
+			font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+			color:var(--text-color);
+			background:var(--bg-color);
+			line-height:1.6;
+			padding:16px;
+			max-width:760px;
+			margin:0 auto;
+		}
+		.sgml-toolbar{
+			border-bottom:1px solid var(--border-color);
+			padding-bottom:10px;
+			margin-bottom:20px;
+			display:flex;
+			gap:8px;
+			flex-wrap:nowrap;
+			align-items:center;
+			overflow-x:auto;
+			overflow-y:hidden;
+			white-space:nowrap;
+			-webkit-overflow-scrolling:touch;
+			scrollbar-width:thin;
+		}
+		.sgml-toolbar::-webkit-scrollbar{height:5px}
+		.sgml-toolbar>*{flex:0 0 auto}
+		button,.btn{
+			font-family:inherit;
+			font-size:14px;
+			padding:6px 12px;
+			background:#fff;
+			border:1px solid #777;
+			border-radius:3px;
+			cursor:pointer;
+			touch-action:manipulation;
+		}
+		button:active{background:#eee}
+		.btn-submit{font-weight:bold;background:#f0f0f0}
+		#editor-drawer{display:none;width:100%;margin-top:10px;white-space:normal}
+		#editor-drawer.open{display:block}
+		textarea#sgml-input{
+			width:100%;
+			height:220px;
+			font-family:monospace;
+			font-size:13px;
+			padding:8px;
+			border:1px solid var(--border-color);
+			border-radius:3px;
+			resize:vertical;
+			white-space:pre;
+			display:block;
+		}
+		#sgml-output{width:100%;word-wrap:break-word}
+		#sgml-output h1,#sgml-output h2,#sgml-output h3,#sgml-output h4,#sgml-output h5,#sgml-output h6{
+			margin-top:1.2em;
+			margin-bottom:.4em;
+			font-weight:600;
+		}
+		#sgml-output h1{font-size:1.75em;border-bottom:1px solid #eee;padding-bottom:.2em}
+		#sgml-output h2{font-size:1.35em;border-bottom:1px solid #eee;padding-bottom:.2em}
+		#sgml-output h3{font-size:1.15em}
+		#sgml-output p{margin-bottom:1em}
+		#sgml-output ul,#sgml-output ol{margin-bottom:1em;padding-left:1.5em}
+		#sgml-output hr{border:0;border-top:1px solid var(--border-color);margin:1.2em 0}
+		#sgml-output blockquote{border-left:3px solid #ccc;padding-left:.8em;color:#555;margin-bottom:1em}
+		#sgml-output code{font-family:monospace;background:#f4f4f4;padding:2px 4px;border-radius:3px}
+		#sgml-output pre{
+			display:block;width:100%;max-width:100%;margin:1em 0;padding:10px 12px;
+			overflow-x:auto;overflow-y:hidden;background:#f4f4f4;border:1px solid #ddd;
+			border-radius:3px;font-family:monospace;font-size:13px;line-height:1.5;white-space:pre;
+			-webkit-overflow-scrolling:touch;scrollbar-width:thin;
+		}
+		#sgml-output pre::-webkit-scrollbar{height:6px}
+		#sgml-output pre code{display:block;padding:0;margin:0;background:transparent;border:0;border-radius:0;font:inherit;white-space:pre}
+		#sgml-output :not(pre)>code{font-family:monospace;background:#f4f4f4;padding:2px 4px;border-radius:3px;white-space:break-spaces}
+		#sgml-output table{
+			width:100%;max-width:100%;margin:1em 0;border-collapse:collapse;border-spacing:0;
+			display:block;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+			scrollbar-width:thin;font-size:14px;
+		}
+		#sgml-output table::-webkit-scrollbar{height:6px}
+		#sgml-output th,#sgml-output td{padding:7px 10px;border:1px solid var(--border-color);text-align:left;vertical-align:top;white-space:nowrap}
+		#sgml-output th{font-weight:600;background:#f4f4f4}
+		#sgml-output tr:nth-child(even) td{background:#fafafa}
+		.MathJax,.MathJax_Display{max-width:100%;overflow-x:auto;overflow-y:hidden}
+		.sgml-ref{color:inherit;text-decoration:underline;cursor:pointer}
+		.sgml-ref:visited,.sgml-ref:hover,.sgml-ref:active{color:inherit}
+		.sgml-qblock{border:1px solid var(--border-color);padding:12px;margin:16px 0;border-radius:3px}
+		.sgml-qtitle{font-weight:600;margin-bottom:10px}
+		.sgml-options,.sgml-inputs{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+		.sgml-option{display:flex;align-items:center;gap:8px;cursor:pointer}
+		.sgml-option input[type=radio]{width:16px;height:16px}
+		input[type=text].sgml-text-input{
+			width:100%;max-width:380px;padding:5px 8px;font-size:14px;
+			border:1px solid var(--border-color);border-radius:3px;font-family:inherit;
+		}
+		.sgml-controls{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+		.sgml-feedback{font-size:14px;font-weight:bold}
+		.sgml-feedback.correct{color:var(--correct-color)}
+		.sgml-feedback.incorrect{color:var(--incorrect-color)}
+		.sgml-order-list{list-style:none;padding:0;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+		.sgml-order-item{
+			display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
+			border:1px solid var(--border-color);border-radius:3px;background:#fff;cursor:grab;gap:8px;
+		}
+		.sgml-order-item.dragging{opacity:.4}
+		.sgml-item-actions{display:flex;gap:4px;flex:0 0 auto}
+		.sgml-item-actions button{padding:2px 6px;font-size:12px}
+		.sgml-enum-row{display:flex;align-items:center;gap:8px}
+		.sgml-modal-backdrop{
+			position:fixed;inset:0;background:var(--modal-overlay);display:none;align-items:center;
+			justify-content:center;padding:16px;z-index:9999;
+		}
+		.sgml-modal-backdrop.open{display:flex}
+		.sgml-modal-backdrop.confirm-layer{z-index:10001}
+		.sgml-modal{
+			width:min(100%,520px);max-height:min(90vh,720px);background:#fff;border:1px solid #888;
+			border-radius:5px;box-shadow:0 12px 35px rgba(0,0,0,.22);overflow:hidden;display:flex;flex-direction:column;
+		}
+		.sgml-modal-header{padding:12px 14px;border-bottom:1px solid var(--border-color);font-weight:700;flex:0 0 auto}
+		.sgml-modal-body{padding:14px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+		.sgml-modal-footer{padding:10px 14px;border-top:1px solid var(--border-color);display:flex;justify-content:flex-end;gap:8px;flex:0 0 auto}
+		.sgml-modal-message{white-space:pre-wrap;word-break:break-word}
+		.sgml-library-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+		.sgml-library-item{width:100%;border:1px solid var(--border-color);border-radius:4px;background:#fff;padding:10px;text-align:left;display:flex;align-items:center;gap:8px}
+		.sgml-library-load{min-width:0;flex:1;border:0;background:transparent;padding:0;text-align:left}
+		.sgml-library-item-title{font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+		.sgml-library-item-preview{color:#555;font-family:monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+		.sgml-library-delete{flex:0 0 auto;width:32px;height:32px;padding:0;border:0;border-radius:4px;background:#dc2626;color:#fff;font-size:20px;font-weight:700;line-height:32px;text-align:center}
+		.sgml-library-delete:active{background:#b91c1c}
+		.sgml-library-empty{color:#666;padding:10px 0}
+		.sgml-current-name{margin-top:7px;font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-			.MathJax {
-				max-width:100%;
-				overflow-x:auto;
-				overflow-y:hidden;
-			}
+		.sgml-info-wrap{
+			display:inline-flex;
+			align-items:center;
+			vertical-align:baseline;
+			position:relative;
+		}
+		.sgml-info-trigger{
+			display:inline-flex;
+			align-items:center;
+			justify-content:center;
+			width:1.15em;
+			height:1.15em;
+			padding:0;
+			border:0;
+			background:transparent;
+			color:#8a8a8a;
+			font-size:1em;
+			line-height:1;
+			font-family:inherit;
+			text-decoration:underline;
+			text-decoration-thickness:1px;
+			text-underline-offset:2px;
+			cursor:pointer;
+			touch-action:manipulation;
+		}
+		.sgml-info-trigger:hover{color:#666}
+		.sgml-question-literal{white-space:pre-wrap}
+		.sgml-info-trigger:focus-visible{outline:1px solid #aaa;outline-offset:2px;border-radius:3px}
+		.sgml-info-panel{
+			position:absolute;
+			width:min(340px,calc(100vw - 20px));
+			max-height:min(380px,60vh);
+			overflow:auto;
+			padding:0;
+			background:var(--sgml-info-bg,#fff);
+			color:var(--sgml-info-col,#111);
+			border:1px solid #cfcfcf;
+			border-radius:5px;
+			box-shadow:0 8px 24px rgba(0,0,0,.16);
+			z-index:100000;
+			font-size:14px;
+			line-height:1.5;
+		}
+		.sgml-info-panel::before{
+			content:"";
+			position:absolute;
+			left:var(--sgml-info-arrow-left,10px);
+			top:-5px;
+			width:8px;
+			height:8px;
+			background:var(--sgml-info-bg,#fff);
+			border-left:1px solid #cfcfcf;
+			border-top:1px solid #cfcfcf;
+			transform:rotate(45deg);
+		}
+		.sgml-info-header{
+			padding:8px 10px;
+			border-bottom:1px solid #e1e1e1;
+			background:var(--sgml-info-bg,#f8f8f8);
+			color:var(--sgml-info-col,#666);
+			font-size:12px;
+			font-weight:600;
+		}
+		.sgml-info-body{padding:10px;color:var(--sgml-info-col,#111)}
+		.sgml-info-body p:last-child{margin-bottom:0}
+		.sgml-info-body img,.sgml-info-body svg,.sgml-info-body canvas,.sgml-info-body video{max-width:100%;height:auto}
+		.sgml-info-body pre{max-width:100%;overflow:auto}
+		.sgml-info-body table{max-width:100%;border-collapse:collapse}
+		.sgml-info-body th,.sgml-info-body td{border:1px solid #d8dce2;padding:5px 8px}
 
-			.MathJax_Display {
-				max-width:100%;
-				overflow-x:auto;
-				overflow-y:hidden;
-			}
+		.sgml-icb{
+			width:100%;max-width:100%;min-width:0;height:320px;min-height:160px;
+			max-height:calc(100vh - 32px);margin:16px 0;border:1px solid #cfcfcf;border-radius:5px;
+			background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column;position:relative;
+		}
+		.sgml-icb-header{
+			flex:0 0 36px;height:36px;padding:8px 11px;border-bottom:1px solid #d8d8d8;
+			background:#f8f8f8;color:#222;font-size:13px;font-weight:600;line-height:19px;
+			white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+		}
+		.sgml-icb-content{flex:1 1 auto;min-height:0;width:100%;background:#fff;overflow:hidden}
+		.sgml-icb-content iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+		.sgml-icb-footer{
+			flex:0 0 11px;height:11px;position:relative;background:#f4f4f4;border-top:1px solid #d8d8d8;
+			cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;
+		}
+		.sgml-icb-footer::before{
+			content:"";position:absolute;width:34px;height:3px;border-radius:3px;background:#a9a9a9;
+			left:50%;top:50%;transform:translate(-50%,-50%);
+		}
+		.sgml-icb-footer:hover::before,.sgml-icb-footer.dragging::before{background:#777}
 
-			#sgml-output pre::-webkit-scrollbar {
-				height:6px;
-			}
+		.sgml-visual{
+			width:100%;
+			margin:16px 0;
+			border:1px solid #cfcfcf;
+			border-radius:5px;
+			background:#fff;
+			box-shadow:0 2px 8px rgba(0,0,0,.08);
+			overflow:hidden;
+			display:flex;
+			flex-direction:column;
+			position:relative;
+			min-height:220px;
+			resize:none;
+		}
+		.sgml-visual-header{
+			flex:0 0 36px;
+			height:36px;
+			padding:8px 11px;
+			border-bottom:1px solid #d8d8d8;
+			background:#f8f8f8;
+			color:#222;
+			font-size:13px;
+			font-weight:600;
+			line-height:19px;
+			white-space:nowrap;
+			overflow:hidden;
+			text-overflow:ellipsis;
+		}
+		.sgml-visual-content{
+			flex:1 1 auto;
+			min-height:160px;
+			overflow:auto;
+			padding:18px;
+			-webkit-overflow-scrolling:touch;
+		}
+		.sgml-visual-footer{
+			flex:0 0 11px;height:11px;position:relative;background:#f4f4f4;border-top:1px solid #d8d8d8;
+			cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;
+		}
+		.sgml-visual-footer::before{
+			content:"";position:absolute;width:34px;height:3px;border-radius:3px;background:#a9a9a9;
+			left:50%;top:50%;transform:translate(-50%,-50%);
+		}
+		.sgml-visual-footer:hover::before,.sgml-visual-footer.dragging::before{background:#777}
 
-			#sgml-output pre code {
-				display:block;
-				padding:0;
-				margin:0;
-				background:transparent;
-				border:0;
-				border-radius:0;
-				font:inherit;
-				white-space:pre;
-			}
+		.sgml-tree-canvas{
+			position:relative;
+			min-width:0;
+			min-height:0;
+			padding:12px;
+			overflow:auto;
+			-webkit-overflow-scrolling:touch;
+		}
+		.sgml-tree{
+			position:relative;
+			width:max-content;
+			min-width:680px;
+			min-height:190px;
+			padding:30px;
+		}
+		.sgml-tree-svg{
+			position:absolute;
+			inset:0;
+			width:100%;
+			height:100%;
+			pointer-events:none;
+			overflow:visible;
+			z-index:0;
+		}
+		.sgml-tree-path{
+			fill:none;
+			stroke:#a0a7b0;
+			stroke-width:2;
+			stroke-linecap:round;
+		}
+		.sgml-tree-nodes{
+			position:relative;
+			z-index:2;
+			display:flex;
+			justify-content:center;
+			align-items:flex-start;
+			width:max-content;
+			min-width:100%;
+		}
+		.sgml-tree-node{
+			display:flex;
+			flex-direction:column;
+			align-items:center;
+			position:relative;
+		}
+		.sgml-tree-card{
+			width:min(360px,calc(100vw - 64px));
+			min-width:220px;
+			padding:14px;
+			border:1px solid #d0d4d9;
+			border-radius:9px;
+			background:#fff;
+			box-shadow:0 2px 8px rgba(0,0,0,.07);
+			cursor:pointer;
+			position:relative;
+			z-index:3;
+			transition:border-color .15s ease,box-shadow .15s ease;
+		}
+		.sgml-tree-card:hover{border-color:#a9afb7}
+		.sgml-tree-card.expanded{border-color:#2563eb;box-shadow:0 3px 12px rgba(37,99,235,.1)}
+		.sgml-tree-children{
+			display:none;
+			margin-top:62px;
+			gap:36px;
+			justify-content:center;
+			align-items:flex-start;
+			position:relative;
+			width:max-content;
+		}
+		.sgml-tree-node.expanded>.sgml-tree-children{display:flex}
+		.sgml-tree-child{display:flex;justify-content:center;position:relative}
+		.sgml-tree-card-content h1,.sgml-tree-card-content h2,.sgml-tree-card-content h3,.sgml-tree-card-content h4,.sgml-tree-card-content h5,.sgml-tree-card-content h6{
+			margin-top:0;margin-bottom:7px
+		}
+		.sgml-tree-card-content p{margin:0 0 9px}
+		.sgml-tree-card-content p:last-child{margin-bottom:0}
+		.sgml-tree-card-content img,.sgml-tree-card-content svg,.sgml-tree-card-content canvas,.sgml-tree-card-content video{max-width:100%}
+		.sgml-tree-card-content table{max-width:100%;border-collapse:collapse}
+		.sgml-tree-card-content th,.sgml-tree-card-content td{border:1px solid #d8dce2;padding:5px 8px}
 
-			#sgml-output :not(pre)>code {
-				font-family:monospace;
-				background:#f4f4f4;
-				padding:2px 4px;
-				border-radius:3px;
-				white-space:break-spaces;
-			}
+		.sgml-line-canvas{position:relative;min-width:0}
+		.sgml-line{
+			position:relative;
+			width:100%;
+			padding:10px 4px 10px 30px;
+		}
+		.sgml-line-rail{
+			position:absolute;
+			left:10px;
+			top:0;
+			bottom:0;
+			width:2px;
+			background:#aeb5bd;
+			z-index:0;
+			transition:bottom .18s ease;
+		}
+		.sgml-line-node{
+			position:relative;
+			display:none;
+			width:100%;
+			margin:0 0 20px;
+			z-index:1;
+		}
+		.sgml-line-node.visible{
+			display:grid;
+			grid-template-columns:minmax(120px,180px) minmax(0,1fr);
+			gap:20px;
+			align-items:start;
+			animation:sgmlLineIn .18s ease;
+		}
+		@keyframes sgmlLineIn{
+			from{opacity:0;transform:translateY(-4px)}
+			to{opacity:1;transform:translateY(0)}
+		}
+		.sgml-line-title{
+			position:relative;
+			display:block;
+			width:100%;
+			padding:9px 12px;
+			border:1px solid #d8dce2;
+			border-radius:8px;
+			background:#fff;
+			color:#16181b;
+			font-size:14px;
+			font-weight:700;
+			line-height:1.35;
+			text-align:left;
+			cursor:pointer;
+			box-shadow:0 1px 5px rgba(0,0,0,.04);
+			touch-action:manipulation;
+		}
+		.sgml-line-title::before{
+			content:"";position:absolute;left:-20px;top:50%;width:13px;height:2px;
+			background:#aeb5bd;transform:translateY(-50%)
+		}
+		.sgml-line-title::after{
+			content:"";position:absolute;left:-27px;top:50%;width:9px;height:9px;border:2px solid #9aa1aa;
+			border-radius:50%;background:#fff;transform:translateY(-50%);
+		}
+		.sgml-line-node.current .sgml-line-title{border-color:#b8c7eb;color:#2563eb;background:#fbfdff}
+		.sgml-line-node.current .sgml-line-title::after{border-color:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.08)}
+		.sgml-line-content{
+			min-width:0;width:100%;padding:13px 15px;border:1px solid #d8dce2;border-radius:8px;
+			background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.04);font-size:14px;line-height:1.55;color:#30343a;
+		}
+		.sgml-line-content p{margin:0 0 10px}
+		.sgml-line-content p:last-child{margin-bottom:0}
+		.sgml-line-content h1,.sgml-line-content h2,.sgml-line-content h3,.sgml-line-content h4,.sgml-line-content h5,.sgml-line-content h6{margin-top:0}
+		.sgml-line-content img,.sgml-line-content svg,.sgml-line-content canvas,.sgml-line-content video{display:block;max-width:100%;height:auto}
+		.sgml-line-content pre{max-width:100%;overflow:auto}
+		.sgml-line-content table{width:100%;max-width:100%;border-collapse:collapse}
+		.sgml-line-content th,.sgml-line-content td{border:1px solid #d8dce2;padding:6px 8px;text-align:left}
+		.sgml-line-end{display:none;color:#6b7280;font-size:12px;padding-top:3px}
+		.sgml-line-end.visible{display:block}
 
-			#sgml-output table {
-				width:100%;
-				max-width:100%;
-				margin:1em 0;
-				border-collapse:collapse;
-				border-spacing:0;
-				display:block;
-				overflow-x:auto;
-				overflow-y:hidden;
-				-webkit-overflow-scrolling:touch;
-				scrollbar-width:thin;
-				font-size:14px;
-			}
+		@media(max-width:700px){
+			body{padding:10px}
+			.sgml-visual-content{padding:12px}
+			.sgml-tree{min-width:600px;padding:22px}
+			.sgml-tree-card{width:260px;min-width:200px}
+			.sgml-tree-children{gap:24px}
+			.sgml-line{padding-left:29px}
+			.sgml-line-rail{left:9px}
+			.sgml-line-node.visible{display:block;margin-bottom:18px}
+			.sgml-line-title{width:fit-content;max-width:100%;margin-bottom:9px;padding:8px 11px;font-size:14px}
+			.sgml-line-title::before{left:-18px;width:11px}
+			.sgml-line-title::after{left:-25px;width:8px;height:8px}
+			.sgml-line-content{padding:12px 13px;font-size:14px}
+			.sgml-info-panel{width:min(310px,calc(100vw - 20px));max-height:55vh}
+		}
+		@media(max-width:380px){
+			body{padding:8px}
+			.sgml-visual-content{padding:10px}
+			.sgml-tree{min-width:540px;padding:18px}
+			.sgml-tree-card{width:230px}
+			.sgml-line{padding-left:26px}
+			.sgml-line-rail{left:8px}
+			.sgml-line-title{font-size:13px;padding:7px 10px}
+			.sgml-line-content{padding:11px 12px;font-size:13px}
+		}
+	</style>
+</head>
+<body>
+	<div class="sgml-toolbar">
+		<button onclick="createNewSGML()">New SGML</button>
+		<button onclick="openLibrary()">Load SGML</button>
+		<button onclick="document.getElementById('file-upload-input').click()">Upload File</button>
+		<button onclick="downloadSGML()">Download SGML</button>
+		<button onclick="toggleEditor()">Edit Code</button>
+		<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
+		<button id="offline-button" onclick="handleOfflineButton()">Enable Offline</button>
+		<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
+		<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none" type="file"/>
+	</div>
 
-			#sgml-output table::-webkit-scrollbar {
-				height:6px;
-			}
+	<div class="sgml-current-name" id="sgml-current-name"></div>
 
-			#sgml-output th,
-			#sgml-output td {
-				padding:7px 10px;
-				border:1px solid var(--border-color);
-				text-align:left;
-				vertical-align:top;
-				white-space:nowrap;
-			}
-
-			#sgml-output th {
-				font-weight:600;
-				background:#f4f4f4;
-			}
-
-			#sgml-output tr:nth-child(even) td {
-				background:#fafafa;
-			}
-			.sgml-ref {
-				color:inherit;
-				text-decoration:underline;
-				cursor:pointer;
-			}
-			
-			.sgml-ref:visited {
-				color:inherit;
-			}
-			
-			.sgml-ref:hover {
-				color:inherit;
-			}
-			
-			.sgml-ref:active {
-				color:inherit;
-			}
-			.sgml-qblock {
-				border:1px solid var(--border-color);
-				padding:12px;
-				margin:16px 0;
-				border-radius:3px;
-			}
-			.sgml-qtitle {
-				font-weight:600;
-				margin-bottom:10px;
-			}
-			.sgml-options, .sgml-inputs {
-				display:flex;
-				flex-direction:column;
-				gap:6px;
-				margin-bottom:10px;
-			}
-			.sgml-option {
-				display:flex;
-				align-items:center;
-				gap:8px;
-				cursor:pointer;
-			}
-			.sgml-option input[type="radio"] {
-				width:16px;
-				height:16px;
-			}
-			input[type="text"].sgml-text-input {
-				width:100%;
-				max-width:380px;
-				padding:5px 8px;
-				font-size:14px;
-				border:1px solid var(--border-color);
-				border-radius:3px;
-				font-family:inherit;
-			}
-			.sgml-controls {
-				display:flex;
-				align-items:center;
-				gap:10px;
-				margin-top:6px;
-			}
-			.sgml-feedback {
-				font-size:14px;
-				font-weight:bold;
-			}
-			.sgml-feedback.correct {
-				color:var(--correct-color);
-			}
-			.sgml-feedback.incorrect {
-				color:var(--incorrect-color);
-			}
-			.sgml-order-list {
-				list-style:none;
-				padding:0;
-				margin-bottom:10px;
-				display:flex;
-				flex-direction:column;
-				gap:6px;
-			}
-			.sgml-order-item {
-				display:flex;
-				align-items:center;
-				justify-content:space-between;
-				padding:6px 10px;
-				border:1px solid var(--border-color);
-				border-radius:3px;
-				background:#fff;
-				cursor:grab;
-				gap:8px;
-			}
-			.sgml-order-item.dragging {
-				opacity:0.4;
-			}
-			.sgml-item-actions {
-				display:flex;
-				gap:4px;
-				flex:0 0 auto;
-			}
-			.sgml-item-actions button {
-				padding:2px 6px;
-				font-size:12px;
-			}
-			.sgml-enum-row {
-				display:flex;
-				align-items:center;
-				gap:8px;
-			}
-			.sgml-modal-backdrop {
-				position:fixed;
-				inset:0;
-				background:var(--modal-overlay);
-				display:none;
-				align-items:center;
-				justify-content:center;
-				padding:16px;
-				z-index:9999;
-			}
-			.sgml-modal-backdrop.open {
-				display:flex;
-			}
-			.sgml-modal-backdrop.confirm-layer {
-				z-index:10001;
-			}
-			.sgml-modal {
-				width:min(100%, 520px);
-				max-height:min(90vh, 720px);
-				background:#ffffff;
-				border:1px solid #888888;
-				border-radius:5px;
-				box-shadow:0 12px 35px rgba(0, 0, 0, .22);
-				overflow:hidden;
-				display:flex;
-				flex-direction:column;
-			}
-			.sgml-modal-header {
-				padding:12px 14px;
-				border-bottom:1px solid var(--border-color);
-				font-weight:700;
-				flex:0 0 auto;
-			}
-			.sgml-modal-body {
-				padding:14px;
-				overflow-y:auto;
-				-webkit-overflow-scrolling:touch;
-			}
-			.sgml-modal-footer {
-				padding:10px 14px;
-				border-top:1px solid var(--border-color);
-				display:flex;
-				justify-content:flex-end;
-				gap:8px;
-				flex:0 0 auto;
-			}
-			.sgml-modal-message {
-				white-space:pre-wrap;
-				word-break:break-word;
-			}
-			.sgml-library-list {
-				display:flex;
-				flex-direction:column;
-				gap:8px;
-				max-height:60vh;
-				overflow-y:auto;
-				-webkit-overflow-scrolling:touch;
-			}
-			.sgml-library-item {
-				width:100%;
-				border:1px solid var(--border-color);
-				border-radius:4px;
-				background:#fff;
-				padding:10px;
-				text-align:left;
-				display:flex;
-				align-items:center;
-				gap:8px;
-			}
-			.sgml-library-load {
-				min-width:0;
-				flex:1;
-				border:0;
-				background:transparent;
-				padding:0;
-				text-align:left;
-			}
-			.sgml-library-item-title {
-				font-weight:700;
-				margin-bottom:3px;
-				overflow:hidden;
-				text-overflow:ellipsis;
-				white-space:nowrap;
-			}
-			.sgml-library-item-preview {
-				color:#555;
-				font-family:monospace;
-				font-size:12px;
-				overflow:hidden;
-				text-overflow:ellipsis;
-				white-space:nowrap;
-			}
-			.sgml-library-delete {
-				flex:0 0 auto;
-				width:32px;
-				height:32px;
-				padding:0;
-				border:0;
-				border-radius:4px;
-				background:#dc2626;
-				color:#fff;
-				font-size:20px;
-				font-weight:700;
-				line-height:32px;
-				text-align:center;
-			}
-			.sgml-library-delete:active {
-				background:#b91c1c;
-			}
-			.sgml-library-empty {
-				color:#666;
-				padding:10px 0;
-			}
-			.sgml-current-name {
-				margin-top:7px;
-				font-size:12px;
-				color:#666;
-				white-space:nowrap;
-				overflow:hidden;
-				text-overflow:ellipsis;
-			}
-			.sgml-icb {
-				width:100%;
-				max-width:100%;
-				min-width:0;
-				height:320px;
-				min-height:160px;
-				max-height:calc(100vh - 32px);
-				margin:16px 0;
-				border:1px solid #cfcfcf;
-				border-radius:5px;
-				background:#ffffff;
-				box-shadow:0 2px 8px rgba(0,0,0,.08);
-				overflow:hidden;
-				display:flex;
-				flex-direction:column;
-				position:relative;
-			}
-			.sgml-icb-header {
-				flex:0 0 36px;
-				height:36px;
-				padding:8px 11px;
-				border-bottom:1px solid #d8d8d8;
-				background:#f8f8f8;
-				color:#222;
-				font-size:13px;
-				font-weight:600;
-				line-height:19px;
-				white-space:nowrap;
-				overflow:hidden;
-				text-overflow:ellipsis;
-			}
-			.sgml-icb-content {
-				flex:1 1 auto;
-				min-height:0;
-				width:100%;
-				background:#ffffff;
-				overflow:hidden;
-			}
-			.sgml-icb-content iframe {
-				display:block;
-				width:100%;
-				height:100%;
-				border:0;
-				background:#ffffff;
-			}
-			.sgml-icb-footer {
-				flex:0 0 11px;
-				height:11px;
-				position:relative;
-				background:#f4f4f4;
-				border-top:1px solid #d8d8d8;
-				cursor:ns-resize;
-				touch-action:none;
-				user-select:none;
-				-webkit-user-select:none;
-			}
-			.sgml-icb-footer::before {
-				content:"";
-				position:absolute;
-				width:34px;
-				height:3px;
-				border-radius:3px;
-				background:#a9a9a9;
-				left:50%;
-				top:50%;
-				transform:translate(-50%,-50%);
-			}
-			.sgml-icb-footer:hover::before,
-			.sgml-icb-footer.dragging::before {
-				background:#777;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="sgml-toolbar">
-			<button onclick="createNewSGML()">New SGML</button>
-			<button onclick="openLibrary()">Load SGML</button>
-			<button onclick="document.getElementById('file-upload-input').click()">Upload File</button>
-			<button onclick="downloadSGML()">Download SGML</button>
-			<button onclick="toggleEditor()">Edit Code</button>
-			<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
-			<button id="offline-button" onclick="handleOfflineButton()">Enable Offline</button>
-			<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
-			<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none;" type="file"/>
+	<div id="editor-drawer">
+		<textarea id="sgml-input" placeholder="Paste SGML content here..."></textarea>
+		<div style="margin-top:8px;display:flex;gap:8px">
+			<button class="btn-submit" onclick="loadSGMLFromEditor()">Render SGML</button>
+			<button onclick="loadDefaultSample()">Load Sample</button>
 		</div>
+	</div>
 
-		<div class="sgml-current-name" id="sgml-current-name"></div>
+	<main id="sgml-output"></main>
 
-		<div id="editor-drawer">
-			<textarea id="sgml-input" placeholder="Paste SGML content here..."></textarea>
-			<div style="margin-top:8px;display:flex;gap:8px;">
-				<button class="btn-submit" onclick="loadSGMLFromEditor()">Render SGML</button>
-				<button onclick="loadDefaultSample()">Load Sample</button>
+	<div aria-hidden="true" class="sgml-modal-backdrop confirm-layer" id="confirm-modal">
+		<div aria-labelledby="confirm-title" aria-modal="true" class="sgml-modal" role="dialog">
+			<div class="sgml-modal-header" id="confirm-title">Confirm</div>
+			<div class="sgml-modal-body"><div class="sgml-modal-message" id="confirm-message"></div></div>
+			<div class="sgml-modal-footer">
+				<button id="confirm-cancel">Cancel</button>
+				<button class="btn-submit" id="confirm-ok">Confirm</button>
 			</div>
 		</div>
+	</div>
 
-		<main id="sgml-output"></main>
-
-		<div aria-hidden="true" class="sgml-modal-backdrop confirm-layer" id="confirm-modal">
-			<div aria-labelledby="confirm-title" aria-modal="true" class="sgml-modal" role="dialog">
-				<div class="sgml-modal-header" id="confirm-title">Confirm</div>
-				<div class="sgml-modal-body">
-					<div class="sgml-modal-message" id="confirm-message"></div>
-				</div>
-				<div class="sgml-modal-footer">
-					<button id="confirm-cancel">Cancel</button>
-					<button class="btn-submit" id="confirm-ok">Confirm</button>
-				</div>
-			</div>
+	<div aria-hidden="true" class="sgml-modal-backdrop" id="library-modal">
+		<div aria-labelledby="library-title" aria-modal="true" class="sgml-modal" role="dialog">
+			<div class="sgml-modal-header" id="library-title">Saved SGML</div>
+			<div class="sgml-modal-body"><div class="sgml-library-list" id="library-list"></div></div>
+			<div class="sgml-modal-footer"><button onclick="closeLibrary()">Close</button></div>
 		</div>
+	</div>
 
-		<div aria-hidden="true" class="sgml-modal-backdrop" id="library-modal">
-			<div aria-labelledby="library-title" aria-modal="true" class="sgml-modal" role="dialog">
-				<div class="sgml-modal-header" id="library-title">Saved SGML</div>
-				<div class="sgml-modal-body">
-					<div class="sgml-library-list" id="library-list"></div>
-				</div>
-				<div class="sgml-modal-footer">
-					<button onclick="closeLibrary()">Close</button>
-				</div>
-			</div>
-		</div>
+	<script>
+		window.MathJax={
+			typeset:false,
+			tex:{
+				inlineMath:[['$','$'],['\\(','\\)']],
+				displayMath:[['$$','$$'],['\\[','\\]']],
+				processEscapes:true,
+				processEnvironments:true
+			},
+			options:{
+				skipHtmlTags:['script','noscript','style','textarea','pre','code'],
+				ignoreHtmlClass:'tex2jax_ignore',
+				processHtmlClass:'tex2jax_process'
+			},
+			startup:{typeset:false}
+		};
+	</script>
+	<script src="./tex-chtml.js"></script>
+	<script src="./marked.js"></script>
+	<script>
+		const STORAGE_DOCS='sgml_viewer_documents';
+		const STORAGE_CURRENT_ID='sgml_viewer_current_id';
+		const STORAGE_CURRENT_CONTENT='sgml_viewer_current_sgml';
 
-		<script>
-			window.MathJax={
-				typeset:false,
-				tex:{
-					inlineMath:[['$','$'],['\\(','\\)']],
-					displayMath:[['$$','$$'],['\\[','\\]']],
-					processEscapes:true,
-					processEnvironments:true
-				},
-				options:{
-					skipHtmlTags:['script','noscript','style','textarea','pre','code'],
-					ignoreHtmlClass:'tex2jax_ignore',
-					processHtmlClass:'tex2jax_process'
-				},
-				startup:{
-					typeset:false
-				}
-			};
-		</script>
-		<script src="./tex-chtml.js"></script>
-		<script src="./marked.js"></script>
-		<script>
-			let parsedQuestions={};
-			const STORAGE_DOCS='sgml_viewer_documents';
-			const STORAGE_CURRENT_ID='sgml_viewer_current_id';
-			const STORAGE_CURRENT_CONTENT='sgml_viewer_current_sgml';
-			const STORAGE_DEFAULT_MADE='sgml_viewer_default_created';
-			let currentDocumentId=null;
+		let parsedQuestions={};
+		let currentDocumentId=null;
+		let customComponentCounter=0;
+		let questionCounter=0;
+		let infoCounter=0;
+		let openInfoWrap=null;
 
-			function makeId(){
-				return 'sgml_'+Date.now()+'_'+Math.random().toString(36).slice(2,9);
+		function makeId(){
+			return 'sgml_'+Date.now()+'_'+Math.random().toString(36).slice(2,9);
+		}
+
+		function loadDocuments(){
+			try{
+				const raw=localStorage.getItem(STORAGE_DOCS);
+				if(!raw)return[];
+				const docs=JSON.parse(raw);
+				return Array.isArray(docs)?docs:[];
+			}catch(error){
+				console.error('Could not load SGML library:',error);
+				return[];
 			}
-
-			function loadDocuments(){
-				try{
-					const raw=localStorage.getItem(STORAGE_DOCS);
-					if(!raw)return[];
-					const docs=JSON.parse(raw);
-					return Array.isArray(docs)?docs:[];
-				}catch(error){
-					console.error('Could not load SGML library:',error);
-					return[];
-				}
-			}
-
-			function saveDocuments(docs){
-				localStorage.setItem(STORAGE_DOCS,JSON.stringify(docs));
-			}
-
-			function getCurrentDocument(){
-				const docs=loadDocuments();
-				return docs.find(doc=>doc.id===currentDocumentId)||null;
-			}
-
-			function setCurrentDocumentId(id){
-				currentDocumentId=id;
-				localStorage.setItem(STORAGE_CURRENT_ID,id);
-			}
-
-			function saveCurrentSGML(nameOverride=null){
-				const input=document.getElementById('sgml-input');
-				const content=input?input.value:'';
-				let docs=loadDocuments();
-				let doc=docs.find(item=>item.id===currentDocumentId);
-
-				if(!doc){
-					doc={
-						id:makeId(),
-						title:nameOverride||'Untitled SGML',
-						content:'',
-						createdAt:Date.now(),
-						updatedAt:Date.now()
-					};
-					docs.push(doc);
-					setCurrentDocumentId(doc.id);
-				}
-
-				if(nameOverride!==null)doc.title=nameOverride;
-				doc.content=content;
-				doc.updatedAt=Date.now();
-				saveDocuments(docs);
-				localStorage.setItem(STORAGE_CURRENT_CONTENT,content);
-				updateCurrentName(doc);
-			}
-
-			function loadDocumentIntoEditor(doc){
-				if(!doc)return;
-				setCurrentDocumentId(doc.id);
-				document.getElementById('sgml-input').value=doc.content||'';
-				localStorage.setItem(STORAGE_CURRENT_CONTENT,doc.content||'');
-				updateCurrentName(doc);
-				renderSGML(doc.content||'');
-			}
-
-			function updateCurrentName(doc=getCurrentDocument()){
-				const el=document.getElementById('sgml-current-name');
-				if(!el)return;
-				el.textContent=doc?`Current SGML: ${doc.title}`:'';
-				el.title=doc?doc.title:'';
-			}
-
-			function setupAutosave(){
-				const input=document.getElementById('sgml-input');
-				input.addEventListener('input',()=>{
-					saveCurrentSGML();
-				});
-			}
-
-			function confirmDialog(message,title='Confirm',confirmText='Confirm'){
-				return new Promise(resolve=>{
-					const backdrop=document.getElementById('confirm-modal');
-					const titleEl=document.getElementById('confirm-title');
-					const messageEl=document.getElementById('confirm-message');
-					const okBtn=document.getElementById('confirm-ok');
-					const cancelBtn=document.getElementById('confirm-cancel');
-
-					titleEl.textContent=title;
-					messageEl.textContent=message;
-					okBtn.textContent=confirmText;
-					backdrop.classList.add('open');
-					backdrop.setAttribute('aria-hidden','false');
-
-					let finished=false;
-
-					const finish=value=>{
-						if(finished)return;
-						finished=true;
-						backdrop.classList.remove('open');
-						backdrop.setAttribute('aria-hidden','true');
-						okBtn.removeEventListener('click',onOk);
-						cancelBtn.removeEventListener('click',onCancel);
-						backdrop.removeEventListener('click',onBackdrop);
-						document.removeEventListener('keydown',onKeyDown);
-						resolve(value);
-					};
-
-					const onOk=()=>finish(true);
-					const onCancel=()=>finish(false);
-					const onBackdrop=event=>{
-						if(event.target===backdrop)finish(false);
-					};
-					const onKeyDown=event=>{
-						if(event.key==='Escape')finish(false);
-					};
-
-					okBtn.addEventListener('click',onOk);
-					cancelBtn.addEventListener('click',onCancel);
-					backdrop.addEventListener('click',onBackdrop);
-					document.addEventListener('keydown',onKeyDown);
-				});
-			}
-
-			async function getServiceWorkerRegistration(){
-				if(!('serviceWorker'in navigator))return null;
-				try{
-					return await navigator.serviceWorker.getRegistration('./');
-				}catch(error){
-					console.error(error);
-					return null;
-				}
-			}
-
-			function waitForController(timeout=5000){
-				if(navigator.serviceWorker.controller)return Promise.resolve();
-
-				return new Promise(resolve=>{
-					let done=false;
-
-					const finish=()=>{
-						if(done)return;
-						done=true;
-						navigator.serviceWorker.removeEventListener('controllerchange',finish);
-						clearTimeout(timer);
-						resolve();
-					};
-
-					const timer=setTimeout(finish,timeout);
-					navigator.serviceWorker.addEventListener('controllerchange',finish);
-				});
-			}
-
-			async function cacheCurrentPageWithServiceWorker(registration){
-				await waitForController();
-
-				const worker=navigator.serviceWorker.controller||registration.active||registration.waiting||registration.installing;
-				if(!worker)throw new Error('Service Worker is not active yet.');
-
-				await new Promise((resolve,reject)=>{
-					const channel=new MessageChannel();
-					const timeout=setTimeout(()=>reject(new Error('Offline cache request timed out.')),10000);
-
-					channel.port1.onmessage=event=>{
-						clearTimeout(timeout);
-						if(event.data&&event.data.ok)resolve();
-						else reject(new Error(event.data&&event.data.error?event.data.error:'Offline cache failed.'));
-					};
-
-					worker.postMessage({
-						type:'CACHE_URL',
-						url:location.href
-					},[channel.port2]);
-				});
-			}
-
-			async function enableOffline(){
-				if(!('serviceWorker'in navigator)){
-					await confirmDialog(
-						'This browser/WebView does not support Service Workers, so Offline mode cannot be enabled here.',
-						'Offline unavailable',
-						'OK'
-					);
-					return;
-				}
-
-				try{
-					const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
-					await registration.update();
-
-					if(registration.waiting){
-						registration.waiting.postMessage({type:'SKIP_WAITING'});
-					}
-
-					await waitForController(6000);
-					await cacheCurrentPageWithServiceWorker(registration);
-					updateOfflineButton(true);
-
-					await confirmDialog(
-						'Offline mode is enabled. This browser page can now be opened from its offline cache.',
-						'Offline enabled',
-						'OK'
-					);
-				}catch(error){
-					console.error('Offline setup failed:',error);
-
-					await confirmDialog(
-						'Offline mode could not be enabled. Make sure this page is being served from HTTP(S) and that sw.js is in the same folder.',
-						'Offline setup failed',
-						'OK'
-					);
-				}
-			}
-
-			async function disableOfflineAndRefresh(){
-				const confirmed=await confirmDialog(
-					'This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, it cannot be accessed offline anymore unless you enable Offline again.',
-					'Refresh browser?',
-					'Refresh'
-				);
-
-				if(!confirmed)return;
-
-				try{
-					const registration=await getServiceWorkerRegistration();
-
-					if(registration){
-						try{
-							await new Promise(resolve=>{
-								const worker=navigator.serviceWorker.controller||registration.active;
-
-								if(!worker){
-									resolve();
-									return;
-								}
-
-								const channel=new MessageChannel();
-								let finished=false;
-
-								const finish=()=>{
-									if(finished)return;
-									finished=true;
-									clearTimeout(timeout);
-									resolve();
-								};
-
-								const timeout=setTimeout(finish,3000);
-								channel.port1.onmessage=finish;
-
-								worker.postMessage({type:'DISABLE_OFFLINE'},[channel.port2]);
-							});
-						}catch(error){
-							console.warn('Could not ask worker to clear cache:',error);
-						}
-
-						await registration.unregister();
-					}
-
-					if('caches'in window){
-						const keys=await caches.keys();
-
-						await Promise.all(
-							keys
-								.filter(key=>key.startsWith('sgml-viewer-offline-'))
-								.map(key=>caches.delete(key))
-						);
-					}
-
-					updateOfflineButton(false);
-
-					const url=new URL(location.href);
-					url.searchParams.set('__sgml_refresh',String(Date.now()));
-					location.replace(url.href);
-				}catch(error){
-					console.error('Refresh cleanup failed:',error);
-
-					const url=new URL(location.href);
-					url.searchParams.set('__sgml_refresh',String(Date.now()));
-					location.replace(url.href);
-				}
-			}
-
-			async function handleOfflineButton(){
-				const button=document.getElementById('offline-button');
-
-				if(button.dataset.mode==='refresh'){
-					await disableOfflineAndRefresh();
-				}else{
-					await enableOffline();
-				}
-			}
-
-			function updateOfflineButton(enabled){
-				const button=document.getElementById('offline-button');
-				button.textContent=enabled?'Refresh':'Enable Offline';
-				button.dataset.mode=enabled?'refresh':'enable';
-			}
-
-			async function updateOfflineButtonFromState(){
-				if(!('serviceWorker'in navigator)){
-					updateOfflineButton(false);
-					return;
-				}
-
-				const registration=await getServiceWorkerRegistration();
-				updateOfflineButton(!!registration);
-			}
-
-			/*
-				SGML renderer/parser escaping
-
-				Backticks are structural string wrappers inside parsed fields.
-
-				Examples:
-					[`Washington, D.C.`,Manila,Cebu]
-					[`Hello, \`world\``,Apple]
-
-				Supported escapes:
-					\,  literal comma
-					\|  literal pipe
-					\`  literal backtick
-					\\  literal backslash
-
-				Other structural characters can also be escaped:
-					\[ \] \( \) \{ \} \< \>
-
-				Backslash escaping is handled before delimiter detection.
-			*/
-			function isSGMLEscapable(char){
-				return "\\`,|[](){}<>".includes(char);
-			}
-
-			function decodeSGMLEscapes(str){
-				if(!str)return'';
-
-				let result='';
-
-				for(let i=0;i<str.length;i++){
-					const c=str[i];
-
-					if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
-						result+=str[i+1];
-						i++;
-						continue;
-					}
-
-					result+=c;
-				}
-
-				return result;
-			}
-
-			function extractTrueText(rawStr){
-				if(!rawStr)return'';
-
-				let str=rawStr;
-
-				while(/<st\b[^>]*>/gi.test(str)||/<\/st>/gi.test(str)){
-					str=str
-						.replace(/<st\b[^>]*>/gi,'')
-						.replace(/<\/str>/gi,'')
-						.replace(/<\/st>/gi,'');
-				}
-
-				str=str.replace(/<\/?[^>]+(>|$)/g,'');
-				str=decodeSGMLEscapes(str);
-				str=str.replace(/[*_~`#]/g,'');
-				return str.trim();
-			}
-
-			function splitByChar(str,charToSplit){
-				if(!str)return[];
-
-				const result=[];
-				let current='';
-				let depth=0;
-				let inBackticks=false;
-
-				for(let i=0;i<str.length;i++){
-					const c=str[i];
-
-					/*
-						Escapes are processed before checking backticks
-						or delimiters. This prevents:
-							\, from splitting
-							\| from splitting
-							\` from toggling literal mode
-							\\ from escaping the next character
-					*/
-					if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
-						current+=str[i+1];
-						i++;
-						continue;
-					}
-
-					/*
-						Backticks wrap a literal value.
-
-						While inside backticks:
-							, does not split
-							| does not split
-							brackets do not affect depth
-					*/
-					if(c==='`'){
-						inBackticks=!inBackticks;
-						continue;
-					}
-
-					if(!inBackticks){
-						if(c==='<'||c==='['||c==='('||c==='{')depth++;
-						else if(c==='>'||c===']'||c===')'||c==='}')depth--;
-
-						if(c===charToSplit&&depth===0){
-							result.push(current.trim());
-							current='';
-							continue;
-						}
-					}
-
-					current+=c;
-				}
-
-				if(current.trim())result.push(current.trim());
-
-				return result;
-			}
-
-			function extractBalanced(text,startIdx,openChar,closeChar){
-				let count=0;
-				let content='';
-				let inBackticks=false;
-
-				for(let i=startIdx;i<text.length;i++){
-					const c=text[i];
-
-					/*
-						Escaped structural characters must not affect
-						balancing. Keep the original escape sequence here;
-						splitByChar will decode it later when appropriate.
-					*/
-					if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
-						content+=c+text[i+1];
-						i++;
-						continue;
-					}
-
-					if(c==='`'){
-						inBackticks=!inBackticks;
-						content+=c;
-						continue;
-					}
-
-					if(inBackticks){
-						content+=c;
-						continue;
-					}
-
-					if(c===openChar){
-						count++;
-
-						if(count===1)continue;
-					}
-
-					if(c===closeChar){
-						count--;
-
-						if(count===0){
-							return{
-								content,
-								nextIdx:i+1
-							};
-						}
-					}
-
-					if(count>0)content+=c;
-				}
-
-				return null;
-			}
-
-			function stripUnsafeSGML(str){
-				if(!str)return'';
-
-				let result=String(str);
-
-				result=result.replace(
-					/<(script|iframe|object|embed|portal|frame|frameset|applet)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-					''
-				);
-
-				result=result.replace(
-					/<(script|iframe|object|embed|portal|frame|frameset|applet)\b[^>]*\/?>/gi,
-					''
-				);
-
-				result=result.replace(
-					/<\/(script|iframe|object|embed|portal|frame|frameset|applet)\s*>/gi,
-					''
-				);
-
-				return result;
-			}
-
-			function extractICBBlocks(inputStr){
-				const blocks=[];
-
-				if(!inputStr){
-					return{
-						processedText:'',
-						blocks
-					};
-				}
-
-				const regex=/^~~~([^\r\n~][^\r\n]*)\r?\n([\s\S]*?)^~~~[ \t]*(?=\r?$|\n)/gm;
-
-				const processedText=String(inputStr).replace(
-					regex,
-					(match,name,content)=>{
-						const index=blocks.length;
-
-						blocks.push({
-							name:String(name||'ICB').trim()||'ICB',
-							content:String(content||'')
-						});
-
-						return`\uE100SGMLICB${index}\uE101`;
-					}
-				);
-
-				return{
-					processedText,
-					blocks
+		}
+
+		function saveDocuments(docs){
+			localStorage.setItem(STORAGE_DOCS,JSON.stringify(docs));
+		}
+
+		function getCurrentDocument(){
+			return loadDocuments().find(doc=>doc.id===currentDocumentId)||null;
+		}
+
+		function setCurrentDocumentId(id){
+			currentDocumentId=id;
+			localStorage.setItem(STORAGE_CURRENT_ID,id);
+		}
+
+		function saveCurrentSGML(nameOverride=null){
+			const input=document.getElementById('sgml-input');
+			const content=input?input.value:'';
+			let docs=loadDocuments();
+			let doc=docs.find(item=>item.id===currentDocumentId);
+
+			if(!doc){
+				doc={
+					id:makeId(),
+					title:nameOverride||'Untitled SGML',
+					content:'',
+					createdAt:Date.now(),
+					updatedAt:Date.now()
 				};
+				docs.push(doc);
+				setCurrentDocumentId(doc.id);
 			}
 
-			function renderICBPlaceholders(str,blocks){
-				if(!str||!blocks||!blocks.length)return str;
+			if(nameOverride!==null)doc.title=nameOverride;
+			doc.content=content;
+			doc.updatedAt=Date.now();
+			saveDocuments(docs);
+			localStorage.setItem(STORAGE_CURRENT_CONTENT,content);
+			updateCurrentName(doc);
+		}
 
-				return str.replace(
-					/\uE100SGMLICB(\d+)\uE101/g,
-					(_,index)=>{
-						const i=Number(index);
+		function loadDocumentIntoEditor(doc){
+			if(!doc)return;
+			setCurrentDocumentId(doc.id);
+			document.getElementById('sgml-input').value=doc.content||'';
+			localStorage.setItem(STORAGE_CURRENT_CONTENT,doc.content||'');
+			updateCurrentName(doc);
+			renderSGML(doc.content||'');
+		}
 
-						if(!blocks[i])return'';
+		function updateCurrentName(doc=getCurrentDocument()){
+			const el=document.getElementById('sgml-current-name');
+			if(!el)return;
+			el.textContent=doc?`Current SGML: ${doc.title}`:'';
+			el.title=doc?doc.title:'';
+		}
 
-						return`<div class="sgml-icb-slot" data-icb-index="${i}"></div>`;
-					}
+		function setupAutosave(){
+			const input=document.getElementById('sgml-input');
+			input.addEventListener('input',()=>saveCurrentSGML());
+		}
+
+		function confirmDialog(message,title='Confirm',confirmText='Confirm'){
+			return new Promise(resolve=>{
+				const backdrop=document.getElementById('confirm-modal');
+				const titleEl=document.getElementById('confirm-title');
+				const messageEl=document.getElementById('confirm-message');
+				const okBtn=document.getElementById('confirm-ok');
+				const cancelBtn=document.getElementById('confirm-cancel');
+
+				titleEl.textContent=title;
+				messageEl.textContent=message;
+				okBtn.textContent=confirmText;
+				backdrop.classList.add('open');
+				backdrop.setAttribute('aria-hidden','false');
+
+				let finished=false;
+				const finish=value=>{
+					if(finished)return;
+					finished=true;
+					backdrop.classList.remove('open');
+					backdrop.setAttribute('aria-hidden','true');
+					okBtn.removeEventListener('click',onOk);
+					cancelBtn.removeEventListener('click',onCancel);
+					backdrop.removeEventListener('click',onBackdrop);
+					document.removeEventListener('keydown',onKeyDown);
+					resolve(value);
+				};
+				const onOk=()=>finish(true);
+				const onCancel=()=>finish(false);
+				const onBackdrop=event=>{if(event.target===backdrop)finish(false)};
+				const onKeyDown=event=>{if(event.key==='Escape')finish(false)};
+
+				okBtn.addEventListener('click',onOk);
+				cancelBtn.addEventListener('click',onCancel);
+				backdrop.addEventListener('click',onBackdrop);
+				document.addEventListener('keydown',onKeyDown);
+			});
+		}
+
+		async function getServiceWorkerRegistration(){
+			if(!('serviceWorker' in navigator))return null;
+			try{return await navigator.serviceWorker.getRegistration('./')}
+			catch(error){console.error(error);return null}
+		}
+
+		function waitForController(timeout=5000){
+			if(navigator.serviceWorker.controller)return Promise.resolve();
+
+			return new Promise(resolve=>{
+				let done=false;
+				const finish=()=>{
+					if(done)return;
+					done=true;
+					navigator.serviceWorker.removeEventListener('controllerchange',finish);
+					clearTimeout(timer);
+					resolve();
+				};
+				const timer=setTimeout(finish,timeout);
+				navigator.serviceWorker.addEventListener('controllerchange',finish);
+			});
+		}
+
+		async function cacheCurrentPageWithServiceWorker(registration){
+			await waitForController();
+			const worker=navigator.serviceWorker.controller||registration.active||registration.waiting||registration.installing;
+			if(!worker)throw new Error('Service Worker is not active yet.');
+
+			await new Promise((resolve,reject)=>{
+				const channel=new MessageChannel();
+				const timeout=setTimeout(()=>reject(new Error('Offline cache request timed out.')),10000);
+				channel.port1.onmessage=event=>{
+					clearTimeout(timeout);
+					if(event.data&&event.data.ok)resolve();
+					else reject(new Error(event.data&&event.data.error?event.data.error:'Offline cache failed.'));
+				};
+				worker.postMessage({type:'CACHE_URL',url:location.href},[channel.port2]);
+			});
+		}
+
+		async function enableOffline(){
+			if(!('serviceWorker' in navigator)){
+				await confirmDialog(
+					'This browser/WebView does not support Service Workers, so Offline mode cannot be enabled here.',
+					'Offline unavailable','OK'
 				);
+				return;
 			}
 
-			function buildICBDocument(content){
-				const baseHref=escapeHTMLAttribute(location.href);
-				const source=String(content||'');
-				const trimmed=source.trim();
+			try{
+				const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+				await registration.update();
 
-				if(/^<!doctype\s+html/i.test(trimmed)||/<html\b/i.test(trimmed)){
-					return source;
+				if(registration.waiting){
+					registration.waiting.postMessage({type:'SKIP_WAITING'});
 				}
 
-				return`<!DOCTYPE html>
+				await waitForController(6000);
+				await cacheCurrentPageWithServiceWorker(registration);
+				updateOfflineButton(true);
+
+				await confirmDialog(
+					'Offline mode is enabled. This browser page can now be opened from its offline cache.',
+					'Offline enabled','OK'
+				);
+			}catch(error){
+				console.error('Offline setup failed:',error);
+
+				await confirmDialog(
+					'Offline mode could not be enabled. Make sure this page is being served from HTTP(S) and that sw.js is in the same folder.',
+					'Offline setup failed','OK'
+				);
+			}
+		}
+
+		async function disableOfflineAndRefresh(){
+			const confirmed=await confirmDialog(
+				'This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, it cannot be accessed offline anymore unless you enable Offline again.',
+				'Refresh browser?','Refresh'
+			);
+
+			if(!confirmed)return;
+
+			try{
+				const registration=await getServiceWorkerRegistration();
+
+				if(registration){
+					try{
+						await new Promise(resolve=>{
+							const worker=navigator.serviceWorker.controller||registration.active;
+
+							if(!worker){
+								resolve();
+								return;
+							}
+
+							const channel=new MessageChannel();
+							let finished=false;
+							const finish=()=>{
+								if(finished)return;
+								finished=true;
+								clearTimeout(timeout);
+								resolve();
+							};
+							const timeout=setTimeout(finish,3000);
+
+							channel.port1.onmessage=finish;
+							worker.postMessage({type:'DISABLE_OFFLINE'},[channel.port2]);
+						});
+					}catch(error){
+						console.warn('Could not ask worker to clear cache:',error);
+					}
+
+					await registration.unregister();
+				}
+
+				if('caches' in window){
+					const keys=await caches.keys();
+					await Promise.all(
+						keys
+							.filter(key=>key.startsWith('sgml-viewer-offline-'))
+							.map(key=>caches.delete(key))
+					);
+				}
+
+				updateOfflineButton(false);
+
+				const url=new URL(location.href);
+				url.searchParams.set('__sgml_refresh',String(Date.now()));
+				location.replace(url.href);
+			}catch(error){
+				console.error('Refresh cleanup failed:',error);
+				const url=new URL(location.href);
+				url.searchParams.set('__sgml_refresh',String(Date.now()));
+				location.replace(url.href);
+			}
+		}
+
+		async function handleOfflineButton(){
+			const button=document.getElementById('offline-button');
+
+			if(button.dataset.mode==='refresh')await disableOfflineAndRefresh();
+			else await enableOffline();
+		}
+
+		function updateOfflineButton(enabled){
+			const button=document.getElementById('offline-button');
+			button.textContent=enabled?'Refresh':'Enable Offline';
+			button.dataset.mode=enabled?'refresh':'enable';
+		}
+
+		async function updateOfflineButtonFromState(){
+			if(!('serviceWorker' in navigator)){
+				updateOfflineButton(false);
+				return;
+			}
+			const registration=await getServiceWorkerRegistration();
+			updateOfflineButton(!!registration);
+		}
+
+        function isSGMLEscapable(char){
+            return "\\`,|[](){}<>".includes(char);
+        }
+
+        function decodeSGMLEscapes(str){
+            if(!str)return'';
+            let result='';
+
+            for(let i=0;i<str.length;i++){
+                const c=str[i];
+
+                if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
+                    result+=str[i+1];
+                    i++;
+                    continue;
+                }
+
+                result+=c;
+            }
+
+            return result;
+        }
+
+        let sgmlLiteralStore=[];
+        let sgmlEscapedStore=[];
+
+        function maskLiteralStrings(source){
+            const text=String(source||'');
+            let result='';
+            let literal='';
+            let inLiteral=false;
+
+            const finishLiteral=()=>{
+                const index=sgmlLiteralStore.length;
+                sgmlLiteralStore.push(literal);
+                result+=`\uE500SGMLLIT${index}\uE501`;
+                literal='';
+            };
+
+            const maskEscaped=char=>{
+                const index=sgmlEscapedStore.length;
+                sgmlEscapedStore.push(char);
+                result+=`\uE700SGMLESC${index}\uE701`;
+            };
+
+            for(let i=0;i<text.length;i++){
+                const c=text[i];
+
+                if(inLiteral){
+                    if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
+                        literal+=c+text[i+1];
+                        i++;
+                        continue;
+                    }
+
+                    if(c==='`'){
+                        finishLiteral();
+                        inLiteral=false;
+                        continue;
+                    }
+
+                    literal+=c;
+                    continue;
+                }
+
+                if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
+                    maskEscaped(text[i+1]);
+                    i++;
+                    continue;
+                }
+
+                if(c==='`'){
+                    inLiteral=true;
+                    continue;
+                }
+
+                result+=c;
+            }
+
+            if(inLiteral)finishLiteral();
+            return result;
+        }
+
+        function restoreLiteralHTML(str){
+            return String(str||'').replace(
+                /\uE500SGMLLIT(\d+)\uE501/g,
+                (_,i)=>`<span class="sgml-question-literal">${escapeHTMLText(decodeSGMLEscapes(sgmlLiteralStore[Number(i)]||''))}</span>`
+            );
+        }
+
+        function restoreEscapedHTML(str){
+            return String(str||'').replace(
+                /\uE700SGMLESC(\d+)\uE701/g,
+                (_,i)=>escapeHTMLText(sgmlEscapedStore[Number(i)]||'')
+            );
+        }
+
+        function extractTrueText(rawStr,{stripMarkup=true}={}){
+            if(rawStr===undefined||rawStr===null)return'';
+
+            const literalTokens=[];
+            const escapedTokens=[];
+            let str=String(rawStr);
+
+            str=str.replace(
+                /\uE500SGMLLIT(\d+)\uE501/g,
+                (_,i)=>{
+                    const token=`\uE600SGMLCMP${literalTokens.length}\uE601`;
+                    literalTokens.push(sgmlLiteralStore[Number(i)]||'');
+                    return token;
+                }
+            );
+
+            str=str.replace(
+                /\uE700SGMLESC(\d+)\uE701/g,
+                (_,i)=>{
+                    const token=`\uE800SGMLCMP${escapedTokens.length}\uE801`;
+                    escapedTokens.push(sgmlEscapedStore[Number(i)]||'');
+                    return token;
+                }
+            );
+
+            if(stripMarkup){
+                str=str
+                    .replace(/<st\b[^>]*>/gi,'')
+                    .replace(/<\/st>/gi,'')
+                    .replace(/<([a-z][a-z0-9:-]*)\b[^>]*>([\s\S]*?)<\/\1>/gi,'$2')
+                    .replace(/<\/?[a-z][a-z0-9:-]*\s*\/?>/gi,match=>{
+                        const name=(match.match(/^<\/?([a-z][a-z0-9:-]*)/i)||[])[1]||'';
+                        return /^br$/i.test(name)||/^hr$/i.test(name)?'':match;
+                    });
+            }
+
+            str=str.replace(
+                /\uE600SGMLCMP(\d+)\uE601/g,
+                (_,i)=>decodeSGMLEscapes(literalTokens[Number(i)]||'')
+            );
+
+            str=str.replace(
+                /\uE800SGMLCMP(\d+)\uE801/g,
+                (_,i)=>escapedTokens[Number(i)]||''
+            );
+
+            str=decodeSGMLEscapes(str);
+            str=str.replace(/[*_~`#]/g,'');
+            return str.trim();
+        }
+
+		function splitByChar(str,charToSplit){
+			if(!str)return[];
+
+			const result=[];
+			let current='';
+			let depth=0;
+			let inBackticks=false;
+
+			for(let i=0;i<str.length;i++){
+				const c=str[i];
+
+				if(c==='\\'&&i+1<str.length&&isSGMLEscapable(str[i+1])){
+					current+=c+str[i+1];
+					i++;
+					continue;
+				}
+
+				if(c==='`'){
+					inBackticks=!inBackticks;
+					current+=c;
+					continue;
+				}
+
+				if(!inBackticks){
+					if(c==='<'||c==='['||c==='('||c==='{')depth++;
+					else if(c==='>'||c===']'||c===')'||c==='}')depth--;
+
+					if(c===charToSplit&&depth===0){
+						result.push(current.trim());
+						current='';
+						continue;
+					}
+				}
+
+				current+=c;
+			}
+
+			if(current.trim())result.push(current.trim());
+			return result;
+		}
+
+		function extractBalanced(text,startIdx,openChar,closeChar){
+			let count=0;
+			let content='';
+			let inBackticks=false;
+
+			for(let i=startIdx;i<text.length;i++){
+				const c=text[i];
+
+				if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
+					content+=c+text[i+1];
+					i++;
+					continue;
+				}
+
+				if(c==='`'){
+					inBackticks=!inBackticks;
+					content+=c;
+					continue;
+				}
+
+				if(inBackticks){
+					content+=c;
+					continue;
+				}
+
+				if(c===openChar){
+					count++;
+					if(count===1)continue;
+				}
+
+				if(c===closeChar){
+					count--;
+					if(count===0)return{content,nextIdx:i+1};
+				}
+
+				if(count>0)content+=c;
+			}
+
+			return null;
+		}
+
+		function findTagStart(source,tag,from=0){
+			const re=new RegExp(`<${tag}\\b[^>]*>`,`gi`);
+			re.lastIndex=from;
+			const match=re.exec(source);
+			return match?{index:match.index,end:re.lastIndex,open:match[0]}:null;
+		}
+
+		function findMatchingTag(source,tag,startIndex,allowNested=true){
+			const tokenRegex=new RegExp(`</?${tag}\\b[^>]*>`,`gi`);
+			tokenRegex.lastIndex=startIndex;
+
+			let depth=1;
+			let match;
+
+			while((match=tokenRegex.exec(source))!==null){
+				const token=match[0];
+
+				if(/^<\//.test(token)){
+					depth--;
+
+					if(depth===0){
+						return{
+							content:source.slice(startIndex,match.index),
+							end:tokenRegex.lastIndex
+						};
+					}
+				}else if(allowNested){
+					depth++;
+				}
+			}
+
+			return null;
+		}
+
+		function extractChildren(source,tag,allowNested=false){
+			const children=[];
+			const spans=[];
+			let pos=0;
+
+			while(pos<source.length){
+				const found=findTagStart(source,tag,pos);
+
+				if(!found)break;
+
+				const matched=findMatchingTag(
+					source,
+					tag,
+					found.end,
+					allowNested
+				);
+
+				if(!matched)break;
+
+				children.push({
+					open:found.open,
+					content:matched.content,
+					start:found.index,
+					end:matched.end
+				});
+
+				spans.push({
+					start:found.index,
+					end:matched.end
+				});
+
+				pos=matched.end;
+			}
+
+			return{children,spans};
+		}
+
+		function removeSpans(source,spans){
+			if(!spans.length)return source;
+
+			let result='';
+			let cursor=0;
+
+			spans
+				.sort((a,b)=>a.start-b.start)
+				.forEach(span=>{
+					result+=source.slice(cursor,span.start);
+					result+='\n';
+					cursor=span.end;
+				});
+
+			result+=source.slice(cursor);
+			return result;
+		}
+
+		function extractICBBlocks(inputStr){
+			const blocks=[];
+
+			if(!inputStr){
+				return{processedText:'',blocks};
+			}
+
+			const regex=/^~~~([^\r\n~][^\r\n]*)\r?\n([\s\S]*?)^~~~[ 	]*(?=\r?$|\n)/gm;
+
+			const processedText=String(inputStr).replace(
+				regex,
+				(match,name,content)=>{
+					const index=blocks.length;
+
+					blocks.push({
+						name:String(name||'ICB').trim()||'ICB',
+						content:String(content||'')
+					});
+
+					return`\uE100SGMLICB${index}\uE101`;
+				}
+			);
+
+			return{processedText,blocks};
+		}
+
+		function buildICBDocument(content){
+			const baseHref=escapeHTMLAttribute(location.href);
+			const source=String(content||'');
+			const trimmed=source.trim();
+
+			if(/^<!doctype\s+html/i.test(trimmed)||/<html\b/i.test(trimmed)){
+				return source;
+			}
+
+			return`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <base href="${baseHref}">
 <style>
-html,body{
-	margin:0;
-	padding:0;
-	min-width:0;
-	min-height:100%;
-	width:100%;
-	box-sizing:border-box;
-}
-body{
-	overflow:auto;
-	font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-}
-*,*::before,*::after{
-	box-sizing:border-box;
-}
-img,video,canvas,svg{
-	max-width:none;
-}
-table{
-	max-width:none;
-}
+html,body{margin:0;padding:0;min-width:0;min-height:100%;width:100%;box-sizing:border-box}
+body{overflow:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+*,*::before,*::after{box-sizing:border-box}
+img,video,canvas,svg{max-width:none}
+table{max-width:none}
 </style>
 </head>
-<body>
-${source}
-</body>
+<body>${source}</body>
 </html>`;
-			}
+		}
 
-			function setupICB(){
-				const slots=document.querySelectorAll('.sgml-icb-slot');
+		function setupICB(){
+			const slots=document.querySelectorAll('.sgml-icb-slot');
 
-				slots.forEach(slot=>{
-					const index=Number(slot.dataset.icbIndex);
-					const block=window.__sgmlICBBlocks&&window.__sgmlICBBlocks[index];
+			slots.forEach(slot=>{
+				const index=Number(slot.dataset.icbIndex);
+				const block=window.__sgmlICBBlocks&&window.__sgmlICBBlocks[index];
 
-					if(!block)return;
+				if(!block)return;
 
-					const container=document.createElement('div');
-					container.className='sgml-icb';
-					container.style.height='320px';
+				const container=document.createElement('div');
+				container.className='sgml-icb';
+				container.style.height='320px';
 
-					const header=document.createElement('div');
-					header.className='sgml-icb-header';
-					header.textContent=block.name;
-					header.title=block.name;
+				const header=document.createElement('div');
+				header.className='sgml-icb-header';
+				header.textContent=block.name;
+				header.title=block.name;
 
-					const content=document.createElement('div');
-					content.className='sgml-icb-content';
+				const content=document.createElement('div');
+				content.className='sgml-icb-content';
 
-					const iframe=document.createElement('iframe');
-					iframe.setAttribute('sandbox','allow-scripts');
-					iframe.setAttribute('title',`${block.name} isolated container`);
-					iframe.setAttribute('loading','lazy');
-					iframe.srcdoc=buildICBDocument(block.content);
+				const iframe=document.createElement('iframe');
+				iframe.setAttribute('sandbox','allow-scripts');
+				iframe.setAttribute('title',`${block.name} isolated container`);
+				iframe.setAttribute('loading','lazy');
+				iframe.srcdoc=buildICBDocument(block.content);
 
-					content.appendChild(iframe);
+				content.appendChild(iframe);
 
-					const footer=document.createElement('div');
-					footer.className='sgml-icb-footer';
-					footer.setAttribute('aria-label','Resize isolated container');
-					footer.title='Drag to resize';
+				const footer=document.createElement('div');
+				footer.className='sgml-icb-footer';
+				footer.setAttribute('aria-label','Resize isolated container');
+				footer.title='Drag to resize';
 
-					container.appendChild(header);
-					container.appendChild(content);
-					container.appendChild(footer);
+				container.appendChild(header);
+				container.appendChild(content);
+				container.appendChild(footer);
+				slot.replaceWith(container);
 
-					slot.replaceWith(container);
+				let dragging=false;
+				let startY=0;
+				let startHeight=320;
+				let pointerId=null;
 
-					let dragging=false;
-					let startY=0;
-					let startHeight=320;
-					let pointerId=null;
+				const getMaxHeight=()=>Math.max(160,window.innerHeight-32);
 
-					const getMaxHeight=()=>{
-						return Math.max(
-							160,
-							window.innerHeight-32
-						);
-					};
+				const onPointerMove=event=>{
+					if(!dragging)return;
+					if(pointerId!==null&&event.pointerId!==pointerId)return;
 
-					const onPointerMove=event=>{
-						if(!dragging)return;
-						if(pointerId!==null&&event.pointerId!==pointerId)return;
+					const delta=event.clientY-startY;
+					const newHeight=Math.max(
+						160,
+						Math.min(getMaxHeight(),startHeight+delta)
+					);
 
-						const delta=event.clientY-startY;
-						const newHeight=Math.max(
-							160,
-							Math.min(
-								getMaxHeight(),
-								startHeight+delta
-							)
-						);
+					container.style.height=`${newHeight}px`;
+				};
 
-						container.style.height=`${newHeight}px`;
-					};
+				const endDrag=event=>{
+					if(pointerId!==null&&event.pointerId!==pointerId)return;
 
-					const endDrag=event=>{
-						if(pointerId!==null&&event.pointerId!==pointerId)return;
+					dragging=false;
+					footer.classList.remove('dragging');
 
-						dragging=false;
-						footer.classList.remove('dragging');
+					if(footer.hasPointerCapture&&pointerId!==null&&footer.hasPointerCapture(pointerId)){
+						footer.releasePointerCapture(pointerId);
+					}
 
-						if(
-							footer.hasPointerCapture&&
-							pointerId!==null&&
-							footer.hasPointerCapture(pointerId)
-						){
-							footer.releasePointerCapture(pointerId);
-						}
+					pointerId=null;
 
-						pointerId=null;
+					window.removeEventListener('pointermove',onPointerMove);
+					window.removeEventListener('pointerup',endDrag);
+					window.removeEventListener('pointercancel',endDrag);
+				};
 
-						window.removeEventListener('pointermove',onPointerMove);
-						window.removeEventListener('pointerup',endDrag);
-						window.removeEventListener('pointercancel',endDrag);
-					};
+				footer.addEventListener('pointerdown',event=>{
+					event.preventDefault();
 
-					footer.addEventListener('pointerdown',event=>{
-						event.preventDefault();
+					dragging=true;
+					startY=event.clientY;
+					startHeight=container.getBoundingClientRect().height;
+					pointerId=event.pointerId;
+					footer.classList.add('dragging');
 
-						dragging=true;
-						startY=event.clientY;
-						startHeight=container.getBoundingClientRect().height;
-						pointerId=event.pointerId;
-						footer.classList.add('dragging');
+					if(footer.setPointerCapture){
+						try{footer.setPointerCapture(event.pointerId)}catch(_){}
+					}
 
-						if(footer.setPointerCapture){
-							try{
-								footer.setPointerCapture(event.pointerId);
-							}catch(_){}
-						}
-
-						window.addEventListener('pointermove',onPointerMove);
-						window.addEventListener('pointerup',endDrag);
-						window.addEventListener('pointercancel',endDrag);
-					});
+					window.addEventListener('pointermove',onPointerMove);
+					window.addEventListener('pointerup',endDrag);
+					window.addEventListener('pointercancel',endDrag);
 				});
-			}
+			});
+		}
 
-			function parseQuestionBlocks(inputStr){
-				const questions=[];
-				let i=0;
-				let output='';
+		function renderST(str){
+			if(!str)return'';
 
-				while(i<inputStr.length){
-					const match=inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
+			return String(str)
+				.replace(/<st\s+([^>]*?)>/gi,(m,a)=>{
+					const rules=[];
 
-					if(match){
-						const type=match[1];
-						let cur=i+match[0].length;
+					a.trim().split(/\s+/).forEach(p=>{
+						const i=p.indexOf(':');
+						if(i<0)return;
 
-						while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+						let k=p.slice(0,i).trim();
+						let v=p.slice(i+1).trim();
 
-						if(inputStr[cur]==='('){
-							const qRes=extractBalanced(inputStr,cur,'(',')');
+						if(k==='col')k='color';
+						else if(k==='bg')k='background-color';
+						else if(k==='fontSize')k='font-size';
+						else if(k==='fontFamily')k='font-family';
 
-							if(qRes){
-								cur=qRes.nextIdx;
+						rules.push(`${k}:${v}`);
+					});
 
-								while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+					return`<span style="${rules.join(';')}">`;
+				})
+				.replace(/<\/st>/gi,'</span>');
+		}
 
-								if(inputStr[cur]==='['){
-									const aRes=extractBalanced(inputStr,cur,'[',']');
+		function escapeHTMLAttribute(str){
+			return String(str)
+				.replace(/&/g,'&amp;')
+				.replace(/"/g,'&quot;')
+				.replace(/</g,'&lt;')
+				.replace(/>/g,'&gt;');
+		}
 
-									if(aRes){
-										cur=aRes.nextIdx;
+		function escapeHTMLText(str){
+			return String(str)
+				.replace(/&/g,'&amp;')
+				.replace(/</g,'&lt;')
+				.replace(/>/g,'&gt;')
+				.replace(/"/g,'&quot;');
+		}
 
-										while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+		function renderMarkdown(mdText){
+			if(!mdText)return'';
 
-										if(inputStr[cur]==='{'){
-											const cRes=extractBalanced(inputStr,cur,'{','}');
+			const savedRefs=[];
+			const saved=[];
+			let source=String(mdText);
 
-											if(cRes){
-												cur=cRes.nextIdx;
+			source=maskLiteralStrings(source);
 
-												while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+			source=source
+				.replace(
+					/<ref\s+id\s*:\s*"([^"]*)"\s*\/>/gi,
+					(match,id)=>{
+						const index=savedRefs.length;
+						savedRefs.push({type:'target',id});
+						return`\uE000SGMLREF${index}\uE001`;
+					}
+				)
+				.replace(
+					/<ref\s+id\s*:\s*"([^"]*)"\s*>([\s\S]*?)<\/ref>/gi,
+					(match,id,content)=>{
+						const index=savedRefs.length;
+						savedRefs.push({type:'link',id,content});
+						return`\uE000SGMLREF${index}\uE001`;
+					}
+				)
+				.replace(
+					/<st\b[^>]*>|<\/st>/gi,
+					tag=>{
+						const id=saved.length;
+						saved.push(tag);
+						return`\uE000SGMLST${id}\uE001`;
+					}
+				);
 
-												if(inputStr[cur]==='>'){
-													cur++;
+			let result=marked.parse(source,{gfm:true,breaks:true});
 
-													const qId='sgmlq'+questions.length;
+			result=result.replace(
+				/\uE000SGMLST(\d+)\uE001/g,
+				(_,i)=>saved[Number(i)]||''
+			);
 
-													questions.push({
-														id:qId,
-														type:type.toLowerCase(),
-														questionRaw:qRes.content,
-														answersRaw:aRes.content,
-														correctAndPropsRaw:cRes.content
-													});
+			result=result.replace(
+				/\uE000SGMLREF(\d+)\uE001/g,
+				(_,i)=>{
+					const ref=savedRefs[Number(i)];
+					if(!ref)return'';
 
-													output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
-													i=cur;
-													continue;
-												}
+					const id=escapeHTMLAttribute(ref.id);
+					if(ref.type==='target')return`<a id="${id}" class="sgml-ref"></a>`;
+					return`<a href="#${id}" class="sgml-ref">${renderMarkdown(ref.content)}</a>`;
+				}
+			);
+
+			result=restoreLiteralHTML(result);
+			result=restoreEscapedHTML(result);
+			return renderST(result);
+		}
+
+		function buildQuestionUI(q){
+			if(q.type==='choices')return buildChoicesHTML(q);
+			if(q.type==='fillin')return buildFillinHTML(q);
+			if(q.type==='enumeration')return buildEnumerationHTML(q);
+			return'';
+		}
+
+		function parseQuestionBlocks(inputStr){
+			const questions=[];
+			let i=0;
+			let output='';
+
+			while(i<inputStr.length){
+				const match=inputStr.slice(i).match(/^<(Choices|Fillin|Enumeration):/i);
+
+				if(match){
+					const type=match[1];
+					let cur=i+match[0].length;
+
+					while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+					if(inputStr[cur]==='('){
+						const qRes=extractBalanced(inputStr,cur,'(',')');
+
+						if(qRes){
+							cur=qRes.nextIdx;
+
+							while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+							if(inputStr[cur]==='['){
+								const aRes=extractBalanced(inputStr,cur,'[',']');
+
+								if(aRes){
+									cur=aRes.nextIdx;
+
+									while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+									if(inputStr[cur]==='{'){
+										const cRes=extractBalanced(inputStr,cur,'{','}');
+
+										if(cRes){
+											cur=cRes.nextIdx;
+
+											while(cur<inputStr.length&&/\s/.test(inputStr[cur]))cur++;
+
+											if(inputStr[cur]==='>'){
+												cur++;
+
+												const qId='sgmlq'+questionCounter++;
+
+												questions.push({
+													id:qId,
+													type:type.toLowerCase(),
+													questionRaw:qRes.content,
+													answersRaw:aRes.content,
+													correctAndPropsRaw:cRes.content
+												});
+
+												output+=`\n\n%%QBLOCKTOKEN${qId}%%\n\n`;
+												i=cur;
+												continue;
 											}
 										}
 									}
@@ -1371,580 +1459,1407 @@ ${source}
 							}
 						}
 					}
+				}
 
-					output+=inputStr[i];
+				output+=inputStr[i];
+				i++;
+			}
+
+			return{processedText:output,questions};
+		}
+
+		function parsePropsAndAnswers(correctAndPropsRaw,answersList){
+			const result={
+				props:{
+					case:false,
+					inorder:false,
+					count:null,
+					type:null
+				},
+				correctAnswers:[]
+			};
+
+			const segments=splitByChar(correctAndPropsRaw,'|');
+
+			segments.forEach(seg=>{
+				const propMatch=seg.match(/^([a-zA-Z]+)\s*:\s*(.+)$/);
+
+				if(propMatch){
+					const key=propMatch[1].toLowerCase();
+					const val=propMatch[2].trim().toLowerCase();
+
+					if(key==='case')result.props.case=val==='true';
+					else if(key==='inorder')result.props.inorder=val==='true';
+					else if(key==='count')result.props.count=parseInt(val,10);
+					else if(key==='type')result.props.type=val;
+					else if(key==='order'&&val==='true')result.props.type='order';
+				}else{
+					const idxMatches=[...seg.matchAll(/\[idx:(\d+)\]/gi)];
+
+					if(idxMatches.length){
+						idxMatches.forEach(m=>{
+							const idx=parseInt(m[1],10);
+							if(answersList[idx]!==undefined)result.correctAnswers.push(answersList[idx]);
+						});
+					}else if(seg){
+						result.correctAnswers.push(...splitByChar(seg,','));
+					}
+				}
+			});
+
+			if(result.correctAnswers.length===0&&answersList.length){
+				result.correctAnswers=[...answersList];
+			}
+
+			return result;
+		}
+
+		function renderQuestionText(source){
+			return renderEmbeddedSGML(String(source||''));
+		}
+
+		function buildChoicesHTML(q){
+			const qHTML=renderQuestionText(q.questionRaw);
+			const options=splitByChar(q.answersRaw,',');
+			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,options);
+
+			parsedQuestions[q.id]={
+				type:'choices',
+				options,
+				correctAnswers:parsed.correctAnswers,
+				props:parsed.props
+			};
+
+			let optionsHTML='';
+
+			options.forEach((opt,idx)=>{
+				optionsHTML+=`
+					<label class="sgml-option">
+						<input type="radio" name="radio_${q.id}" value="${idx}">
+						<span>${renderQuestionText(opt)}</span>
+					</label>`;
+			});
+
+			return`
+				<div class="sgml-qblock" id="${q.id}">
+					<div class="sgml-qtitle">${qHTML}</div>
+					<div class="sgml-options">${optionsHTML}</div>
+					<div class="sgml-controls">
+						<button onclick="checkChoicesAnswer('${q.id}')">Check Answer</button>
+						<span class="sgml-feedback" id="fb_${q.id}"></span>
+					</div>
+				</div>`;
+		}
+
+		function buildFillinHTML(q){
+			const qHTML=renderQuestionText(q.questionRaw);
+			const answersList=splitByChar(q.answersRaw,',');
+			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+
+			parsedQuestions[q.id]={
+				type:'fillin',
+				correctAnswers:parsed.correctAnswers,
+				props:parsed.props
+			};
+
+			return`
+				<div class="sgml-qblock" id="${q.id}">
+					<div class="sgml-qtitle">${qHTML}</div>
+					<div class="sgml-inputs">
+						<input type="text" class="sgml-text-input" id="input_${q.id}" placeholder="Type answer..." autocomplete="off">
+					</div>
+					<div class="sgml-controls">
+						<button onclick="checkFillinAnswer('${q.id}')">Check Answer</button>
+						<span class="sgml-feedback" id="fb_${q.id}"></span>
+					</div>
+				</div>`;
+		}
+
+		function buildEnumerationHTML(q){
+			const qHTML=renderQuestionText(q.questionRaw);
+			const answersList=splitByChar(q.answersRaw,',');
+			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+
+			if(parsed.props.type==='order'){
+				const items=answersList.length?answersList:parsed.correctAnswers;
+
+				parsedQuestions[q.id]={
+					type:'enum_order',
+					correctAnswers:parsed.correctAnswers,
+					props:parsed.props
+				};
+
+				let listItemsHTML='';
+
+				items.forEach(item=>{
+					listItemsHTML+=`
+						<li class="sgml-order-item" draggable="true" data-raw="${encodeURIComponent(item)}">
+							<span>${renderQuestionText(item)}</span>
+							<div class="sgml-item-actions">
+								<button type="button" onclick="moveOrderItem('${q.id}',this,-1)">▲</button>
+								<button type="button" onclick="moveOrderItem('${q.id}',this,1)">▼</button>
+							</div>
+						</li>`;
+				});
+
+				return`
+					<div class="sgml-qblock" id="${q.id}">
+						<div class="sgml-qtitle">${qHTML}</div>
+						<ul class="sgml-order-list" id="order_list_${q.id}">${listItemsHTML}</ul>
+						<div class="sgml-controls">
+							<button onclick="checkEnumOrderAnswer('${q.id}')">Check Order</button>
+							<span class="sgml-feedback" id="fb_${q.id}"></span>
+						</div>
+					</div>`;
+			}
+
+			const count=parsed.props.count||parsed.correctAnswers.length||1;
+
+			parsedQuestions[q.id]={
+				type:'enum_written',
+				count,
+				correctAnswers:parsed.correctAnswers,
+				props:parsed.props
+			};
+
+			let inputsHTML='';
+
+			for(let i=0;i<count;i++){
+				inputsHTML+=`
+					<div class="sgml-enum-row">
+						<span>${i+1}.</span>
+						<input type="text" class="sgml-text-input input_${q.id}" placeholder="Answer ${i+1}" autocomplete="off">
+					</div>`;
+			}
+
+			return`
+				<div class="sgml-qblock" id="${q.id}">
+					<div class="sgml-qtitle">${qHTML}</div>
+					<div class="sgml-inputs">${inputsHTML}</div>
+					<div class="sgml-controls">
+						<button onclick="checkEnumWrittenAnswer('${q.id}')">Check Answers</button>
+						<span class="sgml-feedback" id="fb_${q.id}"></span>
+					</div>
+				</div>`;
+		}
+
+		function normalizeComponentSource(source){
+			let text=String(source||'').replace(/\r\n?/g,'\n');
+			const lines=text.split('\n');
+			while(lines.length&&lines[0].trim()==='')lines.shift();
+			while(lines.length&&lines[lines.length-1].trim()==='')lines.pop();
+			const indents=lines
+				.filter(line=>line.trim())
+				.map(line=>{
+					const match=line.match(/^[ 	]*/);
+					return match?match[0].replace(/	/g,'    ').length:0;
+				});
+			const minIndent=indents.length?Math.min(...indents):0;
+			if(!minIndent)return lines.join('\n');
+			return lines.map(line=>{
+				let spaces=0;
+				let i=0;
+				while(i<line.length&&spaces<minIndent){
+					if(line[i]==='	')spaces+=4;
+					else if(line[i]===' ')spaces++;
+					else break;
 					i++;
 				}
+				return line.slice(i);
+			}).join('\n');
+		}
 
-				return{
-					processedText:output,
-					questions
-				};
-			}
+		window.__sgmlInfoStore={};
+		let sgmlInfoIdCounter=0;
 
-			function parsePropsAndAnswers(correctAndPropsRaw,answersList){
-				const result={
-					props:{
-						case:false,
-						inorder:false,
-						count:null,
-						type:null
-					},
-					correctAnswers:[]
-				};
+		function getInfoStore(){
+			if(!window.__sgmlInfoStore)window.__sgmlInfoStore={};
+			return window.__sgmlInfoStore;
+		}
 
-				const segments=splitByChar(correctAndPropsRaw,'|');
+		function parseComponentAttributes(tag){
+			const attrs={};
+			if(!tag)return attrs;
 
-				segments.forEach(seg=>{
-					const propMatch=seg.match(/^([a-zA-Z]+)\s*:\s*(.+)$/);
+			const names=['title','bg','col'];
 
-					if(propMatch){
-						const key=propMatch[1].toLowerCase();
-						const val=propMatch[2].trim().toLowerCase();
-
-						if(key==='case')result.props.case=(val==='true');
-						else if(key==='inorder')result.props.inorder=(val==='true');
-						else if(key==='count')result.props.count=parseInt(val,10);
-						else if(key==='type')result.props.type=val;
-						else if(key==='order'&&val==='true')result.props.type='order';
-					}else{
-						const idxMatches=[...seg.matchAll(/\[idx:(\d+)\]/gi)];
-
-						if(idxMatches.length>0){
-							idxMatches.forEach(m=>{
-								const idx=parseInt(m[1],10);
-
-								if(answersList[idx]!==undefined){
-									result.correctAnswers.push(answersList[idx]);
-								}
-							});
-						}else if(seg){
-							const rawAnswers=splitByChar(seg,',');
-							result.correctAnswers.push(...rawAnswers);
-						}
-					}
-				});
-
-				if(result.correctAnswers.length===0&&answersList.length>0){
-					result.correctAnswers=[...answersList];
-				}
-
-				return result;
-			}
-
-			function renderST(str){
-				if(!str)return'';
-
-				return str
-					.replace(/<st\s+([^>]*?)>/gi,(m,a)=>{
-						const rules=[];
-
-						a.trim().split(/\s+/).forEach(p=>{
-							const i=p.indexOf(':');
-
-							if(i<0)return;
-
-							let k=p.slice(0,i).trim();
-							let v=p.slice(i+1).trim();
-
-							if(k==='col')k='color';
-							else if(k==='bg')k='background-color';
-							else if(k==='fontSize')k='font-size';
-							else if(k==='fontFamily')k='font-family';
-
-							rules.push(`${k}:${v}`);
-						});
-
-						return `<span style="${rules.join(';')}">`;
-					})
-					.replace(/<\/st>/gi,'</span>');
-			}
-
-			function escapeHTMLAttribute(str){
-				return String(str)
-					.replace(/&/g,'&amp;')
-					.replace(/"/g,'&quot;')
-					.replace(/</g,'&lt;')
-					.replace(/>/g,'&gt;');
-			}
-
-			function renderMarkdown(mdText){
-				if(!mdText)return'';
-
-				const savedRefs=[];
-				const saved=[];
-
-				let source=String(mdText)
-					.replace(
-						/<ref\s+id\s*:\s*"([^"]*)"\s*\/>/gi,
-						(match,id)=>{
-							const index=savedRefs.length;
-
-							savedRefs.push({
-								type:'target',
-								id:id
-							});
-
-							return`\uE000SGMLREF${index}\uE001`;
-						}
-					)
-					.replace(
-						/<ref\s+id\s*:\s*"([^"]*)"\s*>([\s\S]*?)<\/ref>/gi,
-						(match,id,content)=>{
-							const index=savedRefs.length;
-
-							savedRefs.push({
-								type:'link',
-								id:id,
-								content:content
-							});
-
-							return`\uE000SGMLREF${index}\uE001`;
-						}
-					)
-					.replace(
-						/<st\b[^>]*>|<\/st>/gi,
-						tag=>{
-							const id=saved.length;
-							saved.push(tag);
-							return`\uE000SGMLST${id}\uE001`;
-						}
-					);
-
-				let result=marked.parse(source,{
-					gfm:true,
-					breaks:true
-				});
-
-				result=result.replace(
-					/\uE000SGMLST(\d+)\uE001/g,
-					(_,i)=>saved[Number(i)]||''
+			names.forEach(name=>{
+				const quoted=tag.match(
+					new RegExp(`${name}\\s*:\\s*"([^"]*)"`,'i')
 				);
 
-				result=result.replace(
-					/\uE000SGMLREF(\d+)\uE001/g,
-					(_,i)=>{
-						const ref=savedRefs[Number(i)];
-
-						if(!ref)return'';
-
-						const id=escapeHTMLAttribute(ref.id);
-
-						if(ref.type==='target'){
-							return`<a id="${id}" class="sgml-ref"></a>`;
-						}
-
-						return`<a href="#${id}" class="sgml-ref">${renderMarkdown(ref.content)}</a>`;
-					}
-				);
-
-				return renderST(result);
-			}
-
-			function buildChoicesHTML(q){
-				const qHTML=renderMarkdown(q.questionRaw);
-				const options=splitByChar(q.answersRaw,',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,options);
-
-				parsedQuestions[q.id]={
-					type:'choices',
-					options:options,
-					correctAnswers:parsed.correctAnswers,
-					props:parsed.props
-				};
-
-				let optionsHTML='';
-
-				options.forEach((opt,idx)=>{
-					optionsHTML+=`
-						<label class="sgml-option">
-							<input type="radio" name="radio_${q.id}" value="${idx}">
-							<span>${renderMarkdown(opt)}</span>
-						</label>`;
-				});
-
-				return `
-					<div class="sgml-qblock" id="${q.id}">
-						<div class="sgml-qtitle">${qHTML}</div>
-						<div class="sgml-options">${optionsHTML}</div>
-						<div class="sgml-controls">
-							<button onclick="checkChoicesAnswer('${q.id}')">Check Answer</button>
-							<span class="sgml-feedback" id="fb_${q.id}"></span>
-						</div>
-					</div>`;
-			}
-
-			function buildFillinHTML(q){
-				const qHTML=renderMarkdown(q.questionRaw);
-				const answersList=splitByChar(q.answersRaw,',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
-
-				parsedQuestions[q.id]={
-					type:'fillin',
-					correctAnswers:parsed.correctAnswers,
-					props:parsed.props
-				};
-
-				return `
-					<div class="sgml-qblock" id="${q.id}">
-						<div class="sgml-qtitle">${qHTML}</div>
-						<div class="sgml-inputs">
-							<input type="text" class="sgml-text-input" id="input_${q.id}" placeholder="Type answer..." autocomplete="off">
-						</div>
-						<div class="sgml-controls">
-							<button onclick="checkFillinAnswer('${q.id}')">Check Answer</button>
-							<span class="sgml-feedback" id="fb_${q.id}"></span>
-						</div>
-					</div>`;
-			}
-
-			function buildEnumerationHTML(q){
-				const qHTML=renderMarkdown(q.questionRaw);
-				const answersList=splitByChar(q.answersRaw,',');
-				const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
-
-				if(parsed.props.type==='order'){
-					const items=answersList.length>0?answersList:parsed.correctAnswers;
-
-					parsedQuestions[q.id]={
-						type:'enum_order',
-						correctAnswers:parsed.correctAnswers,
-						props:parsed.props
-					};
-
-					let listItemsHTML='';
-
-					items.forEach(item=>{
-						listItemsHTML+=`
-							<li class="sgml-order-item" draggable="true" data-raw="${encodeURIComponent(item)}">
-								<span>${renderMarkdown(item)}</span>
-								<div class="sgml-item-actions">
-									<button type="button" onclick="moveOrderItem('${q.id}', this, -1)">▲</button>
-									<button type="button" onclick="moveOrderItem('${q.id}', this, 1)">▼</button>
-								</div>
-							</li>`;
-					});
-
-					return `
-						<div class="sgml-qblock" id="${q.id}">
-							<div class="sgml-qtitle">${qHTML}</div>
-							<ul class="sgml-order-list" id="order_list_${q.id}">${listItemsHTML}</ul>
-							<div class="sgml-controls">
-								<button onclick="checkEnumOrderAnswer('${q.id}')">Check Order</button>
-								<span class="sgml-feedback" id="fb_${q.id}"></span>
-							</div>
-						</div>`;
-				}else{
-					const count=parsed.props.count||parsed.correctAnswers.length||1;
-
-					parsedQuestions[q.id]={
-						type:'enum_written',
-						count:count,
-						correctAnswers:parsed.correctAnswers,
-						props:parsed.props
-					};
-
-					let inputsHTML='';
-
-					for(let i=0;i<count;i++){
-						inputsHTML+=`
-							<div class="sgml-enum-row">
-								<span>${i+1}.</span>
-								<input type="text" class="sgml-text-input input_${q.id}" placeholder="Answer ${i+1}" autocomplete="off">
-							</div>`;
-					}
-
-					return `
-						<div class="sgml-qblock" id="${q.id}">
-							<div class="sgml-qtitle">${qHTML}</div>
-							<div class="sgml-inputs">${inputsHTML}</div>
-							<div class="sgml-controls">
-								<button onclick="checkEnumWrittenAnswer('${q.id}')">Check Answers</button>
-								<span class="sgml-feedback" id="fb_${q.id}"></span>
-							</div>
-						</div>`;
-				}
-			}
-
-			function checkChoicesAnswer(qId){
-				const q=parsedQuestions[qId];
-				const selected=document.querySelector(`input[name="radio_${qId}"]:checked`);
-				const fb=document.getElementById(`fb_${qId}`);
-
-				if(!selected){
-					fb.className='sgml-feedback incorrect';
-					fb.textContent='Select an option.';
+				if(quoted){
+					attrs[name]=quoted[1];
 					return;
 				}
 
-				const selectedIdx=parseInt(selected.value,10);
-				const userSelectedRaw=q.options[selectedIdx];
-				const userTrueText=extractTrueText(userSelectedRaw);
+				const single=tag.match(
+					new RegExp(`${name}\\s*:\\s*'([^']*)'`,'i')
+				);
 
-				const isCorrect=q.correctAnswers.some(cRaw=>{
-					const cTrueText=extractTrueText(cRaw);
-					return q.props.case
-						?userTrueText===cTrueText
-						:userTrueText.toLowerCase()===cTrueText.toLowerCase();
-				});
-
-				setFeedback(fb,isCorrect);
-			}
-
-			function checkFillinAnswer(qId){
-				const q=parsedQuestions[qId];
-				const input=document.getElementById(`input_${qId}`);
-				const fb=document.getElementById(`fb_${qId}`);
-				const userTrueText=extractTrueText(input.value);
-
-				const isCorrect=q.correctAnswers.some(cRaw=>{
-					const cTrueText=extractTrueText(cRaw);
-					return q.props.case
-						?userTrueText===cTrueText
-						:userTrueText.toLowerCase()===cTrueText.toLowerCase();
-				});
-
-				setFeedback(fb,isCorrect);
-			}
-
-			function checkEnumOrderAnswer(qId){
-				const q=parsedQuestions[qId];
-				const list=document.getElementById(`order_list_${qId}`);
-				const fb=document.getElementById(`fb_${qId}`);
-				const currentItems=Array.from(list.querySelectorAll('.sgml-order-item'));
-
-				const userTrueList=currentItems.map(li=>extractTrueText(decodeURIComponent(li.dataset.raw)));
-				const correctTrueList=q.correctAnswers.map(cRaw=>extractTrueText(cRaw));
-
-				let isCorrect=userTrueList.length===correctTrueList.length;
-
-				if(isCorrect){
-					for(let i=0;i<userTrueList.length;i++){
-						const u=userTrueList[i];
-						const c=correctTrueList[i];
-						const match=q.props.case?u===c:u.toLowerCase()===c.toLowerCase();
-
-						if(!match){
-							isCorrect=false;
-							break;
-						}
-					}
+				if(single){
+					attrs[name]=single[1];
+					return;
 				}
 
-				setFeedback(fb,isCorrect);
+				const plain=tag.match(
+					new RegExp(`${name}\\s*:\\s*([^\\s>]*)`,'i')
+				);
+
+				if(plain)attrs[name]=plain[1];
+			});
+
+			return attrs;
+		}
+
+		function buildInfoHTML(component,allowNested=true){
+			const id=`sgml-info-${sgmlInfoIdCounter++}`;
+			const attrs=parseComponentAttributes(component.open||'');
+			const title=attrs.title||'Information';
+			const bg=attrs.bg||'';
+			const col=attrs.col||'';
+			const rendered=renderEmbeddedSGML(
+				component.content||'',
+				{
+					allowInfo:allowNested,
+					allowRoot:true,
+					allowLine:true
+				}
+			);
+
+			getInfoStore()[id]={
+				content:rendered,
+				title,
+				bg,
+				col
+			};
+
+			return`
+				<span class="sgml-info-wrap" data-info-id="${escapeHTMLAttribute(id)}">
+					<button
+						type="button"
+						class="sgml-info-trigger"
+						aria-label="${escapeHTMLAttribute(title)}"
+						aria-expanded="false"
+					>ⓘ</button>
+				</span>`;
+		}
+
+		function closeInfoPanel(){
+			if(!openInfoWrap)return;
+
+			const button=openInfoWrap.querySelector('.sgml-info-trigger');
+			const panel=openInfoWrap._sgmlInfoPanel;
+
+			if(panel&&panel.parentNode)panel.parentNode.removeChild(panel);
+			if(button)button.setAttribute('aria-expanded','false');
+
+			openInfoWrap=null;
+		}
+
+		function positionInfoPanel(wrap,panel){
+			const rect=wrap.getBoundingClientRect();
+			const scrollX=window.scrollX||window.pageXOffset||0;
+			const scrollY=window.scrollY||window.pageYOffset||0;
+			const margin=8;
+			const viewportWidth=window.innerWidth;
+			const viewportHeight=window.innerHeight;
+			const width=Math.min(340,Math.max(200,viewportWidth-20));
+
+			panel.style.width=`${width}px`;
+			panel.style.left=`${rect.left+scrollX}px`;
+			panel.style.top=`${rect.bottom+scrollY+8}px`;
+
+			requestAnimationFrame(()=>{
+				const panelRect=panel.getBoundingClientRect();
+				let left=rect.left+scrollX;
+				let top=rect.bottom+scrollY+8;
+
+				if(panelRect.right>viewportWidth-margin){
+					left-=panelRect.right-(viewportWidth-margin);
+				}
+
+				if(left<margin)left=margin;
+
+				if(panelRect.bottom>viewportHeight-margin&&rect.top>panelRect.height+margin){
+					top=rect.top+scrollY-panelRect.height-8;
+				}
+
+				panel.style.left=`${left}px`;
+				panel.style.top=`${top}px`;
+
+				const arrowLeft=Math.max(
+					8,
+					Math.min(
+						panelRect.width-20,
+						rect.left+rect.width/2-left-4
+					)
+				);
+
+				panel.style.setProperty('--sgml-info-arrow-left',`${arrowLeft}px`);
+			});
+		}
+
+		function toggleInfoPanel(button){
+			const wrap=button.closest('.sgml-info-wrap');
+			if(!wrap)return;
+
+			if(openInfoWrap===wrap){
+				closeInfoPanel();
+				return;
 			}
 
-			function checkEnumWrittenAnswer(qId){
-				const q=parsedQuestions[qId];
-				const inputs=Array.from(document.querySelectorAll(`.input_${qId}`));
-				const fb=document.getElementById(`fb_${qId}`);
+			closeInfoPanel();
 
-				const userTrueTexts=inputs.map(inp=>extractTrueText(inp.value)).filter(t=>t.length>0);
-				const correctTrueTexts=q.correctAnswers.map(cRaw=>extractTrueText(cRaw));
+			const id=wrap.dataset.infoId;
+			const stored=getInfoStore()[id];
+			if(stored===undefined)return;
 
-				let isCorrect=true;
+			const panel=document.createElement('div');
+			panel.className='sgml-info-panel';
+			panel.setAttribute('role','dialog');
+			panel.setAttribute('aria-label',stored.title||'Information');
 
-				if(userTrueTexts.length<q.count){
-					isCorrect=false;
-				}else if(q.props.inorder){
-					for(let i=0;i<q.count;i++){
-						const u=userTrueTexts[i]||'';
-						const c=correctTrueTexts[i]||'';
-						const match=q.props.case?u===c:u.toLowerCase()===c.toLowerCase();
+			if(stored.bg){
+				panel.style.setProperty('--sgml-info-bg',stored.bg);
+			}
 
-						if(!match){
-							isCorrect=false;
-							break;
-						}
-					}
+			if(stored.col){
+				panel.style.setProperty('--sgml-info-col',stored.col);
+			}
+
+			const header=document.createElement('div');
+			header.className='sgml-info-header';
+			header.textContent=stored.title||'Information';
+
+			const body=document.createElement('div');
+			body.className='sgml-info-body';
+			body.innerHTML=stored.content||'';
+
+			panel.appendChild(header);
+			panel.appendChild(body);
+			document.body.appendChild(panel);
+
+			wrap._sgmlInfoPanel=panel;
+			button.setAttribute('aria-expanded','true');
+			openInfoWrap=wrap;
+
+			positionInfoPanel(wrap,panel);
+
+			if(window.MathJax&&window.MathJax.typesetPromise){
+				window.MathJax.typesetClear&&window.MathJax.typesetClear([panel]);
+				window.MathJax.typesetPromise([panel]).catch(error=>{
+					console.error('Info panel LaTeX rendering failed:',error);
+				});
+			}
+		}
+
+		function setupInfoPanels(){
+			document.querySelectorAll('.sgml-info-trigger').forEach(button=>{
+				if(button.dataset.bound==='true')return;
+				button.dataset.bound='true';
+
+				button.addEventListener('click',event=>{
+					event.preventDefault();
+					event.stopPropagation();
+					toggleInfoPanel(button);
+				});
+			});
+		}
+
+		document.addEventListener('click',event=>{
+			if(openInfoWrap&&event.target.closest('.sgml-info-wrap')===openInfoWrap)return;
+			if(openInfoWrap&&event.target.closest('.sgml-info-panel')===openInfoWrap._sgmlInfoPanel)return;
+			closeInfoPanel();
+		});
+
+		document.addEventListener('keydown',event=>{
+			if(event.key==='Escape')closeInfoPanel();
+		});
+
+		function renderEmbeddedSGML(source,{allowInfo=true,allowRoot=true,allowLine=true}={}){
+			let text=maskLiteralStrings(normalizeComponentSource(source));
+			const extracted=extractCustomComponents(text);
+			let rebuilt='';
+			let cursor=0;
+			const blockSlots=[];
+			const inlineSlots=[];
+
+			const allowedComponents=extracted.components.filter(component=>{
+				if(component.type==='info')return allowInfo;
+				if(component.type==='root')return allowRoot;
+				if(component.type==='line')return allowLine;
+				return false;
+			});
+
+			allowedComponents.forEach((component,index)=>{
+				rebuilt+=text.slice(cursor,component.index);
+
+				if(component.type==='info'){
+					const id=inlineSlots.length;
+					inlineSlots.push(component);
+					rebuilt+=`\uE210SGMLINLINE${id}\uE211`;
 				}else{
-					const availableCorrect=[...correctTrueTexts];
+					const id=blockSlots.length;
+					blockSlots.push(component);
+					rebuilt+=`\n\n<div data-sgml-block-slot="${id}"></div>\n\n`;
+				}
 
-					for(let u of userTrueTexts){
-						const matchIdx=availableCorrect.findIndex(c=>
-							q.props.case?u===c:u.toLowerCase()===c.toLowerCase()
-						);
+				cursor=component.end;
+			});
 
-						if(matchIdx!==-1){
-							availableCorrect.splice(matchIdx,1);
-						}else{
-							isCorrect=false;
-							break;
+			if(!allowedComponents.length){
+				rebuilt=text;
+			}else{
+				rebuilt+=text.slice(cursor);
+			}
+
+			const qResult=parseQuestionBlocks(rebuilt);
+			let result=renderMarkdown(qResult.processedText);
+
+			qResult.questions.forEach(q=>{
+				result=result.replace(
+					`%%QBLOCKTOKEN${q.id}%%`,
+					buildQuestionUI(q)
+				);
+			});
+
+			inlineSlots.forEach((component,index)=>{
+				let html='';
+				if(component.type==='info'){
+					html=buildInfoHTML(component,false);
+				}
+
+				result=result.replace(
+					`\uE210SGMLINLINE${index}\uE211`,
+					html
+				);
+			});
+
+			blockSlots.forEach((component,index)=>{
+				let html='';
+
+				if(component.type==='root'){
+					html=buildTreeHTML({content:component.content});
+				}else if(component.type==='line'){
+					html=buildLineHTML({content:component.content});
+				}
+
+				const slot=`<div data-sgml-block-slot="${index}"></div>`;
+				result=result.replace(slot,html);
+			});
+
+			return result;
+		}
+
+		function stripUnsafeSGML(str){
+			if(!str)return'';
+
+			return String(str)
+				.replace(/<(iframe|object|embed|portal|frame|frameset|applet)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,'')
+				.replace(/<(iframe|object|embed|portal|frame|frameset|applet)\b[^>]*\/?>/gi,'')
+				.replace(/<\/(iframe|object|embed|portal|frame|frameset|applet)\s*>/gi,'');
+		}
+
+		function parseTreeNodeContent(content){
+			const extracted=extractChildren(content,'bh',true);
+			const ownContent=removeSpans(
+				content,
+				extracted.spans
+			);
+
+			return{
+				content:renderEmbeddedSGML(ownContent),
+				children:extracted.children.map(branch=>
+					parseTreeNodeContent(branch.content)
+				)
+			};
+		}
+
+		function renderTreeComponent(content){
+			return parseTreeNodeContent(content);
+		}
+
+		function createTreeNode(nodeData){
+			const node=document.createElement('div');
+			node.className='sgml-tree-node';
+
+			const card=document.createElement('div');
+			card.className='sgml-tree-card';
+
+			const cardContent=document.createElement('div');
+			cardContent.className='sgml-tree-card-content';
+			cardContent.innerHTML=nodeData.content||'<p>Empty node.</p>';
+
+			card.appendChild(cardContent);
+			node.appendChild(card);
+
+			const childData=nodeData.children||[];
+
+			if(childData.length){
+				card.classList.add('has-children');
+
+				const children=document.createElement('div');
+				children.className='sgml-tree-children';
+
+				childData.forEach(data=>{
+					const child=document.createElement('div');
+					child.className='sgml-tree-child';
+					child.appendChild(createTreeNode(data));
+					children.appendChild(child);
+				});
+
+				node.appendChild(children);
+
+			}
+
+			return node;
+		}
+
+		function resizeTreeToContent(tree){
+			if(!tree)return;
+
+			const layer=tree.querySelector('.sgml-tree-nodes');
+			if(!layer)return;
+
+			tree.style.width='max-content';
+			tree.style.height='auto';
+
+			const layerRect=layer.getBoundingClientRect();
+			const treeRect=tree.getBoundingClientRect();
+			const width=Math.max(680,Math.ceil(layerRect.width+60));
+			const height=Math.max(190,Math.ceil(layerRect.height+60));
+
+			tree.style.width=`${width}px`;
+			tree.style.height=`${height}px`;
+		}
+
+		function updateTreeConnections(tree){
+			if(!tree)return;
+
+			const svg=tree.querySelector('.sgml-tree-svg');
+			if(!svg)return;
+
+			resizeTreeToContent(tree);
+	
+			const treeRect=tree.getBoundingClientRect();
+			const width=Math.max(680,tree.clientWidth);
+			const height=Math.max(190,tree.clientHeight);
+
+			svg.setAttribute('width',width);
+			svg.setAttribute('height',height);
+			svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
+			svg.innerHTML='';
+
+			const makePath=d=>{
+				const path=document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'path'
+				);
+				path.classList.add('sgml-tree-path');
+				path.setAttribute('d',d);
+				svg.appendChild(path);
+			};
+
+			tree.querySelectorAll('.sgml-tree-node.expanded').forEach(parent=>{
+				const parentCard=parent.querySelector(':scope > .sgml-tree-card');
+				const childrenWrap=parent.querySelector(':scope > .sgml-tree-children');
+
+				if(!parentCard||!childrenWrap)return;
+
+				const childNodes=[...childrenWrap.querySelectorAll(':scope > .sgml-tree-child > .sgml-tree-node')];
+				if(!childNodes.length)return;
+
+				const parentRect=parentCard.getBoundingClientRect();
+				const parentX=parentRect.left+parentRect.width/2-treeRect.left;
+				const parentY=parentRect.bottom-treeRect.top;
+
+				const childPoints=childNodes.map(child=>{
+					const card=child.querySelector(':scope > .sgml-tree-card');
+					const rect=card.getBoundingClientRect();
+					return{
+						x:rect.left+rect.width/2-treeRect.left,
+						y:rect.top-treeRect.top
+					};
+				});
+
+				const childY=Math.min(...childPoints.map(point=>point.y));
+				const minX=Math.min(...childPoints.map(point=>point.x));
+				const maxX=Math.max(...childPoints.map(point=>point.x));
+				const busY=parentY+Math.max(24,(childY-parentY)*0.42);
+
+				makePath(`M ${parentX} ${parentY} C ${parentX} ${parentY+12}, ${parentX} ${busY-12}, ${parentX} ${busY}`);
+				makePath(`M ${minX} ${busY} L ${maxX} ${busY}`);
+
+				childPoints.forEach(point=>{
+					makePath(`M ${point.x} ${busY} C ${point.x} ${busY+12}, ${point.x} ${point.y-12}, ${point.x} ${point.y}`);
+				});
+			});
+		}
+
+		function buildTreeHTML(block){
+			const treeData=renderTreeComponent(block.content);
+
+			const container=document.createElement('div');
+			container.className='sgml-visual sgml-tree-visual';
+			container.style.height='320px';
+			container.dataset.resizeBound='false';
+
+			const header=document.createElement('div');
+			header.className='sgml-visual-header';
+			header.textContent='Tree Graph';
+
+			const visualContent=document.createElement('div');
+			visualContent.className='sgml-visual-content sgml-tree-canvas';
+
+			const tree=document.createElement('div');
+			tree.className='sgml-tree';
+
+			const svg=document.createElementNS(
+				'http://www.w3.org/2000/svg',
+				'svg'
+			);
+			svg.classList.add('sgml-tree-svg');
+
+			const nodeLayer=document.createElement('div');
+			nodeLayer.className='sgml-tree-nodes';
+			nodeLayer.appendChild(createTreeNode(treeData));
+
+			tree.appendChild(svg);
+			tree.appendChild(nodeLayer);
+			visualContent.appendChild(tree);
+
+			const footer=document.createElement('div');
+			footer.className='sgml-visual-footer';
+			footer.title='Drag to resize';
+			footer.setAttribute('aria-label','Resize tree');
+
+			container.appendChild(header);
+			container.appendChild(visualContent);
+			container.appendChild(footer);
+
+			return container.outerHTML;
+		}
+
+
+		function setupVisualResize(container,footer){
+			if(!container||!footer||footer.dataset.bound==='true')return;
+			footer.dataset.bound='true';
+
+			let dragging=false;
+			let startY=0;
+			let startHeight=320;
+			let pointerId=null;
+
+			const onMove=event=>{
+				if(!dragging)return;
+				if(pointerId!==null&&event.pointerId!==pointerId)return;
+
+				const delta=event.clientY-startY;
+				const maxHeight=Math.max(180,window.innerHeight-32);
+				const height=Math.max(180,Math.min(maxHeight,startHeight+delta));
+
+				container.style.height=`${height}px`;
+			};
+
+			const end=event=>{
+				if(pointerId!==null&&event.pointerId!==pointerId)return;
+
+				dragging=false;
+				footer.classList.remove('dragging');
+
+				if(footer.releasePointerCapture&&pointerId!==null){
+					try{
+						if(footer.hasPointerCapture(pointerId)){
+							footer.releasePointerCapture(pointerId);
 						}
+					}catch(_){}
+				}
+
+				pointerId=null;
+				window.removeEventListener('pointermove',onMove);
+				window.removeEventListener('pointerup',end);
+				window.removeEventListener('pointercancel',end);
+
+				document.querySelectorAll('.sgml-tree').forEach(updateTreeConnections);
+			};
+
+			footer.addEventListener('pointerdown',event=>{
+				event.preventDefault();
+
+				dragging=true;
+				startY=event.clientY;
+				startHeight=container.getBoundingClientRect().height;
+				pointerId=event.pointerId;
+				footer.classList.add('dragging');
+
+				if(footer.setPointerCapture){
+					try{footer.setPointerCapture(pointerId)}catch(_){}
+				}
+
+				window.addEventListener('pointermove',onMove);
+				window.addEventListener('pointerup',end);
+				window.addEventListener('pointercancel',end);
+			});
+		}
+
+		function setupLineComponent(container){
+			if(!container||container.dataset.lineBound==='true')return;
+			container.dataset.lineBound='true';
+
+			const nodes=[...container.querySelectorAll('.sgml-line-node')];
+			const rail=container.querySelector('.sgml-line-rail');
+			const line=container.querySelector('.sgml-line');
+			const end=container.querySelector('.sgml-line-end');
+
+			if(!nodes.length||!rail||!line)return;
+
+			let visible=1;
+
+			function refresh(){
+				nodes.forEach((node,index)=>{
+					const shown=index<visible;
+					const current=shown&&index===visible-1&&index<nodes.length-1;
+
+					node.classList.toggle('visible',shown);
+					node.classList.toggle('current',current);
+				});
+
+				if(end){
+					end.classList.toggle('visible',visible===nodes.length);
+				}
+
+				requestAnimationFrame(()=>{
+					const last=nodes[visible-1];
+
+					if(last){
+						rail.style.bottom=`${Math.max(
+							0,
+							line.scrollHeight-last.offsetTop-last.offsetHeight+8
+						)}px`;
 					}
-				}
-
-				setFeedback(fb,isCorrect);
-			}
-
-			function setFeedback(element,isCorrect){
-				if(isCorrect){
-					element.className='sgml-feedback correct';
-					element.textContent='Correct!';
-				}else{
-					element.className='sgml-feedback incorrect';
-					element.textContent='Incorrect!';
-				}
-			}
-
-			function checkAllQuestions(){
-				Object.keys(parsedQuestions).forEach(qId=>{
-					const q=parsedQuestions[qId];
-
-					if(q.type==='choices')checkChoicesAnswer(qId);
-					else if(q.type==='fillin')checkFillinAnswer(qId);
-					else if(q.type==='enum_order')checkEnumOrderAnswer(qId);
-					else if(q.type==='enum_written')checkEnumWrittenAnswer(qId);
 				});
 			}
 
-			function moveOrderItem(qId,btn,direction){
-				const li=btn.closest('.sgml-order-item');
-				const list=document.getElementById(`order_list_${qId}`);
+			nodes.forEach((node,index)=>{
+				const title=node.querySelector('.sgml-line-title');
+				if(!title)return;
 
-				if(direction===-1&&li.previousElementSibling){
-					list.insertBefore(li,li.previousElementSibling);
-				}else if(direction===1&&li.nextElementSibling){
-					list.insertBefore(li.nextElementSibling,li);
-				}
-			}
+				title.addEventListener('click',()=>{
+					if(index>=visible)return;
 
-			function setupDragAndDrop(){
-				document.querySelectorAll('.sgml-order-list').forEach(list=>{
-					let draggedItem=null;
+					if(index===visible-1){
+						if(visible<nodes.length)visible++;
+					}else{
+						visible=index+1;
+					}
 
-					list.addEventListener('dragstart',e=>{
-						draggedItem=e.target.closest('.sgml-order-item');
+					refresh();
+				});
+			});
 
-						if(draggedItem)draggedItem.classList.add('dragging');
+			refresh();
+		}
+
+		function setupTreeComponent(container){
+			if(!container)return;
+
+			const tree=container.querySelector('.sgml-tree');
+			if(!tree)return;
+
+			tree.querySelectorAll('.sgml-tree-node').forEach(node=>{
+				const card=node.querySelector(':scope > .sgml-tree-card');
+				const children=node.querySelector(':scope > .sgml-tree-children');
+
+				if(!card||!children||card.dataset.bound==='true')return;
+
+				card.dataset.bound='true';
+
+				card.addEventListener('click',event=>{
+					if(event.target.closest('button,a,input,textarea,select'))return;
+
+					const expanding=!node.classList.contains('expanded');
+
+					if(!expanding){
+						children.querySelectorAll('.sgml-tree-node.expanded').forEach(descendant=>{
+							descendant.classList.remove('expanded');
+							const descendantCard=descendant.querySelector(':scope > .sgml-tree-card');
+							if(descendantCard)descendantCard.classList.remove('expanded');
+						});
+					}
+
+					node.classList.toggle('expanded',expanding);
+					card.classList.toggle('expanded',expanding);
+
+					requestAnimationFrame(()=>{
+						resizeTreeToContent(tree);
+						updateTreeConnections(tree);
+					});
+				});
+			});
+
+			requestAnimationFrame(()=>{
+				resizeTreeToContent(tree);
+				updateTreeConnections(tree);
+			});
+		}
+
+		function setupVisualComponents(){
+			document.querySelectorAll('.sgml-tree-visual,.sgml-line-visual').forEach(container=>{
+				const footer=container.querySelector('.sgml-visual-footer');
+				if(footer)setupVisualResize(container,footer);
+			});
+
+			document.querySelectorAll('.sgml-tree-visual').forEach(setupTreeComponent);
+			document.querySelectorAll('.sgml-line-visual').forEach(setupLineComponent);
+		}
+
+		function parseLineNodes(content){
+			const extracted=extractChildren(content,'node',false);
+
+			return extracted.children.map(node=>{
+				return{
+					title:getAttributeFromTag(node.open,'title')||'Node',
+					content:node.content
+				};
+			});
+		}
+
+		function getAttributeFromTag(tag,name){
+			const double=tag.match(
+				new RegExp(`${name}\\s*:\\s*"([^"]*)"`,`i`)
+			);
+
+			if(double)return double[1];
+
+			const single=tag.match(
+				new RegExp(`${name}\\s*:\\s*'([^']*)'`,`i`)
+			);
+
+			if(single)return single[1];
+
+			const plain=tag.match(
+				new RegExp(`${name}\\s*:\\s*([^\\s>]*)`,`i`)
+			);
+
+			return plain?plain[1]:'';
+		}
+
+		function buildLineHTML(block){
+			const items=parseLineNodes(block.content);
+
+			const container=document.createElement('div');
+			container.className='sgml-visual sgml-line-visual';
+			container.style.height='320px';
+			container.dataset.resizeBound='false';
+
+			const header=document.createElement('div');
+			header.className='sgml-visual-header';
+			header.textContent='Line Node';
+
+			const visualContent=document.createElement('div');
+			visualContent.className='sgml-visual-content sgml-line-canvas';
+
+			const line=document.createElement('div');
+			line.className='sgml-line';
+
+			const rail=document.createElement('div');
+			rail.className='sgml-line-rail';
+			line.appendChild(rail);
+
+			items.forEach((item,index)=>{
+				const node=document.createElement('div');
+				node.className='sgml-line-node';
+
+				const title=document.createElement('button');
+				title.type='button';
+				title.className='sgml-line-title';
+				title.textContent=item.title||`Node ${index+1}`;
+
+				const content=document.createElement('div');
+				content.className='sgml-line-content';
+				content.innerHTML=renderEmbeddedSGML(item.content);
+
+				node.appendChild(title);
+				node.appendChild(content);
+				line.appendChild(node);
+			});
+
+			const end=document.createElement('div');
+			end.className='sgml-line-end';
+			end.textContent='End';
+			line.appendChild(end);
+
+			visualContent.appendChild(line);
+
+			const footer=document.createElement('div');
+			footer.className='sgml-visual-footer';
+			footer.title='Drag to resize';
+			footer.setAttribute('aria-label','Resize line node');
+
+			container.appendChild(header);
+			container.appendChild(visualContent);
+			container.appendChild(footer);
+
+			return container.outerHTML;
+		}
+
+
+		function extractCustomComponents(text){
+			const components=[];
+			const spans=[];
+			let cursor=0;
+
+			while(cursor<text.length){
+				const candidates=[];
+
+				['info','root','line'].forEach(tag=>{
+					const found=findTagStart(text,tag,cursor);
+					if(found)candidates.push({...found,tag});
+				});
+
+				if(!candidates.length)break;
+
+				candidates.sort((a,b)=>a.index-b.index);
+				const found=candidates[0];
+
+				if(found.tag==='root'){
+					const matched=findMatchingTag(
+						text,
+						'root',
+						found.end,
+						false
+					);
+
+					if(!matched){
+						cursor=found.end;
+						continue;
+					}
+
+					components.push({
+						type:'root',
+						content:matched.content,
+						index:found.index,
+						end:matched.end
 					});
 
-					list.addEventListener('dragend',()=>{
-						if(draggedItem)draggedItem.classList.remove('dragging');
-						draggedItem=null;
+					spans.push({
+						start:found.index,
+						end:matched.end
 					});
 
-					list.addEventListener('dragover',e=>{
-						e.preventDefault();
+					cursor=matched.end;
+					continue;
+				}
 
-						const draggableElements=[
-							...list.querySelectorAll('.sgml-order-item:not(.dragging)')
-						];
+				if(found.tag==='line'){
+					const matched=findMatchingTag(
+						text,
+						'line',
+						found.end,
+						false
+					);
 
-						const afterElement=draggableElements.reduce((closest,child)=>{
+					if(!matched){
+						cursor=found.end;
+						continue;
+					}
+
+					components.push({
+						type:'line',
+						content:matched.content,
+						index:found.index,
+						end:matched.end
+					});
+
+					spans.push({
+						start:found.index,
+						end:matched.end
+					});
+
+					cursor=matched.end;
+					continue;
+				}
+
+				if(found.tag==='info'){
+					const matched=findMatchingTag(
+						text,
+						'info',
+						found.end,
+						false
+					);
+
+					if(!matched){
+						cursor=found.end;
+						continue;
+					}
+
+					components.push({
+						type:'info',
+						open:found.open,
+						content:matched.content,
+						index:found.index,
+						end:matched.end
+					});
+
+					spans.push({
+						start:found.index,
+						end:matched.end
+					});
+
+					cursor=matched.end;
+				}
+			}
+
+			return{components,spans};
+		}
+
+		function renderTopLevelWithComponents(text){
+			text=maskLiteralStrings(text);
+			const extracted=extractCustomComponents(text);
+			let rebuilt='';
+			let cursor=0;
+			const blocks=[];
+			const inline=[];
+
+			extracted.components.forEach(component=>{
+				rebuilt+=text.slice(cursor,component.index);
+
+				if(component.type==='info'){
+					const index=inline.length;
+					inline.push(component);
+					rebuilt+=`\uE210SGMLINLINE${index}\uE211`;
+				}else{
+					const index=blocks.length;
+					blocks.push(component);
+					rebuilt+=`\n\n<div data-sgml-block-slot="${index}"></div>\n\n`;
+				}
+
+				cursor=component.end;
+			});
+
+			rebuilt+=text.slice(cursor);
+
+			const qResult=parseQuestionBlocks(rebuilt);
+			let result=renderMarkdown(qResult.processedText);
+
+			qResult.questions.forEach(q=>{
+				result=result.replace(
+					`%%QBLOCKTOKEN${q.id}%%`,
+					buildQuestionUI(q)
+				);
+			});
+
+			inline.forEach((component,index)=>{
+				result=result.replace(
+					`\uE210SGMLINLINE${index}\uE211`,
+					buildInfoHTML(component,false)
+				);
+			});
+
+			blocks.forEach((component,index)=>{
+				let html='';
+
+				if(component.type==='root'){
+					html=buildTreeHTML({content:component.content});
+				}else if(component.type==='line'){
+					html=buildLineHTML({content:component.content});
+				}
+
+				result=result.replace(
+					`<div data-sgml-block-slot="${index}"></div>`,
+					html
+				);
+			});
+
+			return result;
+		}
+
+		function renderICBPlaceholders(str,blocks){
+			if(!str||!blocks||!blocks.length)return str;
+
+			return str.replace(
+				/\uE100SGMLICB(\d+)\uE101/g,
+				(_,index)=>{
+					const i=Number(index);
+
+					if(!blocks[i])return'';
+
+					return`<div class="sgml-icb-slot" data-icb-index="${i}"></div>`;
+				}
+			);
+		}
+
+		function renderSGML(sgmlContent){
+			parsedQuestions={};
+			sgmlLiteralStore=[];
+			sgmlEscapedStore=[];
+			sgmlLiteralCounter=0;
+			questionCounter=0;
+			infoCounter=0;
+			sgmlInfoIdCounter=0;
+			openInfoWrap=null;
+			window.__sgmlInfoStore={};
+			window.__sgmlICBBlocks=[];
+
+			const icbResult=extractICBBlocks(sgmlContent);
+			window.__sgmlICBBlocks=icbResult.blocks;
+
+			const safeSGML=stripUnsafeSGML(icbResult.processedText);
+			let renderedDoc=renderTopLevelWithComponents(safeSGML);
+
+			renderedDoc=renderICBPlaceholders(
+				renderedDoc,
+				icbResult.blocks
+			);
+
+			const output=document.getElementById('sgml-output');
+			output.innerHTML=renderedDoc;
+
+			setupICB();
+			setupVisualComponents();
+			setupInfoPanels();
+
+			if(window.MathJax&&window.MathJax.typesetPromise){
+				window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
+				window.MathJax.typesetPromise([output]).catch(error=>{
+					console.error('LaTeX rendering failed:',error);
+				});
+			}
+		}
+
+		function checkChoicesAnswer(qId){
+			const q=parsedQuestions[qId];
+			const selected=document.querySelector(
+				`input[name="radio_${qId}"]:checked`
+			);
+			const fb=document.getElementById(`fb_${qId}`);
+
+			if(!selected){
+				fb.className='sgml-feedback incorrect';
+				fb.textContent='Select an option.';
+				return;
+			}
+
+			const selectedIdx=parseInt(selected.value,10);
+			const userSelectedRaw=q.options[selectedIdx];
+			const userTrueText=extractTrueText(userSelectedRaw);
+
+			const isCorrect=q.correctAnswers.some(cRaw=>{
+				const cTrueText=extractTrueText(cRaw);
+
+				return q.props.case
+					?userTrueText===cTrueText
+					:userTrueText.toLowerCase()===cTrueText.toLowerCase();
+			});
+
+			setFeedback(fb,isCorrect);
+		}
+
+		function checkFillinAnswer(qId){
+			const q=parsedQuestions[qId];
+			const input=document.getElementById(`input_${qId}`);
+			const fb=document.getElementById(`fb_${qId}`);
+			const userTrueText=extractTrueText(input.value,{stripMarkup:false});
+
+			const isCorrect=q.correctAnswers.some(cRaw=>{
+				const cTrueText=extractTrueText(cRaw);
+
+				return q.props.case
+					?userTrueText===cTrueText
+					:userTrueText.toLowerCase()===cTrueText.toLowerCase();
+			});
+
+			setFeedback(fb,isCorrect);
+		}
+
+		function checkEnumOrderAnswer(qId){
+			const q=parsedQuestions[qId];
+			const list=document.getElementById(`order_list_${qId}`);
+			const fb=document.getElementById(`fb_${qId}`);
+			const currentItems=[
+				...list.querySelectorAll('.sgml-order-item')
+			];
+
+			const userTrueList=currentItems.map(
+				li=>extractTrueText(
+					decodeURIComponent(li.dataset.raw)
+				)
+			);
+
+			const correctTrueList=q.correctAnswers.map(
+				cRaw=>extractTrueText(cRaw)
+			);
+
+			let isCorrect=userTrueList.length===correctTrueList.length;
+
+			if(isCorrect){
+				for(let i=0;i<userTrueList.length;i++){
+					const u=userTrueList[i];
+					const c=correctTrueList[i];
+
+					const match=q.props.case
+						?u===c
+						:u.toLowerCase()===c.toLowerCase();
+
+					if(!match){
+						isCorrect=false;
+						break;
+					}
+				}
+			}
+
+			setFeedback(fb,isCorrect);
+		}
+
+		function checkEnumWrittenAnswer(qId){
+			const q=parsedQuestions[qId];
+			const inputs=[
+				...document.querySelectorAll(`.input_${qId}`)
+			];
+			const fb=document.getElementById(`fb_${qId}`);
+
+			const userTrueTexts=inputs
+				.map(inp=>extractTrueText(inp.value,{stripMarkup:false}))
+				.filter(t=>t.length>0);
+
+			const correctTrueTexts=q.correctAnswers.map(
+				cRaw=>extractTrueText(cRaw)
+			);
+
+			let isCorrect=true;
+
+			if(userTrueTexts.length<q.count){
+				isCorrect=false;
+			}else if(q.props.inorder){
+				for(let i=0;i<q.count;i++){
+					const u=userTrueTexts[i]||'';
+					const c=correctTrueTexts[i]||'';
+
+					const match=q.props.case
+						?u===c
+						:u.toLowerCase()===c.toLowerCase();
+
+					if(!match){
+						isCorrect=false;
+						break;
+					}
+				}
+			}else{
+				const availableCorrect=[...correctTrueTexts];
+
+				for(const u of userTrueTexts){
+					const matchIdx=availableCorrect.findIndex(
+						c=>q.props.case
+							?u===c
+							:u.toLowerCase()===c.toLowerCase()
+					);
+
+					if(matchIdx!==-1)availableCorrect.splice(matchIdx,1);
+					else{
+						isCorrect=false;
+						break;
+					}
+				}
+			}
+
+			setFeedback(fb,isCorrect);
+		}
+
+		function setFeedback(element,isCorrect){
+			if(isCorrect){
+				element.className='sgml-feedback correct';
+				element.textContent='Correct!';
+			}else{
+				element.className='sgml-feedback incorrect';
+				element.textContent='Incorrect!';
+			}
+		}
+
+		function checkAllQuestions(){
+			Object.keys(parsedQuestions).forEach(qId=>{
+				const q=parsedQuestions[qId];
+
+				if(q.type==='choices')checkChoicesAnswer(qId);
+				else if(q.type==='fillin')checkFillinAnswer(qId);
+				else if(q.type==='enum_order')checkEnumOrderAnswer(qId);
+				else if(q.type==='enum_written')checkEnumWrittenAnswer(qId);
+			});
+		}
+
+		function moveOrderItem(qId,btn,direction){
+			const li=btn.closest('.sgml-order-item');
+			const list=document.getElementById(`order_list_${qId}`);
+
+			if(direction===-1&&li.previousElementSibling){
+				list.insertBefore(li,li.previousElementSibling);
+			}else if(direction===1&&li.nextElementSibling){
+				list.insertBefore(li.nextElementSibling,li);
+			}
+		}
+
+		function setupDragAndDrop(){
+			document.querySelectorAll('.sgml-order-list').forEach(list=>{
+				let draggedItem=null;
+
+				list.addEventListener('dragstart',e=>{
+					draggedItem=e.target.closest('.sgml-order-item');
+					if(draggedItem)draggedItem.classList.add('dragging');
+				});
+
+				list.addEventListener('dragend',()=>{
+					if(draggedItem)draggedItem.classList.remove('dragging');
+					draggedItem=null;
+				});
+
+				list.addEventListener('dragover',e=>{
+					e.preventDefault();
+
+					const draggableElements=[
+						...list.querySelectorAll('.sgml-order-item:not(.dragging)')
+					];
+
+					const afterElement=draggableElements.reduce(
+						(closest,child)=>{
 							const box=child.getBoundingClientRect();
 							const offset=e.clientY-box.top-box.height/2;
 
 							if(offset<0&&offset>closest.offset){
-								return{
-									offset,
-									element:child
-								};
+								return{offset,element:child};
 							}
 
 							return closest;
-						},{
-							offset:Number.NEGATIVE_INFINITY
-						}).element;
+						},
+						{offset:Number.NEGATIVE_INFINITY}
+					).element;
 
-						if(draggedItem){
-							if(afterElement==null)list.appendChild(draggedItem);
-							else list.insertBefore(draggedItem,afterElement);
-						}
-					});
+					if(draggedItem){
+						if(afterElement==null)list.appendChild(draggedItem);
+						else list.insertBefore(draggedItem,afterElement);
+					}
 				});
-			}
+			});
+		}
 
-			function renderSGML(sgmlContent){
-				parsedQuestions={};
+		function handleFileUpload(event){
+			const file=event.target.files[0];
+			event.target.value='';
 
-				const icbResult=extractICBBlocks(sgmlContent);
-				window.__sgmlICBBlocks=icbResult.blocks;
+			if(!file)return;
 
-				const safeSGML=stripUnsafeSGML(icbResult.processedText);
+			const reader=new FileReader();
 
-				const{
-					processedText,
-					questions
-				}=parseQuestionBlocks(safeSGML);
+			reader.onload=function(e){
+				const content=String(e.target.result||'');
+				const current=getCurrentDocument();
 
-				let renderedDoc=renderMarkdown(processedText);
-
-				questions.forEach(q=>{
-					let qHtml='';
-
-					if(q.type==='choices')qHtml=buildChoicesHTML(q);
-					else if(q.type==='fillin')qHtml=buildFillinHTML(q);
-					else if(q.type==='enumeration')qHtml=buildEnumerationHTML(q);
-
-					renderedDoc=renderedDoc.replace(`%%QBLOCKTOKEN${q.id}%%`,qHtml);
-				});
-
-				renderedDoc=renderICBPlaceholders(renderedDoc,icbResult.blocks);
-
-				const output=document.getElementById('sgml-output');
-				output.innerHTML=renderedDoc;
-				setupDragAndDrop();
-				setupICB();
-
-				if(window.MathJax&&window.MathJax.typesetPromise){
-					window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
-					window.MathJax.typesetPromise([output]).catch(error=>{
-						console.error('LaTeX rendering failed:',error);
-					});
-				}
-			}
-
-			function handleFileUpload(event){
-				const file=event.target.files[0];
-				event.target.value='';
-
-				if(!file)return;
-
-				const reader=new FileReader();
-
-				reader.onload=function(e){
-					const content=String(e.target.result||'');
-					const current=getCurrentDocument();
-
-					if(!current||!(current.content||'').trim()){
-						if(!current){
-							const docs=loadDocuments();
-
-							const doc={
-								id:makeId(),
-								title:'Upload',
-								content,
-								createdAt:Date.now(),
-								updatedAt:Date.now()
-							};
-
-							docs.push(doc);
-							saveDocuments(docs);
-							setCurrentDocumentId(doc.id);
-							loadDocumentIntoEditor(doc);
-						}else{
-							current.title='Upload';
-							current.content=content;
-							current.updatedAt=Date.now();
-
-							const docs=loadDocuments().map(doc=>
-								doc.id===current.id?current:doc
-							);
-
-							saveDocuments(docs);
-							localStorage.setItem(STORAGE_CURRENT_CONTENT,content);
-							document.getElementById('sgml-input').value=content;
-							updateCurrentName(current);
-							renderSGML(content);
-						}
-					}else{
+				if(!current||!(current.content||'').trim()){
+					if(!current){
 						const docs=loadDocuments();
-						const baseName=file.name.replace(/\.[^.]+$/,'')||'Upload';
 
 						const doc={
 							id:makeId(),
-							title:baseName,
+							title:'Upload',
 							content,
 							createdAt:Date.now(),
 							updatedAt:Date.now()
@@ -1952,123 +2867,192 @@ ${source}
 
 						docs.push(doc);
 						saveDocuments(docs);
+						setCurrentDocumentId(doc.id);
 						loadDocumentIntoEditor(doc);
+					}else{
+						current.title='Upload';
+						current.content=content;
+						current.updatedAt=Date.now();
+
+						const docs=loadDocuments().map(
+							doc=>doc.id===current.id?current:doc
+						);
+
+						saveDocuments(docs);
+						localStorage.setItem(
+							STORAGE_CURRENT_CONTENT,
+							content
+						);
+
+						document.getElementById(
+							'sgml-input'
+						).value=content;
+
+						updateCurrentName(current);
+						renderSGML(content);
 					}
-				};
+				}else{
+					const docs=loadDocuments();
+					const baseName=
+						file.name.replace(/\.[^.]+$/,'')||'Upload';
 
-				reader.readAsText(file);
-			}
+					const doc={
+						id:makeId(),
+						title:baseName,
+						content,
+						createdAt:Date.now(),
+						updatedAt:Date.now()
+					};
 
-			function downloadSGML(){
-				const doc=getCurrentDocument();
-				const content=String(document.getElementById('sgml-input').value||'');
-				const base=String(doc&&doc.title||'Untitled SGML')
-					.replace(/\.[^.]+$/,'')
-					.replace(/[\\/:*?"<>|]+/g,'_')
-					.trim()||'Untitled SGML';
-
-				const blob=new Blob([content],{
-					type:'text/plain;charset=utf-8'
-				});
-
-				const url=URL.createObjectURL(blob);
-				const a=document.createElement('a');
-
-				a.href=url;
-				a.download=base+'.sgml';
-				a.setAttribute('download',base+'.sgml');
-
-				document.body.appendChild(a);
-				a.click();
-				a.remove();
-
-				setTimeout(()=>URL.revokeObjectURL(url),1000);
-			}
-
-			function toggleEditor(){
-				const drawer=document.getElementById('editor-drawer');
-				drawer.classList.toggle('open');
-			}
-
-			function loadSGMLFromEditor(){
-				const code=document.getElementById('sgml-input').value;
-				saveCurrentSGML();
-				renderSGML(code);
-				document.getElementById('editor-drawer').classList.remove('open');
-			}
-
-			async function createNewSGML(){
-				const docs=loadDocuments();
-
-				const doc={
-					id:makeId(),
-					title:'Untitled SGML',
-					content:'',
-					createdAt:Date.now(),
-					updatedAt:Date.now()
-				};
-
-				docs.push(doc);
-				saveDocuments(docs);
-				loadDocumentIntoEditor(doc);
-
-				document.getElementById('editor-drawer').classList.add('open');
-				document.getElementById('sgml-input').focus();
-			}
-
-			function openLibrary(){
-				renderLibraryList();
-
-				document.getElementById('library-modal').classList.add('open');
-				document.getElementById('library-modal').setAttribute('aria-hidden','false');
-			}
-
-			function closeLibrary(){
-				document.getElementById('library-modal').classList.remove('open');
-				document.getElementById('library-modal').setAttribute('aria-hidden','true');
-			}
-
-			function renderLibraryList(){
-				const list=document.getElementById('library-list');
-
-				const docs=loadDocuments().sort(
-					(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
-				);
-
-				list.innerHTML='';
-
-				if(!docs.length){
-					list.innerHTML='<div class="sgml-library-empty">No saved SGML documents yet.</div>';
-					return;
+					docs.push(doc);
+					saveDocuments(docs);
+					loadDocumentIntoEditor(doc);
 				}
+			};
 
-				docs.forEach(doc=>{
-					const row=document.createElement('div');
-					row.className='sgml-library-item';
+			reader.readAsText(file);
+		}
 
-					const loadButton=document.createElement('button');
-					loadButton.className='sgml-library-load';
-					loadButton.type='button';
+		function downloadSGML(){
+			const doc=getCurrentDocument();
+			const content=String(
+				document.getElementById('sgml-input').value||''
+			);
 
-					const title=document.createElement('div');
-					title.className='sgml-library-item-title';
-					title.textContent=doc.title||'Untitled SGML';
+			const base=String(
+				doc&&doc.title||'Untitled SGML'
+			)
+				.replace(/\.[^.]+$/,'')
+				.replace(/[\\/:*?"<>|]+/g,'_')
+				.trim()||'Untitled SGML';
 
-					const preview=document.createElement('div');
-					preview.className='sgml-library-item-preview';
+			const blob=new Blob([content],{
+				type:'text/plain;charset=utf-8'
+			});
 
-					const firstLine=String(doc.content||'')
-						.split(/\r?\n/,1)[0]||'(empty)';
+			const url=URL.createObjectURL(blob);
+			const a=document.createElement('a');
 
-					preview.textContent=firstLine;
-					preview.title=firstLine;
+			a.href=url;
+			a.download=base+'.sgml';
+			a.setAttribute('download',base+'.sgml');
 
-					loadButton.appendChild(title);
-					loadButton.appendChild(preview);
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
 
-					loadButton.addEventListener('click',async()=>{
+			setTimeout(
+				()=>URL.revokeObjectURL(url),
+				1000
+			);
+		}
+
+		function toggleEditor(){
+			document
+				.getElementById('editor-drawer')
+				.classList.toggle('open');
+		}
+
+		function loadSGMLFromEditor(){
+			const code=document.getElementById('sgml-input').value;
+			saveCurrentSGML();
+			renderSGML(code);
+			document
+				.getElementById('editor-drawer')
+				.classList.remove('open');
+		}
+
+		async function createNewSGML(){
+			const docs=loadDocuments();
+
+			const doc={
+				id:makeId(),
+				title:'Untitled SGML',
+				content:'',
+				createdAt:Date.now(),
+				updatedAt:Date.now()
+			};
+
+			docs.push(doc);
+			saveDocuments(docs);
+			loadDocumentIntoEditor(doc);
+
+			document
+				.getElementById('editor-drawer')
+				.classList.add('open');
+
+			document
+				.getElementById('sgml-input')
+				.focus();
+		}
+
+		function openLibrary(){
+			renderLibraryList();
+
+			document
+				.getElementById('library-modal')
+				.classList.add('open');
+
+			document
+				.getElementById('library-modal')
+				.setAttribute('aria-hidden','false');
+		}
+
+		function closeLibrary(){
+			document
+				.getElementById('library-modal')
+				.classList.remove('open');
+
+			document
+				.getElementById('library-modal')
+				.setAttribute('aria-hidden','true');
+		}
+
+		function renderLibraryList(){
+			const list=document.getElementById('library-list');
+
+			const docs=loadDocuments().sort(
+				(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
+			);
+
+			list.innerHTML='';
+
+			if(!docs.length){
+				list.innerHTML=
+					'<div class="sgml-library-empty">No saved SGML documents yet.</div>';
+				return;
+			}
+
+			docs.forEach(doc=>{
+				const row=document.createElement('div');
+				row.className='sgml-library-item';
+
+				const loadButton=document.createElement('button');
+				loadButton.className='sgml-library-load';
+				loadButton.type='button';
+
+				const title=document.createElement('div');
+				title.className='sgml-library-item-title';
+				title.textContent=doc.title||'Untitled SGML';
+
+				const preview=document.createElement('div');
+				preview.className='sgml-library-item-preview';
+
+				const firstLine=String(doc.content||'')
+					.split(/\r?\n/,1)[0]||'(empty)';
+
+				preview.textContent=firstLine;
+				preview.title=firstLine;
+
+				loadButton.appendChild(title);
+				loadButton.appendChild(preview);
+
+				loadButton.addEventListener(
+					'click',
+					async()=>{
 						const current=getCurrentDocument();
-						const currentIsSame=current&&current.id===doc.id;
+						const currentIsSame=
+							current&&current.id===doc.id;
 
 						if(!currentIsSame){
 							const ok=await confirmDialog(
@@ -2082,18 +3066,21 @@ ${source}
 
 						closeLibrary();
 						loadDocumentIntoEditor(doc);
-					});
+					}
+				);
 
-					const deleteButton=document.createElement('button');
-					deleteButton.className='sgml-library-delete';
-					deleteButton.type='button';
-					deleteButton.textContent='X';
-					deleteButton.setAttribute(
-						'aria-label',
-						`Delete ${doc.title||'Untitled SGML'}`
-					);
+				const deleteButton=document.createElement('button');
+				deleteButton.className='sgml-library-delete';
+				deleteButton.type='button';
+				deleteButton.textContent='X';
+				deleteButton.setAttribute(
+					'aria-label',
+					`Delete ${doc.title||'Untitled SGML'}`
+				);
 
-					deleteButton.addEventListener('click',async event=>{
+				deleteButton.addEventListener(
+					'click',
+					async event=>{
 						event.stopPropagation();
 
 						const ok=await confirmDialog(
@@ -2105,7 +3092,9 @@ ${source}
 						if(!ok)return;
 
 						const docsNow=loadDocuments();
-						const remaining=docsNow.filter(item=>item.id!==doc.id);
+						const remaining=docsNow.filter(
+							item=>item.id!==doc.id
+						);
 
 						saveDocuments(remaining);
 
@@ -2131,15 +3120,16 @@ ${source}
 						}
 
 						renderLibraryList();
-					});
+					}
+				);
 
-					row.appendChild(loadButton);
-					row.appendChild(deleteButton);
-					list.appendChild(row);
-				});
-			}
+				row.appendChild(loadButton);
+				row.appendChild(deleteButton);
+				list.appendChild(row);
+			});
+		}
 
-			const defaultSGML=`# Study Guide: SGML — Study Guide Markup Language
+		const defaultSGML=`# Study Guide: SGML — Study Guide Markup Language
 
 SGML is a Markdown-based markup language designed for study guides, formatted notes, and interactive quizzes.
 
@@ -2367,6 +3357,162 @@ means that the sequence must be entered in the specified order.
 
 ---
 
+# Information Panels
+
+The \`<info>\` element creates a small underlined and gray ⓘ indicator.
+
+Clicking the indicator opens a contextual information panel.
+
+### Basic Information
+
+<info>
+	<p>This is additional information hidden behind the ⓘ indicator.</p>
+</info>
+
+### Information With Title
+
+<info title:"Photosynthesis">
+	<h3>Photosynthesis</h3>
+	<p>Photosynthesis is the process plants use to convert light energy into chemical energy.</p>
+</info>
+
+### Colored Information Panel
+
+<info title:"Important Note" bg:#fff3cd col:#7a5b00>
+	<h3>Important</h3>
+	<p>The background and text colors of the information panel can be customized.</p>
+	<st col:#b45309>This is SGML formatted text inside the panel.</st>
+</info>
+
+### Information Can Contain SGML
+
+<info title:"Interactive Information" bg:#eef6ff col:#174a73>
+	<h3>Extra Information</h3>
+	<p>Information panels can contain normal HTML and SGML rendering.</p>
+
+	<st col:#2563eb>Blue formatted text.</st>
+
+	<Choices:(Which element creates this information panel?)[<info>, <line>, <root>, <bh>]{[idx:0]}>
+</info>
+
+---
+
+# Tree Graph
+
+The \`<root>\` and \`<bh>\` elements are used to create expandable tree structures.
+
+The root contains the main concept.
+
+Each \`<bh>\` creates a separate branch.
+
+### Example Tree
+
+<root>
+	<h3>Photosynthesis</h3>
+	<p>The process plants use to convert light energy into chemical energy.</p>
+
+	<info title:"Photosynthesis Definition" bg:#eef6ff col:#174a73>
+		<p>Photosynthesis transforms light energy into chemical energy stored in organic molecules.</p>
+	</info>
+
+	<bh>
+		<h3>Light-dependent Reactions</h3>
+		<p>These reactions use sunlight to produce ATP and NADPH.</p>
+
+		<bh>
+			<h3>Chlorophyll</h3>
+			<p>A green pigment that absorbs light energy for photosynthesis.</p>
+
+			<info>
+				<p>Chlorophyll is especially important because it absorbs light used during photosynthesis.</p>
+			</info>
+		</bh>
+
+		<bh>
+			<h3>ATP Production</h3>
+			<p>Light energy contributes to the production of ATP.</p>
+		</bh>
+	</bh>
+
+	<bh>
+		<h3>Calvin Cycle</h3>
+		<p>A series of reactions that uses ATP and NADPH to produce sugars.</p>
+
+		<bh>
+			<h3>Carbon Fixation</h3>
+			<p>Carbon dioxide is incorporated into an organic molecule.</p>
+		</bh>
+
+		<bh>
+			<h3>Sugar Production</h3>
+			<p>The cycle contributes to the production of glucose and other sugars.</p>
+		</bh>
+	</bh>
+</root>
+
+The tree starts with the root visible.
+
+Click the root to reveal its branches.
+
+Click a branch to reveal its own children.
+
+Branches can contain HTML, Markdown-rendered content, \`<st>\`, \`<info>\`, and other supported SGML content.
+
+---
+
+# Line Node
+
+The \`<line>\` element creates an expandable vertical sequence.
+
+Each \`<node>\` has a \`title:\` that becomes the visible node.
+
+### Example Line
+
+<line>
+	<node title:"Origin">
+		<h3>The Beginning</h3>
+		<p>The concept was first introduced as an early idea.</p>
+
+		<info title:"Origin Details">
+			<p>Additional information about the beginning of the process is shown here.</p>
+		</info>
+	</node>
+
+	<node title:"Development">
+		<h3>Development</h3>
+		<p>During development, new techniques and ideas were introduced.</p>
+
+		<ul>
+			<li>New methods were introduced.</li>
+			<li>Existing systems were improved.</li>
+		</ul>
+
+		<st col:#2563eb>Development expanded the original concept.</st>
+	</node>
+
+	<node title:"Expansion">
+		<h3>Expansion</h3>
+		<p>The system became more widely used and additional features were created.</p>
+
+		<info title:"Expansion Information" bg:#f0fdf4 col:#166534>
+			<p>The expansion stage introduced additional capabilities.</p>
+		</info>
+	</node>
+
+	<node title:"Modern Era">
+		<h3>Modern Era</h3>
+		<p>The modern version contains the concepts and technologies developed throughout the timeline.</p>
+	</node>
+</line>
+
+The first node is displayed initially.
+
+Click the current node to reveal the next node.
+
+Click an earlier visible node to collapse everything after that node.
+
+---
+
 # How SGML Works
 
 SGML works by storing the study guide as plain text.
@@ -2450,6 +3596,26 @@ is recognized as a fill-in-the-blank question.
 
 is recognized as an enumeration question.
 
+\`<info>\`
+
+is recognized as an information panel.
+
+\`<root>\`
+
+is recognized as a tree root.
+
+\`<bh>\`
+
+is recognized as a tree branch.
+
+\`<line>\`
+
+is recognized as a line-node container.
+
+\`<node>\`
+
+is recognized as an individual line node.
+
 When parsing a choice list:
 
 - commas outside backticks separate values
@@ -2479,11 +3645,105 @@ renders as red text.
 
 A background can also be supplied:
 
-<st col:#12ABEF bg:#f0f8ff>Blue Text</st>
+<st col:#12ABEF bg:#f0f8ff>Blue Text with Background</st>
 
 ---
 
-## 4. Question Parsing
+## 4. Information Panels
+
+The \`<info>\` element is rendered as a small ⓘ indicator.
+
+The information is hidden until the indicator is clicked.
+
+An information panel can have optional attributes:
+
+\`title:\`
+
+controls the panel header.
+
+\`bg:\`
+
+controls the background theme.
+
+\`col:\`
+
+controls the text color.
+
+Example:
+
+<info title:"Example" bg:#eef6ff col:#174a73>
+	<p>This is an information panel.</p>
+</info>
+
+The contents can still contain HTML and SGML formatting.
+
+---
+
+## 5. Tree Parsing
+
+A tree begins with:
+
+\`<root>\`
+
+Branches are created with:
+
+\`<bh>\`
+
+A branch can contain additional nested \`<bh>\` elements.
+
+Example:
+
+<root>
+	<h3>Root</h3>
+
+	<bh>
+		<h3>Branch A</h3>
+
+		<bh>
+			<h3>Branch A1</h3>
+		</bh>
+	</bh>
+
+	<bh>
+		<h3>Branch B</h3>
+	</bh>
+</root>
+
+The viewer renders the hierarchy graphically and connects each branch to its parent.
+
+---
+
+## 6. Line Node Parsing
+
+A line begins with:
+
+\`<line>\`
+
+Each node is created with:
+
+\`<node title:"...">\`
+
+Example:
+
+<line>
+	<node title:"First">
+		<p>The first stage.</p>
+	</node>
+
+	<node title:"Second">
+		<p>The second stage.</p>
+	</node>
+
+	<node title:"Third">
+		<p>The third stage.</p>
+	</node>
+</line>
+
+The nodes are displayed progressively and can be expanded or collapsed.
+
+---
+
+## 7. Question Parsing
 
 An interactive question contains different parts.
 
@@ -2513,15 +3773,21 @@ A wrapped choice is parsed as one value:
 
 The comma inside \`Washington, D.C.\` does not create another choice.
 
+Literal backtick values can also contain SGML-looking text:
+
+<Choices:(Which custom element displays an information indicator?)[\`<info>\`,\`<line>\`,\`<root>\`,\`<bh>\`]{[idx:0]}>
+
+These values are treated as plaintext.
+
 ---
 
-## 5. Validation
+## 8. Validation
 
 After the learner submits an answer, the viewer compares it with the answer stored in the SGML.
 
 For example:
 
-<Fillin:(What is 2 + 2?)[]{4,Four}>
+<Fillin:(What is 2 + 2?)[]{4,Four, \`<four>\`}>
 
 The viewer can accept:
 
@@ -2535,7 +3801,7 @@ depending on the answer rules implemented by the viewer.
 
 ---
 
-## 6. Markdown Structure
+## 9. Markdown Structure
 
 SGML also uses Markdown-style structure.
 
@@ -2555,7 +3821,7 @@ This makes SGML easy to write and edit as ordinary text.
 
 ---
 
-## 7. Offline Mode
+## 10. Offline Mode
 
 Offline Mode separates the study guide's content from its network dependency.
 
@@ -2586,6 +3852,15 @@ for text answers.
 <st col:#0066ff>&lt;Enumeration&gt;</st>
 for lists and ordered answers.
 
+<st col:#0066ff>&lt;info&gt;</st>
+for contextual information.
+
+<st col:#0066ff>&lt;root&gt; + &lt;bh&gt;</st>
+for expandable tree structures.
+
+<st col:#0066ff>&lt;line&gt; + &lt;node&gt;</st>
+for expandable line-node sequences.
+
 Together, these components allow one \`.sgml\` file to contain both the learning material and the interactive quiz logic.
 
 ---
@@ -2595,6 +3870,12 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 <Choices:(What does \`<st>\` primarily control?)[Text formatting, File downloading, Network connection, Audio playback]{[idx:0]}>
 
 <Choices:(Which SGML element creates a multiple-choice question?)[<Fillin>, <Choices>, <Enumeration>, <st>]{<Choices>}>
+
+<Choices:(Which custom element displays an information indicator?)[\`<info>\`,\`<line>\`,\`<root>\`,\`<bh>\`]{[idx:0]}>
+
+<Choices:(Which element represents a tree branch?)[\`<node>\`, \`<bh>\`, \`<info>\`, \`<line>\`]{[idx:1]}>
+
+<Choices:(Which element creates an expandable line structure?)[\`<root>\`, \`<bh>\`, \`<line>\`, \`<info>\`]{[idx:2]}>
 
 <Fillin:(What markup is used for a fill-in-the-blank question?)[]{Fillin,<Fillin>}>
 
@@ -2618,96 +3899,118 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 
 <st col:#0066ff>Use backticks to wrap a value containing a separator such as a comma.</st>
 
+<st col:#0066ff>Use literal backticks when SGML-looking text should remain plaintext.</st>
+
 <st bg:#e0f2fe>Escaped characters are treated as literal characters instead of structural syntax.</st>
 
 <st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>
+
+<st bg:#eef6ff col:#174a73><info title:"Custom Elements">Info panels, tree graphs, and line nodes support normal SGML content such as HTML, Markdown-rendered elements, and ST formatting.</info></st>
+
 <ref id:"topic"/>
 You can use SAIG to create SGML easily
 https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 
-			function loadDefaultSample(){
-				const current=getCurrentDocument();
+		function loadDefaultSample(){
+			const current=getCurrentDocument();
 
-				if(current){
-					document.getElementById('sgml-input').value=defaultSGML;
+			if(current){
+				document.getElementById('sgml-input').value=defaultSGML;
 
-					current.content=defaultSGML;
-					current.title=
-						current.title==='Untitled SGML'||current.title==='Upload'
-							?'Sample SGML'
-							:current.title;
+				current.content=defaultSGML;
+				current.title=
+					current.title==='Untitled SGML'||current.title==='Upload'
+						?'Sample SGML'
+						:current.title;
 
-					current.updatedAt=Date.now();
+				current.updatedAt=Date.now();
 
-					saveDocuments(
-						loadDocuments().map(doc=>
-							doc.id===current.id?current:doc
-						)
-					);
-
-					localStorage.setItem(
-						STORAGE_CURRENT_CONTENT,
-						defaultSGML
-					);
-
-					updateCurrentName(current);
-					renderSGML(defaultSGML);
-				}
-			}
-
-			function initializeLibrary(){
-				let docs=loadDocuments();
-				const savedId=localStorage.getItem(STORAGE_CURRENT_ID);
-				const savedContent=localStorage.getItem(STORAGE_CURRENT_CONTENT);
-
-				let current=docs.find(doc=>doc.id===savedId);
-
-				if(!current&&docs.length){
-					current=docs.slice().sort(
-						(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
-					)[0];
-				}
-
-				if(!current){
-					current={
-						id:makeId(),
-						title:'Sample SGML',
-						content:savedContent!==null?savedContent:defaultSGML,
-						createdAt:Date.now(),
-						updatedAt:Date.now()
-					};
-
-					docs.push(current);
-					saveDocuments(docs);
-				}else if(savedContent!==null&&current.id===savedId){
-					current.content=savedContent;
-					current.updatedAt=Date.now();
-
-					saveDocuments(
-						docs.map(doc=>
-							doc.id===current.id?current:doc
-						)
-					);
-				}
-
-				currentDocumentId=current.id;
-
-				localStorage.setItem(
-					STORAGE_CURRENT_ID,
-					current.id
+				saveDocuments(
+					loadDocuments().map(
+						doc=>doc.id===current.id?current:doc
+					)
 				);
 
 				localStorage.setItem(
 					STORAGE_CURRENT_CONTENT,
-					current.content||''
+					defaultSGML
 				);
 
-				document.getElementById('sgml-input').value=current.content||'';
 				updateCurrentName(current);
-				renderSGML(current.content||'');
+				renderSGML(defaultSGML);
+			}
+		}
+
+		function initializeLibrary(){
+			let docs=loadDocuments();
+			const savedId=localStorage.getItem(
+				STORAGE_CURRENT_ID
+			);
+			const savedContent=localStorage.getItem(
+				STORAGE_CURRENT_CONTENT
+			);
+
+			let current=docs.find(
+				doc=>doc.id===savedId
+			);
+
+			if(!current&&docs.length){
+				current=docs.slice().sort(
+					(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)
+				)[0];
 			}
 
-			window.addEventListener('DOMContentLoaded',async()=>{
+			if(!current){
+				current={
+					id:makeId(),
+					title:'Sample SGML',
+					content:
+						savedContent!==null
+							?savedContent
+							:defaultSGML,
+					createdAt:Date.now(),
+					updatedAt:Date.now()
+				};
+
+				docs.push(current);
+				saveDocuments(docs);
+			}else if(
+				savedContent!==null&&
+				current.id===savedId
+			){
+				current.content=savedContent;
+				current.updatedAt=Date.now();
+
+				saveDocuments(
+					docs.map(
+						doc=>doc.id===current.id?current:doc
+					)
+				);
+			}
+
+			currentDocumentId=current.id;
+
+			localStorage.setItem(
+				STORAGE_CURRENT_ID,
+				current.id
+			);
+
+			localStorage.setItem(
+				STORAGE_CURRENT_CONTENT,
+				current.content||''
+			);
+
+			document.getElementById(
+				'sgml-input'
+			).value=current.content||'';
+
+			updateCurrentName(current);
+			renderSGML(current.content||'');
+		}
+
+		window.addEventListener(
+			'DOMContentLoaded',
+			async()=>{
 				initializeLibrary();
 				setupAutosave();
 				await updateOfflineButtonFromState();
@@ -2717,10 +4020,30 @@ https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 
 					if(url.searchParams.has('__sgml_refresh')){
 						url.searchParams.delete('__sgml_refresh');
-						history.replaceState(null,'',url.href);
+						history.replaceState(
+							null,
+							'',
+							url.href
+						);
 					}
 				}catch(_){}
+			}
+		);
+
+		window.addEventListener('resize',()=>{
+			if(openInfoWrap){
+				const panel=openInfoWrap.querySelector('.sgml-info-panel');
+
+				if(panel&&!panel.hidden){
+					placeInfoPanel(openInfoWrap,panel);
+				}
+			}
+
+			document.querySelectorAll('.sgml-tree').forEach(treeEl=>{
+				resizeTreeToContent(treeEl);
+				updateTreeConnections(treeEl);
 			});
-		</script>
-	</body>
+		});
+	</script>
+</body>
 </html>

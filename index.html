@@ -157,6 +157,18 @@
 				scrollbar-width:thin;
 			}
 
+			.MathJax {
+				max-width:100%;
+				overflow-x:auto;
+				overflow-y:hidden;
+			}
+
+			.MathJax_Display {
+				max-width:100%;
+				overflow-x:auto;
+				overflow-y:hidden;
+			}
+
 			#sgml-output pre::-webkit-scrollbar {
 				height:6px;
 			}
@@ -475,6 +487,26 @@
 			</div>
 		</div>
 
+		<script>
+			window.MathJax={
+				typeset:false,
+				tex:{
+					inlineMath:[['$','$'],['\\(','\\)']],
+					displayMath:[['$$','$$'],['\\[','\\]']],
+					processEscapes:true,
+					processEnvironments:true
+				},
+				options:{
+					skipHtmlTags:['script','noscript','style','textarea','pre','code'],
+					ignoreHtmlClass:'tex2jax_ignore',
+					processHtmlClass:'tex2jax_process'
+				},
+				startup:{
+					typeset:false
+				}
+			};
+		</script>
+		<script src="./tex-chtml.js"></script>
 		<script src="./marked.js"></script>
 		<script>
 			let parsedQuestions={};
@@ -1475,8 +1507,16 @@
 					renderedDoc=renderedDoc.replace(`%%QBLOCKTOKEN${q.id}%%`,qHtml);
 				});
 
-				document.getElementById('sgml-output').innerHTML=renderedDoc;
+				const output=document.getElementById('sgml-output');
+				output.innerHTML=renderedDoc;
 				setupDragAndDrop();
+
+				if(window.MathJax&&window.MathJax.typesetPromise){
+					window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
+					window.MathJax.typesetPromise([output]).catch(error=>{
+						console.error('LaTeX rendering failed:',error);
+					});
+				}
 			}
 
 			function handleFileUpload(event){

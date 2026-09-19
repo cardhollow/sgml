@@ -138,7 +138,7 @@
 				padding:2px 4px;
 				border-radius:3px;
 			}
-						#sgml-output pre {
+			#sgml-output pre {
 				display:block;
 				width:100%;
 				max-width:100%;
@@ -451,6 +451,77 @@
 				white-space:nowrap;
 				overflow:hidden;
 				text-overflow:ellipsis;
+			}
+			.sgml-icb {
+				width:100%;
+				max-width:100%;
+				min-width:0;
+				height:320px;
+				min-height:160px;
+				max-height:calc(100vh - 32px);
+				margin:16px 0;
+				border:1px solid #cfcfcf;
+				border-radius:5px;
+				background:#ffffff;
+				box-shadow:0 2px 8px rgba(0,0,0,.08);
+				overflow:hidden;
+				display:flex;
+				flex-direction:column;
+				position:relative;
+			}
+			.sgml-icb-header {
+				flex:0 0 36px;
+				height:36px;
+				padding:8px 11px;
+				border-bottom:1px solid #d8d8d8;
+				background:#f8f8f8;
+				color:#222;
+				font-size:13px;
+				font-weight:600;
+				line-height:19px;
+				white-space:nowrap;
+				overflow:hidden;
+				text-overflow:ellipsis;
+			}
+			.sgml-icb-content {
+				flex:1 1 auto;
+				min-height:0;
+				width:100%;
+				background:#ffffff;
+				overflow:hidden;
+			}
+			.sgml-icb-content iframe {
+				display:block;
+				width:100%;
+				height:100%;
+				border:0;
+				background:#ffffff;
+			}
+			.sgml-icb-footer {
+				flex:0 0 11px;
+				height:11px;
+				position:relative;
+				background:#f4f4f4;
+				border-top:1px solid #d8d8d8;
+				cursor:ns-resize;
+				touch-action:none;
+				user-select:none;
+				-webkit-user-select:none;
+			}
+			.sgml-icb-footer::before {
+				content:"";
+				position:absolute;
+				width:34px;
+				height:3px;
+				border-radius:3px;
+				background:#a9a9a9;
+				left:50%;
+				top:50%;
+				transform:translate(-50%,-50%);
+			}
+			.sgml-icb-footer:hover::before,
+			.sgml-icb-footer.dragging::before {
+				background:#777;
 			}
 		</style>
 	</head>
@@ -1012,6 +1083,232 @@
 				return null;
 			}
 
+			function stripUnsafeSGML(str){
+				if(!str)return'';
+
+				let result=String(str);
+
+				result=result.replace(
+					/<(script|iframe|object|embed|portal|frame|frameset|applet)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+					''
+				);
+
+				result=result.replace(
+					/<(script|iframe|object|embed|portal|frame|frameset|applet)\b[^>]*\/?>/gi,
+					''
+				);
+
+				result=result.replace(
+					/<\/(script|iframe|object|embed|portal|frame|frameset|applet)\s*>/gi,
+					''
+				);
+
+				return result;
+			}
+
+			function extractICBBlocks(inputStr){
+				const blocks=[];
+
+				if(!inputStr){
+					return{
+						processedText:'',
+						blocks
+					};
+				}
+
+				const regex=/^~~~([^\r\n~][^\r\n]*)\r?\n([\s\S]*?)^~~~[ \t]*(?=\r?$|\n)/gm;
+
+				const processedText=String(inputStr).replace(
+					regex,
+					(match,name,content)=>{
+						const index=blocks.length;
+
+						blocks.push({
+							name:String(name||'ICB').trim()||'ICB',
+							content:String(content||'')
+						});
+
+						return`\uE100SGMLICB${index}\uE101`;
+					}
+				);
+
+				return{
+					processedText,
+					blocks
+				};
+			}
+
+			function renderICBPlaceholders(str,blocks){
+				if(!str||!blocks||!blocks.length)return str;
+
+				return str.replace(
+					/\uE100SGMLICB(\d+)\uE101/g,
+					(_,index)=>{
+						const i=Number(index);
+
+						if(!blocks[i])return'';
+
+						return`<div class="sgml-icb-slot" data-icb-index="${i}"></div>`;
+					}
+				);
+			}
+
+			function buildICBDocument(content){
+				const baseHref=escapeHTMLAttribute(location.href);
+				const source=String(content||'');
+				const trimmed=source.trim();
+
+				if(/^<!doctype\s+html/i.test(trimmed)||/<html\b/i.test(trimmed)){
+					return source;
+				}
+
+				return`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<base href="${baseHref}">
+<style>
+html,body{
+	margin:0;
+	padding:0;
+	min-width:0;
+	min-height:100%;
+	width:100%;
+	box-sizing:border-box;
+}
+body{
+	overflow:auto;
+	font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{
+	box-sizing:border-box;
+}
+img,video,canvas,svg{
+	max-width:none;
+}
+table{
+	max-width:none;
+}
+</style>
+</head>
+<body>
+${source}
+</body>
+</html>`;
+			}
+
+			function setupICB(){
+				const slots=document.querySelectorAll('.sgml-icb-slot');
+
+				slots.forEach(slot=>{
+					const index=Number(slot.dataset.icbIndex);
+					const block=window.__sgmlICBBlocks&&window.__sgmlICBBlocks[index];
+
+					if(!block)return;
+
+					const container=document.createElement('div');
+					container.className='sgml-icb';
+					container.style.height='320px';
+
+					const header=document.createElement('div');
+					header.className='sgml-icb-header';
+					header.textContent=block.name;
+					header.title=block.name;
+
+					const content=document.createElement('div');
+					content.className='sgml-icb-content';
+
+					const iframe=document.createElement('iframe');
+					iframe.setAttribute('sandbox','allow-scripts');
+					iframe.setAttribute('title',`${block.name} isolated container`);
+					iframe.setAttribute('loading','lazy');
+					iframe.srcdoc=buildICBDocument(block.content);
+
+					content.appendChild(iframe);
+
+					const footer=document.createElement('div');
+					footer.className='sgml-icb-footer';
+					footer.setAttribute('aria-label','Resize isolated container');
+					footer.title='Drag to resize';
+
+					container.appendChild(header);
+					container.appendChild(content);
+					container.appendChild(footer);
+
+					slot.replaceWith(container);
+
+					let dragging=false;
+					let startY=0;
+					let startHeight=320;
+					let pointerId=null;
+
+					const getMaxHeight=()=>{
+						return Math.max(
+							160,
+							window.innerHeight-32
+						);
+					};
+
+					const onPointerMove=event=>{
+						if(!dragging)return;
+						if(pointerId!==null&&event.pointerId!==pointerId)return;
+
+						const delta=event.clientY-startY;
+						const newHeight=Math.max(
+							160,
+							Math.min(
+								getMaxHeight(),
+								startHeight+delta
+							)
+						);
+
+						container.style.height=`${newHeight}px`;
+					};
+
+					const endDrag=event=>{
+						if(pointerId!==null&&event.pointerId!==pointerId)return;
+
+						dragging=false;
+						footer.classList.remove('dragging');
+
+						if(
+							footer.hasPointerCapture&&
+							pointerId!==null&&
+							footer.hasPointerCapture(pointerId)
+						){
+							footer.releasePointerCapture(pointerId);
+						}
+
+						pointerId=null;
+
+						window.removeEventListener('pointermove',onPointerMove);
+						window.removeEventListener('pointerup',endDrag);
+						window.removeEventListener('pointercancel',endDrag);
+					};
+
+					footer.addEventListener('pointerdown',event=>{
+						event.preventDefault();
+
+						dragging=true;
+						startY=event.clientY;
+						startHeight=container.getBoundingClientRect().height;
+						pointerId=event.pointerId;
+						footer.classList.add('dragging');
+
+						if(footer.setPointerCapture){
+							try{
+								footer.setPointerCapture(event.pointerId);
+							}catch(_){}
+						}
+
+						window.addEventListener('pointermove',onPointerMove);
+						window.addEventListener('pointerup',endDrag);
+						window.addEventListener('pointercancel',endDrag);
+					});
+				});
+			}
+
 			function parseQuestionBlocks(inputStr){
 				const questions=[];
 				let i=0;
@@ -1561,10 +1858,15 @@
 			function renderSGML(sgmlContent){
 				parsedQuestions={};
 
+				const icbResult=extractICBBlocks(sgmlContent);
+				window.__sgmlICBBlocks=icbResult.blocks;
+
+				const safeSGML=stripUnsafeSGML(icbResult.processedText);
+
 				const{
 					processedText,
 					questions
-				}=parseQuestionBlocks(sgmlContent);
+				}=parseQuestionBlocks(safeSGML);
 
 				let renderedDoc=renderMarkdown(processedText);
 
@@ -1578,9 +1880,12 @@
 					renderedDoc=renderedDoc.replace(`%%QBLOCKTOKEN${q.id}%%`,qHtml);
 				});
 
+				renderedDoc=renderICBPlaceholders(renderedDoc,icbResult.blocks);
+
 				const output=document.getElementById('sgml-output');
 				output.innerHTML=renderedDoc;
 				setupDragAndDrop();
+				setupICB();
 
 				if(window.MathJax&&window.MathJax.typesetPromise){
 					window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
@@ -2069,7 +2374,50 @@ SGML works by storing the study guide as plain text.
 The viewer reads the SGML source and processes its markup.
 
 ---
+~~~Bar Graph
+<svg width="100%" height="300" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">
+	<style>
+		.bar{fill:#4f8cff}
+		.bar:hover{fill:#2563eb}
+		.label{font-family:Arial,sans-serif;font-size:14px;fill:#222}
+		.value{font-family:Arial,sans-serif;font-size:13px;fill:#555}
+		.axis{stroke:#333;stroke-width:2}
+	</style>
 
+	<line x1="60" y1="20" x2="60" y2="250" class="axis"/>
+	<line x1="60" y1="250" x2="570" y2="250" class="axis"/>
+
+	<rect x="90" y="170" width="60" height="80" class="bar"/>
+	<rect x="190" y="110" width="60" height="140" class="bar"/>
+	<rect x="290" y="70" width="60" height="180" class="bar"/>
+	<rect x="390" y="130" width="60" height="120" class="bar"/>
+	<rect x="490" y="40" width="60" height="210" class="bar"/>
+
+	<text x="120" y="160" text-anchor="middle" class="value">40</text>
+	<text x="220" y="100" text-anchor="middle" class="value">70</text>
+	<text x="320" y="60" text-anchor="middle" class="value">90</text>
+	<text x="420" y="120" text-anchor="middle" class="value">60</text>
+	<text x="520" y="30" text-anchor="middle" class="value">105</text>
+
+	<text x="120" y="275" text-anchor="middle" class="label">Monday</text>
+	<text x="220" y="275" text-anchor="middle" class="label">Tuesday</text>
+	<text x="320" y="275" text-anchor="middle" class="label">Wednesday</text>
+	<text x="420" y="275" text-anchor="middle" class="label">Thursday</text>
+	<text x="520" y="275" text-anchor="middle" class="label">Friday</text>
+</svg>
+~~~
+---
+~~~Interactive SVG
+<svg width="100%" height="220" viewBox="0 0 500 220" xmlns="http://www.w3.org/2000/svg">
+	<rect x="0" y="0" width="500" height="220" fill="#fff"/>
+	<rect id="box" x="170" y="60" width="160" height="80" rx="10" fill="#4f8cff"/>
+	<text x="250" y="105" text-anchor="middle" font-family="Arial" font-size="18" fill="#fff">Click the button</text>
+</svg>
+
+<button onclick="document.getElementById('box').style.fill='#22c55e';document.getElementById('message').textContent='The SVG was changed!'">Change SVG</button>
+<p id="message">Nothing happened yet.</p>
+~~~
+---
 ## 1. SGML Source
 
 The original document is text.
@@ -2274,7 +2622,7 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 
 <st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>
 <ref id:"topic"/>
-You can use SAIG to create SGML easily 
+You can use SAIG to create SGML easily
 https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 
 			function loadDefaultSample(){

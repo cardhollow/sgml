@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title>SGML Viewer</title>
+  <desc>SGML Viewer application icon</desc>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="#ffffff"/>
+  <rect x="40" y="40" width="432" height="432" rx="82" fill="none" stroke="#111111" stroke-width="20"/>
+  <path d="M186 150 92 256l94 106" fill="none" stroke="#111111" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m326 150 94 106-94 106" fill="none" stroke="#111111" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M278 122 234 390" fill="none" stroke="#111111" stroke-width="28" stroke-linecap="round"/>
+</svg>

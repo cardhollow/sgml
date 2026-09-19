@@ -4,6 +4,8 @@
 	<meta charset="utf-8"/>
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 	<title>SGML Viewer</title>
+	<link rel="manifest" href="./manifest.json"/>
+	<meta name="theme-color" content="#ffffff"/>
 	<style>
 		:root{
 			--bg-color:#ffffff;
@@ -821,87 +823,178 @@
 			});
 		}
 
+		async function setOfflineWorkerState(enabled){
+			const registration=await getServiceWorkerRegistration();
+			const worker=
+				navigator.serviceWorker.controller||
+				(registration&&(
+					registration.active||
+					registration.waiting||
+					registration.installing
+				));
+
+			if(!worker)return;
+
+			await new Promise((resolve,reject)=>{
+				const channel=new MessageChannel();
+				const timeout=setTimeout(
+					()=>{
+						reject(
+							new Error(
+								'Offline state request timed out.'
+							)
+						);
+					},
+					5000
+				);
+
+				channel.port1.onmessage=event=>{
+					clearTimeout(timeout);
+
+					if(
+						event.data&&
+						event.data.ok
+					){
+						resolve();
+					}else{
+						reject(
+							new Error(
+								event.data&&event.data.error
+									?event.data.error
+									:'Offline state update failed.'
+							)
+						);
+					}
+				};
+
+				worker.postMessage(
+					{
+						type:'SET_OFFLINE_ENABLED',
+						enabled:!!enabled
+					},
+					[channel.port2]
+				);
+			});
+		}
+
+		async function registerPWAServiceWorker(){
+			if(!('serviceWorker' in navigator))return null;
+
+			try{
+				const registration=await navigator.serviceWorker.register(
+					'./sw.js',
+					{scope:'./'}
+				);
+
+				await registration.update();
+
+				if(registration.waiting){
+					registration.waiting.postMessage({
+						type:'SKIP_WAITING'
+					});
+				}
+
+				await waitForController(6000);
+				return registration;
+			}catch(error){
+				console.error(
+					'PWA Service Worker registration failed:',
+					error
+				);
+				return null;
+			}
+		}
+
 		async function enableOffline(){
 			if(!('serviceWorker' in navigator)){
 				await confirmDialog(
 					'This browser/WebView does not support Service Workers, so Offline mode cannot be enabled here.',
-					'Offline unavailable','OK'
+					'Offline unavailable',
+					'OK'
 				);
 				return;
 			}
 
 			try{
-				const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
-				await registration.update();
+				await registerPWAServiceWorker();
 
-				if(registration.waiting){
-					registration.waiting.postMessage({type:'SKIP_WAITING'});
-				}
+				localStorage.setItem(
+					'sgml_viewer_offline_enabled',
+					'1'
+				);
+
+				await setOfflineWorkerState(true);
+
+				const registration=
+					await getServiceWorkerRegistration();
 
 				await waitForController(6000);
-				await cacheCurrentPageWithServiceWorker(registration);
+				await cacheCurrentPageWithServiceWorker(
+					registration
+				);
+
 				updateOfflineButton(true);
 
 				await confirmDialog(
 					'Offline mode is enabled. This browser page can now be opened from its offline cache.',
-					'Offline enabled','OK'
+					'Offline enabled',
+					'OK'
 				);
 			}catch(error){
-				console.error('Offline setup failed:',error);
+				console.error(
+					'Offline setup failed:',
+					error
+				);
+
+				localStorage.removeItem(
+					'sgml_viewer_offline_enabled'
+				);
 
 				await confirmDialog(
 					'Offline mode could not be enabled. Make sure this page is being served from HTTP(S) and that sw.js is in the same folder.',
-					'Offline setup failed','OK'
+					'Offline setup failed',
+					'OK'
 				);
 			}
 		}
-
 		async function disableOfflineAndRefresh(){
 			const confirmed=await confirmDialog(
-				'This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, it cannot be accessed offline anymore unless you enable Offline again.',
-				'Refresh browser?','Refresh'
+				'This will update to the most recent browser page and remove this page from its offline cache.\n\nAfter this, Offline mode will be disabled until you enable it again.',
+				'Refresh browser?',
+				'Refresh'
 			);
 
 			if(!confirmed)return;
 
 			try{
-				const registration=await getServiceWorkerRegistration();
+				localStorage.removeItem(
+					'sgml_viewer_offline_enabled'
+				);
+
+				const registration=
+					await getServiceWorkerRegistration();
 
 				if(registration){
 					try{
-						await new Promise(resolve=>{
-							const worker=navigator.serviceWorker.controller||registration.active;
-
-							if(!worker){
-								resolve();
-								return;
-							}
-
-							const channel=new MessageChannel();
-							let finished=false;
-							const finish=()=>{
-								if(finished)return;
-								finished=true;
-								clearTimeout(timeout);
-								resolve();
-							};
-							const timeout=setTimeout(finish,3000);
-
-							channel.port1.onmessage=finish;
-							worker.postMessage({type:'DISABLE_OFFLINE'},[channel.port2]);
-						});
+						await setOfflineWorkerState(false);
 					}catch(error){
-						console.warn('Could not ask worker to clear cache:',error);
+						console.warn(
+							'Could not disable Service Worker offline caching:',
+							error
+						);
 					}
-
-					await registration.unregister();
 				}
 
 				if('caches' in window){
 					const keys=await caches.keys();
+
 					await Promise.all(
 						keys
-							.filter(key=>key.startsWith('sgml-viewer-offline-'))
+							.filter(key=>
+								key.startsWith(
+									'sgml-viewer-offline-'
+								)
+							)
 							.map(key=>caches.delete(key))
 					);
 				}
@@ -909,12 +1002,22 @@
 				updateOfflineButton(false);
 
 				const url=new URL(location.href);
-				url.searchParams.set('__sgml_refresh',String(Date.now()));
+				url.searchParams.set(
+					'__sgml_refresh',
+					String(Date.now())
+				);
 				location.replace(url.href);
 			}catch(error){
-				console.error('Refresh cleanup failed:',error);
+				console.error(
+					'Refresh cleanup failed:',
+					error
+				);
+
 				const url=new URL(location.href);
-				url.searchParams.set('__sgml_refresh',String(Date.now()));
+				url.searchParams.set(
+					'__sgml_refresh',
+					String(Date.now())
+				);
 				location.replace(url.href);
 			}
 		}
@@ -933,12 +1036,32 @@
 		}
 
 		async function updateOfflineButtonFromState(){
+			const enabled=
+				localStorage.getItem(
+					'sgml_viewer_offline_enabled'
+				)==='1';
+
+			updateOfflineButton(enabled);
+
 			if(!('serviceWorker' in navigator)){
-				updateOfflineButton(false);
 				return;
 			}
-			const registration=await getServiceWorkerRegistration();
-			updateOfflineButton(!!registration);
+
+			try{
+				const registration=
+					await getServiceWorkerRegistration();
+
+				if(!registration){
+					await registerPWAServiceWorker();
+				}
+
+				await setOfflineWorkerState(enabled);
+			}catch(error){
+				console.warn(
+					'Could not sync offline state:',
+					error
+				);
+			}
 		}
 
         function isSGMLEscapable(char){
@@ -3491,6 +3614,73 @@ table{max-width:none}
 			});
 		}
 
+		function getUploadTitle(fileName){
+			const base=String(fileName||'Upload')
+				.replace(/\.[^.]+$/,'')
+				.trim();
+			return base||'Upload';
+		}
+
+		function importFileContent(content,fileName='Upload'){
+			const text=String(content||'');
+			const title=getUploadTitle(fileName);
+			const current=getCurrentDocument();
+
+			if(!current||!(current.content||'').trim()){
+				if(!current){
+					const docs=loadDocuments();
+
+					const doc={
+						id:makeId(),
+						title,
+						content:text,
+						createdAt:Date.now(),
+						updatedAt:Date.now()
+					};
+
+					docs.push(doc);
+					saveDocuments(docs);
+					setCurrentDocumentId(doc.id);
+					loadDocumentIntoEditor(doc);
+				}else{
+					current.title=title;
+					current.content=text;
+					current.updatedAt=Date.now();
+
+					const docs=loadDocuments().map(
+						doc=>doc.id===current.id?current:doc
+					);
+
+					saveDocuments(docs);
+					localStorage.setItem(
+						STORAGE_CURRENT_CONTENT,
+						text
+					);
+
+					document.getElementById(
+						'sgml-input'
+					).value=text;
+
+					updateCurrentName(current);
+					renderSGML(text);
+				}
+			}else{
+				const docs=loadDocuments();
+
+				const doc={
+					id:makeId(),
+					title,
+					content:text,
+					createdAt:Date.now(),
+					updatedAt:Date.now()
+				};
+
+				docs.push(doc);
+				saveDocuments(docs);
+				loadDocumentIntoEditor(doc);
+			}
+		}
+
 		function handleFileUpload(event){
 			const file=event.target.files[0];
 			event.target.value='';
@@ -3500,67 +3690,96 @@ table{max-width:none}
 			const reader=new FileReader();
 
 			reader.onload=function(e){
-				const content=String(e.target.result||'');
-				const current=getCurrentDocument();
+				importFileContent(
+					String(e.target.result||''),
+					file.name||'Upload'
+				);
+			};
 
-				if(!current||!(current.content||'').trim()){
-					if(!current){
-						const docs=loadDocuments();
-
-						const doc={
-							id:makeId(),
-							title:'Upload',
-							content,
-							createdAt:Date.now(),
-							updatedAt:Date.now()
-						};
-
-						docs.push(doc);
-						saveDocuments(docs);
-						setCurrentDocumentId(doc.id);
-						loadDocumentIntoEditor(doc);
-					}else{
-						current.title='Upload';
-						current.content=content;
-						current.updatedAt=Date.now();
-
-						const docs=loadDocuments().map(
-							doc=>doc.id===current.id?current:doc
-						);
-
-						saveDocuments(docs);
-						localStorage.setItem(
-							STORAGE_CURRENT_CONTENT,
-							content
-						);
-
-						document.getElementById(
-							'sgml-input'
-						).value=content;
-
-						updateCurrentName(current);
-						renderSGML(content);
-					}
-				}else{
-					const docs=loadDocuments();
-					const baseName=
-						file.name.replace(/\.[^.]+$/,'')||'Upload';
-
-					const doc={
-						id:makeId(),
-						title:baseName,
-						content,
-						createdAt:Date.now(),
-						updatedAt:Date.now()
-					};
-
-					docs.push(doc);
-					saveDocuments(docs);
-					loadDocumentIntoEditor(doc);
-				}
+			reader.onerror=function(error){
+				console.error('Could not read uploaded file:',error);
+				confirmDialog(
+					'The selected file could not be read.',
+					'File import failed',
+					'OK'
+				);
 			};
 
 			reader.readAsText(file);
+		}
+
+		async function processSharedFile(){
+			const url=new URL(location.href);
+			const token=url.searchParams.get('__sgml_shared');
+
+			if(!token)return;
+
+			const dataURL=new URL(
+				'./__sgml_shared_file?token='+encodeURIComponent(token),
+				location.href
+			);
+
+			try{
+				const response=await fetch(
+					dataURL.href,
+					{cache:'no-store'}
+				);
+
+				if(!response.ok){
+					throw new Error(
+						'Shared file could not be retrieved.'
+					);
+				}
+
+				const data=await response.json();
+
+				if(!data||typeof data.content!=='string'){
+					throw new Error(
+						'Shared file data was invalid.'
+					);
+				}
+
+				importFileContent(
+					data.content,
+					data.name||'Shared File'
+				);
+
+				const worker=
+					navigator.serviceWorker&&
+					navigator.serviceWorker.controller;
+
+				if(worker){
+					worker.postMessage({
+						type:'DELETE_SHARED_FILE',
+						url:dataURL.href
+					});
+				}
+
+				url.searchParams.delete('__sgml_shared');
+				history.replaceState(
+					null,
+					'',
+					url.href
+				);
+			}catch(error){
+				console.error(
+					'Could not import shared file:',
+					error
+				);
+
+				await confirmDialog(
+					'The shared file could not be imported. Try sharing the file again.',
+					'File import failed',
+					'OK'
+				);
+
+				url.searchParams.delete('__sgml_shared');
+				history.replaceState(
+					null,
+					'',
+					url.href
+				);
+			}
 		}
 
 		function downloadSGML(){
@@ -4689,7 +4908,13 @@ https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 			async()=>{
 				initializeLibrary();
 				setupAutosave();
+
+				if('serviceWorker' in navigator){
+					await registerPWAServiceWorker();
+				}
+
 				await updateOfflineButtonFromState();
+				await processSharedFile();
 
 				try{
 					const url=new URL(location.href);

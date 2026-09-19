@@ -227,6 +227,23 @@
 			#sgml-output tr:nth-child(even) td {
 				background:#fafafa;
 			}
+			.sgml-ref {
+				color:inherit;
+				text-decoration:underline;
+				cursor:pointer;
+			}
+			
+			.sgml-ref:visited {
+				color:inherit;
+			}
+			
+			.sgml-ref:hover {
+				color:inherit;
+			}
+			
+			.sgml-ref:active {
+				color:inherit;
+			}
 			.sgml-qblock {
 				border:1px solid var(--border-color);
 				padding:12px;
@@ -1146,30 +1163,84 @@
 					.replace(/<\/st>/gi,'</span>');
 			}
 
+			function escapeHTMLAttribute(str){
+				return String(str)
+					.replace(/&/g,'&amp;')
+					.replace(/"/g,'&quot;')
+					.replace(/</g,'&lt;')
+					.replace(/>/g,'&gt;');
+			}
+
 			function renderMarkdown(mdText){
 				if(!mdText)return'';
-			
+
+				const savedRefs=[];
 				const saved=[];
-			
-				const source=String(mdText).replace(
-					/<st\b[^>]*>|<\/st>/gi,
-					tag=>{
-						const id=saved.length;
-						saved.push(tag);
-						return`\uE000SGMLST${id}\uE001`;
-					}
-				);
-			
+
+				let source=String(mdText)
+					.replace(
+						/<ref\s+id\s*:\s*"([^"]*)"\s*\/>/gi,
+						(match,id)=>{
+							const index=savedRefs.length;
+
+							savedRefs.push({
+								type:'target',
+								id:id
+							});
+
+							return`\uE000SGMLREF${index}\uE001`;
+						}
+					)
+					.replace(
+						/<ref\s+id\s*:\s*"([^"]*)"\s*>([\s\S]*?)<\/ref>/gi,
+						(match,id,content)=>{
+							const index=savedRefs.length;
+
+							savedRefs.push({
+								type:'link',
+								id:id,
+								content:content
+							});
+
+							return`\uE000SGMLREF${index}\uE001`;
+						}
+					)
+					.replace(
+						/<st\b[^>]*>|<\/st>/gi,
+						tag=>{
+							const id=saved.length;
+							saved.push(tag);
+							return`\uE000SGMLST${id}\uE001`;
+						}
+					);
+
 				let result=marked.parse(source,{
 					gfm:true,
 					breaks:true
 				});
-			
+
 				result=result.replace(
 					/\uE000SGMLST(\d+)\uE001/g,
 					(_,i)=>saved[Number(i)]||''
 				);
-			
+
+				result=result.replace(
+					/\uE000SGMLREF(\d+)\uE001/g,
+					(_,i)=>{
+						const ref=savedRefs[Number(i)];
+
+						if(!ref)return'';
+
+						const id=escapeHTMLAttribute(ref.id);
+
+						if(ref.type==='target'){
+							return`<a id="${id}" class="sgml-ref"></a>`;
+						}
+
+						return`<a href="#${id}" class="sgml-ref">${renderMarkdown(ref.content)}</a>`;
+					}
+				);
+
 				return renderST(result);
 			}
 
@@ -1784,6 +1855,7 @@ When Offline mode is enabled:
 <st col:#00aa00>Tip:</st> Enable Offline mode before disconnecting from the internet so the required resources can be cached.
 
 ---
+<ref id:"topic">Go to End</ref>
 
 ### Load an SGML File
 
@@ -2201,7 +2273,7 @@ Together, these components allow one \`.sgml\` file to contain both the learning
 <st bg:#e0f2fe>Escaped characters are treated as literal characters instead of structural syntax.</st>
 
 <st bg:#e0f2fe>Offline Mode allows the viewer to continue working from cached/local resources when no internet connection is available.</st>
-
+<ref id:"topic"/>
 You can use SAIG to create SGML easily 
 https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 

@@ -591,6 +591,56 @@
 			.sgml-line-title{font-size:13px;padding:7px 10px}
 			.sgml-line-content{padding:11px 12px;font-size:13px}
 		}
+
+		#pwa-install-banner{
+			position:fixed;
+			left:12px;
+			right:12px;
+			bottom:12px;
+			z-index:10000;
+			display:none;
+			align-items:center;
+			gap:12px;
+			padding:12px 14px;
+			background:#fff;
+			color:#111;
+			border:1px solid #ccc;
+			border-radius:10px;
+			box-shadow:0 8px 28px rgba(0,0,0,.18);
+			max-width:760px;
+			margin:0 auto;
+		}
+		#pwa-install-banner.show{display:flex}
+		#pwa-install-banner .pwa-install-text{
+			flex:1 1 auto;
+			min-width:0;
+			font-size:13px;
+			line-height:1.35;
+		}
+		#pwa-install-banner .pwa-install-title{font-weight:700;margin-bottom:2px}
+		#pwa-install-button{
+			flex:0 0 auto;
+			border:1px solid #888;
+			border-radius:7px;
+			padding:8px 12px;
+			background:#f5f5f5;
+			color:#111;
+			cursor:pointer;
+		}
+		#pwa-install-dismiss{
+			flex:0 0 auto;
+			border:0;
+			background:transparent;
+			color:#666;
+			cursor:pointer;
+			padding:6px;
+			font-size:18px;
+			line-height:1;
+		}
+		@media(max-width:520px){
+			#pwa-install-banner{align-items:flex-start}
+			#pwa-install-banner .pwa-install-text{font-size:12px}
+		}
 	</style>
 </head>
 <body>
@@ -604,6 +654,15 @@
 		<button id="offline-button" onclick="handleOfflineButton()">Enable Offline</button>
 		<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
 		<input accept=".sgml,.txt,.md" id="file-upload-input" onchange="handleFileUpload(event)" style="display:none" type="file"/>
+	</div>
+
+	<div id="pwa-install-banner" aria-live="polite">
+		<div class="pwa-install-text">
+			<div class="pwa-install-title">Install SGML Viewer</div>
+			<div>Install it as an app for quicker access and file sharing.</div>
+		</div>
+		<button id="pwa-install-button" type="button">Install</button>
+		<button id="pwa-install-dismiss" type="button" aria-label="Dismiss install message">×</button>
 	</div>
 
 	<div class="sgml-current-name" id="sgml-current-name"></div>
@@ -781,6 +840,61 @@
 				backdrop.addEventListener('click',onBackdrop);
 				document.addEventListener('keydown',onKeyDown);
 			});
+		}
+
+		let deferredInstallPrompt=null;
+
+		function hidePWAInstallUI(){
+			const banner=document.getElementById('pwa-install-banner');
+			if(banner)banner.classList.remove('show');
+		}
+
+		function showPWAInstallUI(){
+			if(!deferredInstallPrompt)return;
+			if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true){
+				hidePWAInstallUI();
+				return;
+			}
+			const banner=document.getElementById('pwa-install-banner');
+			if(banner)banner.classList.add('show');
+		}
+
+		async function promptPWAInstall(){
+			if(!deferredInstallPrompt)return;
+
+			const promptEvent=deferredInstallPrompt;
+			deferredInstallPrompt=null;
+			hidePWAInstallUI();
+
+			try{
+				await promptEvent.prompt();
+				await promptEvent.userChoice;
+			}catch(error){
+				console.warn('PWA install prompt failed:',error);
+			}
+		}
+
+		function setupPWAInstallPrompt(){
+			window.addEventListener('beforeinstallprompt',event=>{
+				event.preventDefault();
+				deferredInstallPrompt=event;
+				showPWAInstallUI();
+			});
+
+			window.addEventListener('appinstalled',()=>{
+				deferredInstallPrompt=null;
+				hidePWAInstallUI();
+			});
+
+			const installButton=document.getElementById('pwa-install-button');
+			if(installButton){
+				installButton.addEventListener('click',promptPWAInstall);
+			}
+
+			const dismissButton=document.getElementById('pwa-install-dismiss');
+			if(dismissButton){
+				dismissButton.addEventListener('click',()=>hidePWAInstallUI());
+			}
 		}
 
 		async function getServiceWorkerRegistration(){
@@ -4906,6 +5020,7 @@ https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO`;
 		window.addEventListener(
 			'DOMContentLoaded',
 			async()=>{
+				setupPWAInstallPrompt();
 				initializeLibrary();
 				setupAutosave();
 

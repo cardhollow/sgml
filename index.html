@@ -218,9 +218,45 @@
 		.sgml-flashcard-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#777;margin-bottom:5px}
 		.sgml-flashcard-card:not(.revealed) .sgml-flashcard-back{display:none}
 		.sgml-flashcard-hint{font-size:12px;color:#777;margin-top:12px}
+		.sgml-flashcard-navigation{padding:0 14px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+		.sgml-flashcard-navigation button{min-width:42px}
+		.sgml-flashcard-navigation button:disabled{opacity:.45;cursor:default}
 		.sgml-flashcard .sgml-controls{padding:0 14px 14px}
 		.sgml-flashcard-summary{padding:0 14px 14px;color:#444;font-size:13px}
 		.sgml-flashcard-summary strong{font-weight:700}
+		.sgml-flashcard-card.flashcard-anim-correct{animation:sgmlFlashcardCorrect .42s ease}
+		.sgml-flashcard-card.flashcard-anim-wrong{animation:sgmlFlashcardWrong .42s ease}
+		.sgml-flashcard-card.flashcard-anim-skip{animation:sgmlFlashcardSkip .42s ease}
+		.sgml-flashcard-card.flashcard-anim-next{animation:sgmlFlashcardNext .30s ease}
+		.sgml-flashcard-card.flashcard-anim-prev{animation:sgmlFlashcardPrev .30s ease}
+		@keyframes sgmlFlashcardCorrect{
+			0%{transform:translate(0,0) rotate(0);opacity:1}
+			20%{transform:translate(10px,4px) rotate(2deg)}
+			40%{transform:translate(-8px,10px) rotate(-2deg)}
+			60%{transform:translate(6px,15px) rotate(1deg)}
+			100%{transform:translate(0,26px) rotate(0);opacity:0}
+		}
+		@keyframes sgmlFlashcardWrong{
+			0%{transform:translate(0,0) rotate(0);opacity:1}
+			20%{transform:translate(-10px,4px) rotate(-2deg)}
+			40%{transform:translate(8px,9px) rotate(2deg)}
+			60%{transform:translate(-6px,15px) rotate(-1deg)}
+			100%{transform:translate(0,26px) rotate(0);opacity:0}
+		}
+		@keyframes sgmlFlashcardSkip{
+			0%{transform:translate(0,0);opacity:1}
+			35%{transform:translate(-5px,10px) rotate(-1deg)}
+			70%{transform:translate(5px,22px) rotate(1deg)}
+			100%{transform:translate(0,46px);opacity:0}
+		}
+		@keyframes sgmlFlashcardNext{
+			0%{transform:translateX(0) rotate(0);opacity:1}
+			100%{transform:translateX(-110%) rotate(-5deg);opacity:0}
+		}
+		@keyframes sgmlFlashcardPrev{
+			0%{transform:translateX(0) rotate(0);opacity:1}
+			100%{transform:translateX(110%) rotate(5deg);opacity:0}
+		}
 
 		.sgml-spoiler{
 			position:relative;
@@ -2377,12 +2413,21 @@ table{max-width:none}
 			const back=box.querySelector('.sgml-flashcard-back');
 			const summary=box.querySelector('.sgml-flashcard-summary');
 			const controls=box.querySelector('.sgml-flashcard-controls');
+			const navigation=box.querySelector('.sgml-flashcard-navigation');
+			const previousButton=box.querySelector('.sgml-flashcard-prev');
+			const nextButton=box.querySelector('.sgml-flashcard-next');
+			const shuffleButton=box.querySelector('.sgml-flashcard-shuffle');
 			if(!q.deck.length){
 				if(progress)progress.textContent='No flashcards.';
 				if(card)card.style.display='none';
 				if(controls)controls.style.display='none';
+				if(navigation)navigation.style.display='none';
 				return;
 			}
+			if(navigation)navigation.style.display='flex';
+			if(previousButton)previousButton.disabled=q.position<=0;
+			if(nextButton)nextButton.disabled=q.position>=q.deck.length;
+			if(shuffleButton)shuffleButton.style.display=q.attrs.shuffle===true?'inline-block':'none';
 			if(q.position>=q.deck.length){
 				if(progress)progress.textContent='Finished.';
 				if(card)card.style.display='none';
@@ -2400,6 +2445,7 @@ table{max-width:none}
 			if(back)back.innerHTML=renderQuestionText(pair.back);
 			if(card){
 				card.style.display='flex';
+				card.classList.remove('flashcard-anim-correct','flashcard-anim-wrong','flashcard-anim-skip','flashcard-anim-next','flashcard-anim-prev');
 				card.classList.toggle('revealed',q.revealed);
 				card.setAttribute('aria-expanded',q.revealed?'true':'false');
 			}
@@ -2407,34 +2453,86 @@ table{max-width:none}
 			if(controls)controls.style.display='flex';
 		}
 
+		function animateFlashcard(qId,animationClass,callback){
+			const q=getFlashcardState(qId);
+			const box=document.getElementById(qId);
+			const card=box&&box.querySelector('.sgml-flashcard-card');
+			if(!q||!box||!card||q.animating)return;
+			q.animating=true;
+			card.classList.remove('flashcard-anim-correct','flashcard-anim-wrong','flashcard-anim-skip','flashcard-anim-next','flashcard-anim-prev');
+			void card.offsetWidth;
+			card.classList.add(animationClass);
+			setTimeout(()=>{
+				card.classList.remove(animationClass);
+				q.animating=false;
+				callback();
+			},animationClass==='flashcard-anim-next'||animationClass==='flashcard-anim-prev'?300:420);
+		}
+
+		function previousFlashcard(qId){
+			const q=getFlashcardState(qId);
+			if(!q||q.position<=0||q.animating)return;
+			animateFlashcard(qId,'flashcard-anim-prev',()=>{
+				q.position--;
+				q.revealed=false;
+				renderFlashcardCurrent(qId);
+			});
+		}
+
+		function nextFlashcard(qId){
+			const q=getFlashcardState(qId);
+			if(!q||q.position>=q.deck.length||q.animating)return;
+			animateFlashcard(qId,'flashcard-anim-next',()=>{
+				q.position++;
+				q.revealed=false;
+				renderFlashcardCurrent(qId);
+			});
+		}
+
+		function shuffleFlashcards(qId){
+			const q=getFlashcardState(qId);
+			if(!q||q.attrs.shuffle!==true||q.animating)return;
+			q.deck=shuffleArrayCopy(q.baseDeck);
+			q.position=0;
+			q.revealed=false;
+			renderFlashcardCurrent(qId);
+		}
+
 		function toggleFlashcard(qId){
 			const q=getFlashcardState(qId);
-			if(!q||q.position>=q.deck.length)return;
+			if(!q||q.position>=q.deck.length||q.animating)return;
 			q.revealed=!q.revealed;
 			renderFlashcardCurrent(qId);
 		}
 
 		function revealFlashcard(qId){
 			const q=getFlashcardState(qId);
-			if(!q||q.position>=q.deck.length)return;
+			if(!q||q.position>=q.deck.length||q.animating)return;
 			q.revealed=true;
 			renderFlashcardCurrent(qId);
 		}
 
 		function rateFlashcard(qId,rating){
 			const q=getFlashcardState(qId);
-			if(!q||q.position>=q.deck.length)return;
-			if(rating==='correct')q.correct++;
-			else if(rating==='wrong')q.wrong++;
-			else if(rating==='skip')q.skipped++;
-			q.position++;
-			q.revealed=false;
-			renderFlashcardCurrent(qId);
+			if(!q||q.position>=q.deck.length||q.animating)return;
+			const animationClass=
+				rating==='correct'?'flashcard-anim-correct':
+				rating==='wrong'?'flashcard-anim-wrong':
+				rating==='skip'?'flashcard-anim-skip':'';
+			if(!animationClass)return;
+			animateFlashcard(qId,animationClass,()=>{
+				if(rating==='correct')q.correct++;
+				else if(rating==='wrong')q.wrong++;
+				else if(rating==='skip')q.skipped++;
+				q.position++;
+				q.revealed=false;
+				renderFlashcardCurrent(qId);
+			});
 		}
 
 		function restartFlashcards(qId){
 			const q=getFlashcardState(qId);
-			if(!q)return;
+			if(!q||q.animating)return;
 			q.position=0;
 			q.correct=0;
 			q.wrong=0;
@@ -2459,7 +2557,8 @@ table{max-width:none}
 				correct:0,
 				wrong:0,
 				skipped:0,
-				revealed:false
+				revealed:false,
+				animating:false
 			};
 			const card=deck[0];
 			return`\
@@ -2472,6 +2571,11 @@ table{max-width:none}
 							<div class="sgml-flashcard-back"><div class="sgml-flashcard-label">Answer</div>${renderQuestionText(card?card.back:'')}</div>\
 							<div class="sgml-flashcard-hint">Tap the card to reveal the answer.</div>\
 						</div>\
+					</div>\
+					<div class="sgml-flashcard-navigation">\
+						<button class="sgml-flashcard-prev" type="button" aria-label="Previous card" onclick="event.stopPropagation();previousFlashcard('${q.id}')">&lt;</button>\
+						<button class="sgml-flashcard-next" type="button" aria-label="Next card" onclick="event.stopPropagation();nextFlashcard('${q.id}')">&gt;</button>\
+						<button class="sgml-flashcard-shuffle" type="button" aria-label="Shuffle flashcards" onclick="event.stopPropagation();shuffleFlashcards('${q.id}')" style="display:${attrs.shuffle===true?'inline-block':'none'}">Shuffle</button>\
 					</div>\
 					<div class="sgml-controls sgml-flashcard-controls">\
 						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','correct')">Correct</button>\

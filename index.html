@@ -195,67 +195,88 @@
 			position:relative;
 			margin:0 14px 12px;
 			min-height:180px;
-			padding:28px 22px;
-			border:1px solid #bbb;
-			border-radius:10px;
-			background:#fff;
-			box-shadow:0 2px 8px rgba(0,0,0,.06);
+			padding:0;
+			background:transparent;
+			border:0;
+			box-shadow:none;
 			cursor:pointer;
 			user-select:none;
 			-webkit-user-select:none;
 			touch-action:manipulation;
 			display:flex;
-			align-items:center;
+			align-items:stretch;
 			justify-content:center;
 			text-align:center;
 			outline:none;
+			perspective:1200px;
 		}
-		.sgml-flashcard-card:focus-visible{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.14)}
-		.sgml-flashcard-card.revealed{background:#f8fbff;border-color:#9eb7e8}
-		.sgml-flashcard-face{width:100%}
+		.sgml-flashcard-card:focus-visible .sgml-flashcard-inner{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.14)}
+		.sgml-flashcard-inner{
+			position:relative;
+			width:100%;
+			min-height:180px;
+			padding:28px 22px;
+			border:1px solid #bbb;
+			border-radius:10px;
+			background:#fff;
+			box-shadow:0 2px 8px rgba(0,0,0,.06);
+			display:flex;
+			align-items:center;
+			justify-content:center;
+			transform-style:preserve-3d;
+			transition:transform .48s cubic-bezier(.2,.75,.25,1);
+		}
+		.sgml-flashcard-card.revealed .sgml-flashcard-inner{transform:rotateY(180deg)}
+		.sgml-flashcard-face{position:absolute;inset:0;width:100%;height:100%;padding:28px 22px;display:flex;align-items:center;justify-content:center;flex-direction:column;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:auto}
+		.sgml-flashcard-front-face{background:#fff;color:#111;border:0}
+		.sgml-flashcard-back-face{background:#111;color:#fff;border:0;transform:rotateY(180deg)}
 		.sgml-flashcard-front{font-size:17px;font-weight:600}
-		.sgml-flashcard-back{margin-top:14px;padding-top:14px;border-top:1px solid #d9e0ea}
-		.sgml-flashcard-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#777;margin-bottom:5px}
-		.sgml-flashcard-card:not(.revealed) .sgml-flashcard-back{display:none}
-		.sgml-flashcard-hint{font-size:12px;color:#777;margin-top:12px}
-		.sgml-flashcard-navigation{padding:0 14px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+		.sgml-flashcard-back{margin-top:14px;padding-top:14px;border-top:1px solid #777;width:100%}
+		.sgml-flashcard-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:inherit;opacity:.65;margin-bottom:5px}
+		.sgml-flashcard-hint{font-size:12px;color:inherit;opacity:.65;margin-top:12px}
+		.sgml-flashcard-action-row{padding:0 14px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
+		.sgml-flashcard .sgml-controls{padding:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:0 0 auto}
+		.sgml-flashcard-navigation{display:flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;margin-left:auto}
 		.sgml-flashcard-navigation button{min-width:42px}
 		.sgml-flashcard-navigation button:disabled{opacity:.45;cursor:default}
-		.sgml-flashcard .sgml-controls{padding:0 14px 14px}
+		.sgml-flashcard-navigation .sgml-flashcard-shuffle{min-width:70px}
 		.sgml-flashcard-summary{padding:0 14px 14px;color:#444;font-size:13px}
 		.sgml-flashcard-summary strong{font-weight:700}
-		.sgml-flashcard-card.flashcard-anim-correct{animation:sgmlFlashcardCorrect .42s ease}
-		.sgml-flashcard-card.flashcard-anim-wrong{animation:sgmlFlashcardWrong .42s ease}
-		.sgml-flashcard-card.flashcard-anim-skip{animation:sgmlFlashcardSkip .42s ease}
-		.sgml-flashcard-card.flashcard-anim-next{animation:sgmlFlashcardNext .30s ease}
-		.sgml-flashcard-card.flashcard-anim-prev{animation:sgmlFlashcardPrev .30s ease}
+		.sgml-flashcard-card.flashcard-anim-correct .sgml-flashcard-inner{animation:sgmlFlashcardCorrect .5s ease}
+		.sgml-flashcard-card.flashcard-anim-wrong .sgml-flashcard-inner{animation:sgmlFlashcardWrong .56s ease}
+		.sgml-flashcard-card.flashcard-anim-skip .sgml-flashcard-inner{animation:sgmlFlashcardSkip .42s ease}
+		.sgml-flashcard-card.flashcard-anim-next .sgml-flashcard-inner{animation:sgmlFlashcardNext .3s ease}
+		.sgml-flashcard-card.flashcard-anim-prev .sgml-flashcard-inner{animation:sgmlFlashcardPrev .3s ease}
 		@keyframes sgmlFlashcardCorrect{
-			0%{transform:translate(0,0) rotate(0);opacity:1}
-			20%{transform:translate(10px,4px) rotate(2deg)}
-			40%{transform:translate(-8px,10px) rotate(-2deg)}
-			60%{transform:translate(6px,15px) rotate(1deg)}
-			100%{transform:translate(0,26px) rotate(0);opacity:0}
+			0%{transform:translate(0,0) rotate(0);background:#fff;border-color:#15803d;box-shadow:0 0 0 rgba(21,128,61,0)}
+			18%{transform:translate(-5px,-3px) rotate(-1deg);background:#86efac;border-color:#15803d;box-shadow:0 0 18px rgba(21,128,61,.55)}
+			35%{transform:translate(5px,-6px) rotate(1deg);background:#22c55e;border-color:#15803d;box-shadow:0 0 22px rgba(21,128,61,.5)}
+			60%{transform:translate(-3px,-12px) rotate(-1deg);background:#86efac;border-color:#15803d;box-shadow:0 0 14px rgba(21,128,61,.35)}
+			100%{transform:translate(0,-100%) rotate(0);background:#fff;border-color:#bbb;box-shadow:0 0 0 rgba(21,128,61,0);opacity:0}
 		}
 		@keyframes sgmlFlashcardWrong{
-			0%{transform:translate(0,0) rotate(0);opacity:1}
-			20%{transform:translate(-10px,4px) rotate(-2deg)}
-			40%{transform:translate(8px,9px) rotate(2deg)}
-			60%{transform:translate(-6px,15px) rotate(-1deg)}
-			100%{transform:translate(0,26px) rotate(0);opacity:0}
+			0%{transform:translate(0,0) rotate(0);background:#fff;border-color:#b91c1c;box-shadow:0 0 0 rgba(185,28,28,0)}
+			10%{transform:translate(-11px,0) rotate(-3deg);background:#fecaca;border-color:#b91c1c;box-shadow:0 0 18px rgba(185,28,28,.5)}
+			20%{transform:translate(11px,1px) rotate(3deg);background:#ef4444;border-color:#991b1b;box-shadow:0 0 24px rgba(185,28,28,.58)}
+			30%{transform:translate(-10px,3px) rotate(-3deg);background:#ef4444;border-color:#991b1b;box-shadow:0 0 24px rgba(185,28,28,.55)}
+			40%{transform:translate(9px,5px) rotate(2.5deg);background:#fecaca;border-color:#b91c1c}
+			50%{transform:translate(-7px,8px) rotate(-2deg);background:#fee2e2;border-color:#b91c1c}
+			65%{transform:translate(4px,14px) rotate(1deg);background:#fff;border-color:#bbb}
+			100%{transform:translate(0,100%) rotate(0);background:#fff;border-color:#bbb;opacity:0}
 		}
 		@keyframes sgmlFlashcardSkip{
-			0%{transform:translate(0,0);opacity:1}
-			35%{transform:translate(-5px,10px) rotate(-1deg)}
-			70%{transform:translate(5px,22px) rotate(1deg)}
-			100%{transform:translate(0,46px);opacity:0}
+			0%{transform:translate(0,0) rotate(0);opacity:1}
+			35%{transform:translate(-4px,-10px) rotate(-1deg);opacity:1}
+			70%{transform:translate(4px,-24px) rotate(1deg);opacity:.75}
+			100%{transform:translate(0,-100%) rotate(0);opacity:0}
 		}
 		@keyframes sgmlFlashcardNext{
 			0%{transform:translateX(0) rotate(0);opacity:1}
-			100%{transform:translateX(-110%) rotate(-5deg);opacity:0}
+			100%{transform:translateX(110%) rotate(5deg);opacity:0}
 		}
 		@keyframes sgmlFlashcardPrev{
 			0%{transform:translateX(0) rotate(0);opacity:1}
-			100%{transform:translateX(110%) rotate(5deg);opacity:0}
+			100%{transform:translateX(-110%) rotate(-5deg);opacity:0}
 		}
 
 		.sgml-spoiler{
@@ -2466,7 +2487,7 @@ table{max-width:none}
 				card.classList.remove(animationClass);
 				q.animating=false;
 				callback();
-			},animationClass==='flashcard-anim-next'||animationClass==='flashcard-anim-prev'?300:420);
+			},animationClass==='flashcard-anim-next'||animationClass==='flashcard-anim-prev'?300:animationClass==='flashcard-anim-wrong'?560:animationClass==='flashcard-anim-correct'?500:420);
 		}
 
 		function previousFlashcard(qId){
@@ -2566,21 +2587,27 @@ table{max-width:none}
 					<div class="sgml-flashcard-title">${renderQuestionText(q.title)}</div>\
 					<div class="sgml-flashcard-progress">Card 1 of ${deck.length}</div>\
 					<div class="sgml-flashcard-card" role="button" tabindex="0" aria-expanded="false" onclick="toggleFlashcard('${q.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFlashcard('${q.id}');}">\
-						<div class="sgml-flashcard-face">\
-							<div class="sgml-flashcard-front">${renderQuestionText(card?card.front:'')}</div>\
-							<div class="sgml-flashcard-back"><div class="sgml-flashcard-label">Answer</div>${renderQuestionText(card?card.back:'')}</div>\
-							<div class="sgml-flashcard-hint">Tap the card to reveal the answer.</div>\
+						<div class="sgml-flashcard-inner">\
+							<div class="sgml-flashcard-face sgml-flashcard-front-face">\
+								<div class="sgml-flashcard-front">${renderQuestionText(card?card.front:'')}</div>\
+								<div class="sgml-flashcard-hint">Tap the card to reveal the answer.</div>\
+							</div>\
+							<div class="sgml-flashcard-face sgml-flashcard-back-face">\
+								<div class="sgml-flashcard-back"><div class="sgml-flashcard-label">Answer</div>${renderQuestionText(card?card.back:'')}</div>\
+							</div>\
 						</div>\
 					</div>\
-					<div class="sgml-flashcard-navigation">\
-						<button class="sgml-flashcard-prev" type="button" aria-label="Previous card" onclick="event.stopPropagation();previousFlashcard('${q.id}')">&lt;</button>\
-						<button class="sgml-flashcard-next" type="button" aria-label="Next card" onclick="event.stopPropagation();nextFlashcard('${q.id}')">&gt;</button>\
-						<button class="sgml-flashcard-shuffle" type="button" aria-label="Shuffle flashcards" onclick="event.stopPropagation();shuffleFlashcards('${q.id}')" style="display:${attrs.shuffle===true?'inline-block':'none'}">Shuffle</button>\
-					</div>\
-					<div class="sgml-controls sgml-flashcard-controls">\
-						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','correct')">Correct</button>\
-						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','wrong')">Wrong</button>\
-						<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','skip')">Skip</button>\
+					<div class="sgml-flashcard-action-row">\
+						<div class="sgml-controls sgml-flashcard-controls">\
+							<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','correct')">Correct</button>\
+							<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','wrong')">Wrong</button>\
+							<button type="button" onclick="event.stopPropagation();rateFlashcard('${q.id}','skip')">Skip</button>\
+						</div>\
+						<div class="sgml-flashcard-navigation">\
+							<button class="sgml-flashcard-prev" type="button" aria-label="Previous card" onclick="event.stopPropagation();previousFlashcard('${q.id}')">&lt;</button>\
+							<button class="sgml-flashcard-shuffle" type="button" aria-label="Shuffle flashcards" onclick="event.stopPropagation();shuffleFlashcards('${q.id}')" style="display:${attrs.shuffle===true?'inline-block':'none'}">Shuffle</button>\
+							<button class="sgml-flashcard-next" type="button" aria-label="Next card" onclick="event.stopPropagation();nextFlashcard('${q.id}')">&gt;</button>\
+						</div>\
 					</div>\
 					<div class="sgml-flashcard-summary" style="display:none"></div>\
 				</div>`;

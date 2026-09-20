@@ -1,7 +1,55 @@
-const CACHE_NAME='sgml-viewer-offline-v2';
+const CACHE_NAME='sgml-viewer-offline-v3';
+const STATE_CACHE_NAME='sgml-viewer-offline-state-v1';
+const STATE_URL='/__sgml_offline_enabled';
 const SHARE_CACHE_NAME='sgml-viewer-share-v1';
 
-let offlineDisabled=true;
+const APP_SHELL=[
+	'./',
+	'./index.html',
+	'./manifest.json',
+	'./marked.js',
+	'./tex-chtml.js',
+	'./icon.svg',
+	'./icon-192.png',
+	'./icon-512.png'
+];
+
+function getStateURL(){
+	return new URL(STATE_URL,self.registration.scope);
+}
+
+async function isOfflineEnabled(){
+	const cache=await caches.open(STATE_CACHE_NAME);
+	return !!(await cache.match(getStateURL()));
+}
+
+async function setOfflineEnabled(enabled){
+	const stateCache=await caches.open(STATE_CACHE_NAME);
+	if(enabled){
+		await stateCache.put(
+			getStateURL(),
+			new Response('1',{headers:{'Content-Type':'text/plain'}})
+		);
+		return;
+	}
+	await stateCache.delete(getStateURL());
+	await caches.delete(CACHE_NAME);
+}
+
+async function cacheAppShell(){
+	const cache=await caches.open(CACHE_NAME);
+	const urls=APP_SHELL.map(path=>new URL(path,self.registration.scope).href);
+	const results=await Promise.allSettled(
+		urls.map(async url=>{
+			const request=new Request(url,{cache:'reload'});
+			const response=await fetch(request);
+			if(!response.ok)throw new Error(`Could not cache ${url}: HTTP ${response.status}`);
+			await cache.put(url,response.clone());
+		})
+	);
+	const failed=results.find(result=>result.status==='rejected');
+	if(failed)throw failed.reason;
+}
 
 self.addEventListener('install',event=>{
 	event.waitUntil(self.skipWaiting());
@@ -14,13 +62,12 @@ self.addEventListener('activate',event=>{
 				keys
 					.filter(key=>
 						key.startsWith('sgml-viewer-offline-')&&
-						key!==CACHE_NAME
+						key!==CACHE_NAME&&
+						key!==STATE_CACHE_NAME
 					)
 					.map(key=>caches.delete(key))
 			)
-		).then(()=>{
-			return self.clients.claim();
-		})
+		).then(()=>self.clients.claim())
 	);
 });
 
@@ -37,7 +84,6 @@ function isShareAction(request){
 	return requestURL.origin===self.location.origin &&
 		requestURL.pathname===getShareActionURL().pathname;
 }
-
 function isShareDataRequest(request){
 	const requestURL=new URL(request.url);
 	const baseURL=getShareDataBaseURL();
@@ -60,7 +106,6 @@ async function storeSharedFile(request){
 			break;
 		}
 	}
-
 	if(!file){
 		return Response.redirect(
 			new URL(
@@ -89,7 +134,6 @@ async function storeSharedFile(request){
 		content,
 		receivedAt:Date.now()
 	};
-
 	const cache=await caches.open(SHARE_CACHE_NAME);
 
 	await cache.put(
@@ -117,23 +161,30 @@ async function storeSharedFile(request){
 
 self.addEventListener('message',event=>{
 	const data=event.data||{};
-
 	if(data.type==='SKIP_WAITING'){
 		event.waitUntil(self.skipWaiting());
 		return;
 	}
 
 	if(data.type==='SET_OFFLINE_ENABLED'){
-		offlineDisabled=!data.enabled;
-
-		if(event.ports&&event.ports[0]){
-			event.ports[0].postMessage({
-				ok:true
-			});
-		}
+		event.waitUntil(
+			(async()=>{
+				await setOfflineEnabled(!!data.enabled);
+				if(data.enabled)await cacheAppShell();
+				if(event.ports&&event.ports[0]){
+					event.ports[0].postMessage({ok:true});
+				}
+			})().catch(error=>{
+				if(event.ports&&event.ports[0]){
+					event.ports[0].postMessage({
+						ok:false,
+						error:String(error&&error.message?error.message:error)
+					});
+				}
+			})
+		);
 		return;
 	}
-
 	if(data.type==='DELETE_SHARED_FILE'&&data.url){
 		event.waitUntil(
 			caches.open(SHARE_CACHE_NAME)
@@ -154,10 +205,8 @@ self.addEventListener('message',event=>{
 	}
 
 	if(data.type==='DISABLE_OFFLINE'){
-		offlineDisabled=true;
-
 		event.waitUntil(
-			caches.delete(CACHE_NAME).then(()=>{
+			setOfflineEnabled(false).then(()=>{
 				if(event.ports&&event.ports[0]){
 					event.ports[0].postMessage({
 						ok:true
@@ -178,7 +227,6 @@ self.addEventListener('message',event=>{
 						{cache:'reload'}
 					);
 					const response=await fetch(request);
-
 					if(!response.ok){
 						throw new Error(
 							`Could not cache ${data.url}: HTTP ${response.status}`
@@ -189,7 +237,7 @@ self.addEventListener('message',event=>{
 						data.url,
 						response.clone()
 					);
-
+					await cacheAppShell();
 					if(event.ports&&event.ports[0]){
 						event.ports[0].postMessage({
 							ok:true
@@ -213,10 +261,8 @@ self.addEventListener('message',event=>{
 	}
 
 	if(data.type==='CLEAR_CACHE'){
-		offlineDisabled=true;
-
 		event.waitUntil(
-			caches.delete(CACHE_NAME).then(()=>{
+			setOfflineEnabled(false).then(()=>{
 				if(event.ports&&event.ports[0]){
 					event.ports[0].postMessage({
 						ok:true
@@ -237,7 +283,6 @@ self.addEventListener('fetch',event=>{
 					'Share target handling failed:',
 					error
 				);
-
 				return Response.redirect(
 					new URL(
 						'./?__sgml_share_error=failed',
@@ -258,7 +303,6 @@ self.addEventListener('fetch',event=>{
 				if(cached){
 					return cached;
 				}
-
 				return new Response(
 					'Shared file not found.',
 					{
@@ -275,12 +319,11 @@ self.addEventListener('fetch',event=>{
 
 	if(request.method!=='GET')return;
 
-	if(offlineDisabled){
-		return;
-	}
-
 	event.respondWith(
 		(async()=>{
+			const enabled=await isOfflineEnabled();
+			if(!enabled)return fetch(request);
+
 			const cache=await caches.open(CACHE_NAME);
 			const cached=await cache.match(request);
 
@@ -290,7 +333,6 @@ self.addEventListener('fetch',event=>{
 
 			try{
 				const response=await fetch(request);
-
 				if(
 					response&&
 					(
@@ -309,7 +351,7 @@ self.addEventListener('fetch',event=>{
 				if(request.mode==='navigate'){
 					const fallback=
 						await cache.match(
-							self.registration.scope
+							new URL('./',self.registration.scope).href
 						);
 
 					if(fallback)return fallback;

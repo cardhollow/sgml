@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<title>SGML Viewer</title>
+	<link rel="manifest" href="./manifest.json"/>
+	<meta name="theme-color" content="#ffffff"/>
+	<link rel="stylesheet" href="./style.css"/>
+</head>
+<body>
+	<div id="sgml-toast-wrap">
+		<div id="sgml-toast-card" class="is-info" role="status" aria-live="polite" aria-atomic="true">
+			<span id="sgml-toast-icon" aria-hidden="true">i</span>
+			<span id="sgml-toast-message"></span>
+			<button id="sgml-toast-dismiss" type="button" aria-label="Dismiss notification">×</button>
+		</div>
+	</div>
+	<div class="sgml-toolbar">
+		<button onclick="createNewSGML()">New SGML</button>
+		<button onclick="openLibrary()">Load SGML</button>
+		<button onclick="document.getElementById('file-upload-input').click()">Upload File</button>
+		<button onclick="downloadSGML()">Download SGML</button>
+		<button onclick="toggleEditor()">Edit Code</button>
+		<button onclick="openDocumentation()">Documentation</button>
+		<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
+		<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
+		<input id="file-upload-input" onchange="handleFileUpload(event)" style="display:none" type="file" accept=".sgml,.txt,.md,.markdown,.docx,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"/>
+	</div>
+
+	<div id="pwa-install-banner" aria-live="polite">
+		<div class="pwa-install-text">
+			<div class="pwa-install-title">Install SGML Viewer</div>
+			<div>Install it as an app for quicker access and file sharing.</div>
+		</div>
+		<button id="pwa-install-button" type="button">Install</button>
+		<button id="pwa-install-dismiss" type="button" aria-label="Dismiss install message">×</button>
+	</div>
+
+	<div class="sgml-current-name" id="sgml-current-name"></div>
+
+	<div id="editor-drawer" class="sgml-editor-drawer">
+		<div class="sgml-editor-head">
+			<strong>SGML source editor</strong>
+			<span class="sgml-editor-hint">Native text selection · SGML suggestions · Enter auto-indent</span>
+			<button type="button" onclick="Editor.showFind()">Find</button>
+			<button type="button" onclick="Editor.showReplace()">Replace</button>
+			<button type="button" onclick="Editor.openGoToLine()">Go to line</button>
+			<button type="button" onclick="Editor.showSuggestions()">Suggest</button>
+		</div>
+		<div hidden id="searchbar">
+			<div class="searchrow"><label for="findq">Find</label><input autocomplete="off" id="findq" placeholder="Search SGML" spellcheck="false" type="text"/>
+			<label title="Match letter case"><input id="findCase" type="checkbox"/> Aa</label><label title="Use regular expressions"><input id="findRegex" type="checkbox"/> .* </label><button id="findPrev" title="Previous match">↑</button><button id="findNext" title="Next match">↓</button></div>
+			<div class="searchrow" hidden id="replaceRow"><label for="replaceq">Replace</label><input autocomplete="off" id="replaceq" placeholder="Replace with" spellcheck="false" type="text"/><button id="replaceOne">Replace</button><button id="replaceAll">Replace all</button></div>
+			<button id="closeSearch" title="Close search">×</button><span class="dim" id="findStatus"></span>
+		</div>
+		<div hidden id="gotoBar"><label for="gotoLine">Go to line</label><input aria-label="Line number" autocomplete="off" id="gotoLine" inputmode="numeric" spellcheck="false" type="text"/><button id="gotoGo" type="button">Go</button><button id="gotoClose" type="button">Cancel</button><span class="dim" id="gotoStatus"></span></div>
+		<div id="ed" class="sgml-native-editor"><div id="highlight" aria-hidden="true"></div><div id="editor-gutter" aria-hidden="true"></div><textarea autocapitalize="off" autocomplete="off" autocorrect="off" id="ta" inputmode="text" spellcheck="false" wrap="off" aria-label="SGML code editor"></textarea><div id="pop" role="listbox" aria-label="SGML code suggestions"></div></div>
+		<div class="sgml-editor-foot"><span id="pos"></span><span>Find · Replace · Go to line · Ctrl+Z undo · Suggest</span></div>
+		<div class="sgml-editor-actions"><button class="btn-submit" onclick="loadSGMLFromEditor()">Render SGML</button><button onclick="loadDefaultSample()">Load Sample</button><button onclick="toggleEditor()">Close Editor</button></div>
+	</div>
+
+	<main id="sgml-output"></main>
+
+	<div aria-hidden="true" class="sgml-modal-backdrop confirm-layer" id="confirm-modal">
+		<div aria-labelledby="confirm-title" aria-modal="true" class="sgml-modal" role="dialog">
+			<div class="sgml-modal-header" id="confirm-title">Confirm</div>
+			<div class="sgml-modal-body"><div class="sgml-modal-message" id="confirm-message"></div></div>
+			<div class="sgml-modal-footer">
+				<button id="confirm-cancel">Cancel</button>
+				<button class="btn-submit" id="confirm-ok">Confirm</button>
+			</div>
+		</div>
+	</div>
+
+	<div aria-hidden="true" class="sgml-modal-backdrop" id="library-modal">
+		<div aria-labelledby="library-title" aria-modal="true" class="sgml-modal" role="dialog">
+			<div class="sgml-modal-header" id="library-title">Saved SGML</div>
+			<div class="sgml-modal-body"><div class="sgml-library-list" id="library-list"></div></div>
+			<div class="sgml-modal-footer"><button onclick="closeLibrary()">Close</button></div>
+		</div>
+	</div>
+
+	<div aria-hidden="true" class="sgml-modal-backdrop" id="documentation-modal">
+		<div aria-labelledby="documentation-title" aria-modal="true" class="sgml-modal sgml-docs-modal" role="dialog">
+			<div class="sgml-modal-header" id="documentation-title">SGML Documentation</div>
+			<div class="sgml-modal-body sgml-docs-body">
+				<iframe id="documentation-frame" title="SGML Documentation" loading="eager" src="./Documentation/index.html"></iframe>
+			</div>
+			<div class="sgml-modal-footer">
+				<button type="button" onclick="openDocumentationInNewTab()">Open in new tab</button>
+				<button type="button" onclick="closeDocumentation()">Close</button>
+			</div>
+		</div>
+	</div>
+
+
+	<script>
+		window.MathJax={
+			typeset:false,
+			tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']],processEscapes:true,processEnvironments:true},
+			options:{skipHtmlTags:['script','noscript','style','textarea','pre','code'],ignoreHtmlClass:'tex2jax_ignore',processHtmlClass:'tex2jax_process'},
+			startup:{typeset:false}
+		};
+	</script>
+	<script src="./tex-chtml.js"></script>
+	<script src="./marked.js"></script>
+	<script src="./js/editor-language.js"></script>
+	<script src="./js/editor.js"></script>
+	<script src="./js/app-state.js"></script>
+	<script src="./js/sgml-renderer.js"></script>
+	<script src="./js/file-converter.js"></script>
+	<script src="./js/document-library.js"></script>
+	<script src="./js/default-document.js"></script>
+	<script src="./js/app.js"></script>
+</body>
+</html>

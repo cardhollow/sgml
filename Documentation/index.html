@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>SGML Documentation</title>
+<style>
+:root{color-scheme:light;--ink:#17191c;--muted:#59616b;--line:#d9dee5;--panel:#f5f7fa;--blue:#2459a9;--code:#f3f5f7}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font:15px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;background:#fff}
+header{padding:24px clamp(16px,4vw,44px) 18px;border-bottom:1px solid var(--line);background:#fff}header .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}h1{margin:4px 0 8px;font-size:clamp(27px,5vw,38px);line-height:1.15;letter-spacing:-.035em}header p{max-width:780px;margin:0;color:var(--muted)}nav{position:sticky;top:0;z-index:4;display:flex;gap:6px;overflow-x:auto;padding:9px clamp(12px,4vw,42px);background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);scrollbar-width:thin}nav a{white-space:nowrap;text-decoration:none;color:#333;border:1px solid var(--line);border-radius:5px;padding:5px 9px;font-size:13px}nav a:hover,nav a:focus{background:#edf3fc;border-color:#b5c7e2}
+main{max-width:940px;padding:20px clamp(16px,4vw,44px) 60px;margin:0 auto}section{scroll-margin-top:70px;padding:12px 0 25px;border-bottom:1px solid var(--line)}h2{font-size:24px;line-height:1.25;margin:0 0 12px;letter-spacing:-.02em}h3{font-size:18px;margin:23px 0 8px}h4{font-size:15px;margin:17px 0 6px}p{margin:8px 0 12px}ul,ol{padding-left:23px}li{margin:5px 0}.note{background:var(--panel);border-left:3px solid #8b9bb1;padding:10px 13px;margin:14px 0;border-radius:0 5px 5px 0}.good{border-left-color:#25835a}.warning{border-left-color:#b7791f}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{font-size:.92em;background:var(--code);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}pre{white-space:pre;overflow:auto;max-width:100%;padding:13px 15px;background:var(--code);border:1px solid #e0e4e9;border-radius:6px;font-size:13px;line-height:1.55;-webkit-overflow-scrolling:touch}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}th{background:var(--panel)}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--muted)}a{color:var(--blue)}.back{display:inline-block;margin-top:4px;font-size:13px}.syntax-map{display:grid;grid-template-columns:minmax(120px,.7fr) 2fr;gap:8px 14px;margin:12px 0}.syntax-map>div{padding:7px 9px;border-bottom:1px solid var(--line)}.syntax-map>div:nth-child(odd){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#fafbfc}@media(max-width:540px){body{font-size:14px}pre{font-size:12px;padding:11px}table{font-size:12px}th,td{padding:6px}.syntax-map{grid-template-columns:1fr;gap:0}.syntax-map>div:nth-child(even){padding-top:3px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">SGML Viewer · Reference guide</div>
+  <h1>Study Guide Markup Language</h1>
+  <p>A practical guide to writing SGML documents, building interactive questionnaires, and using the viewer's formatting, tree, timeline, and editor features.</p>
+  <a class="back" href="../index.html">← Back to SGML Viewer</a>
+</header>
+<nav aria-label="Documentation sections">
+  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
+</nav>
+<main>
+<section id="overview">
+  <h2>1. What is SGML?</h2>
+  <p>In this project, <strong>SGML means Study Guide Markup Language</strong>. It is a plain-text format used by SGML Viewer to create study notes with interactive questions and visual components. It combines ordinary text, Markdown, HTML, and a small set of SGML-specific tags.</p>
+  <p>This project-specific SGML is not a complete implementation of the historical Standard Generalized Markup Language, which shares the same abbreviation.</p>
+  <div class="note"><strong>The basic workflow:</strong> write the content as text, use syntax markers for special behavior, and select <strong>Render SGML</strong> to preview it.</div>
+  <h3>What it can contain</h3>
+  <ul>
+    <li>Study notes using Markdown headings, lists, links, tables, and code.</li>
+    <li>Styled text, hand-marked circles around important words, spoilers, reference links, and expandable information panels.</li>
+    <li>Multiple-choice, fill-in, enumeration, matching, and flashcard activities.</li>
+    <li>Expandable tree graphs and step-by-step timelines.</li>
+    <li>HTML elements, SVG, and LaTeX math, subject to the viewer's handling of embedded content.</li>
+  </ul>
+</section>
+
+<section id="using">
+  <h2>2. How to use the viewer</h2>
+  <ol>
+    <li>Select <strong>New SGML</strong> to create a document or <strong>Load SGML</strong> to open one saved in this browser.</li>
+    <li>Select <strong>Edit Code</strong>, then write or paste your SGML. You can upload <code>.sgml</code>, <code>.txt</code>, <code>.md</code>, <code>.docx</code>, or <code>.pdf</code> files with <strong>Upload File</strong>.</li>
+    <li>Select <strong>Render SGML</strong> to display the document. Editing is saved locally as you work.</li>
+    <li>Use <strong>Check All Answers</strong> or each question's own check button to mark answers.</li>
+    <li>Select <strong>Download SGML</strong> to save the source to a file.</li>
+  </ol>
+  <h3>A first document</h3>
+  <pre># Welcome
+
+This is **my study guide**.
+
+&lt;st bg:#ffff00 col:#111111&gt;Remember this point.&lt;/st&gt;
+
+&lt;Choices:
+  (What is 2 + 2?)
+  [3, 4, 5, 6]
+  {[idx:1]}
+&gt;</pre>
+  <p>The heading and bold phrase use Markdown. The <code>&lt;st&gt;</code> tag styles a piece of text. The multi-line <code>&lt;Choices&gt;</code> block creates a multiple-choice activity.</p>
+  <div class="note warning"><strong>Load Sample:</strong> loading the sample replaces the current editor content. The viewer asks for confirmation before replacing it.</div>
+</section>
+
+<section id="import-files">
+  <h2>3. Import DOCX and PDF files</h2>
+  <p>The viewer accepts normal SGML/text sources as well as Word <code>.docx</code> and PDF <code>.pdf</code> files. DOCX files are converted to safe HTML using Mammoth.js. PDFs are processed with PDF.js and their selectable text is arranged into HTML paragraphs, with a section for each page.</p>
+  <h3>What gets preserved?</h3>
+  <ul>
+    <li>DOCX: paragraphs, headings, emphasis, lists, tables, links, and supported embedded images can be kept as HTML.</li>
+    <li>PDF: selectable text and an approximate reading order are preserved; pages remain separated. Complex columns, exact positioning, diagrams, and page artwork may not match the original layout.</li>
+    <li>Built-in SGML syntax such as questionnaire blocks is passed to the existing SGML parser when it appears as recognizable markup in the imported text.</li>
+  </ul>
+  <div class="note warning"><strong>PDF limitation:</strong> scanned/image-only PDFs do not contain extractable text. This viewer does not run OCR, so a scanned PDF must first be OCR-processed or converted to a text-based PDF.</div>
+  <h3>Import from a URL</h3>
+  <p>Use <code>?load=</code> with a URL to a DOCX or PDF, just as you would for a text-based SGML file. The whole URL should be URL-encoded if it contains characters such as <code>&amp;</code>.</p>
+  <pre>?load=https%3A%2F%2Fexample.com%2Freviewer.docx
+?load=https%3A%2F%2Fexample.com%2Flecture.pdf
+?Queries=https%3A%2F%2Fexample.com%2Flecture.pdf</pre>
+  <p><code>?Queries=</code>, <code>?queries=</code>, and <code>?query=</code> are accepted aliases for <code>?load=</code>. The remote server must permit browser cross-origin fetching (CORS). Public Google Drive file imports through <code>?gdrive=</code> are also converted when the downloaded resource is a DOCX or PDF.</p>
+  <h3>Offline behavior</h3>
+  <p>DOCX/PDF conversion libraries are loaded and cached automatically while online. Open the viewer while connected before relying on the first offline conversion. The converted document itself is saved in the browser's local document library, so you can reopen that imported copy offline. The uploaded or fetched document is processed in the browser; it is not sent to a conversion server.</p>
+</section>
+
+<section id="syntax">
+  <h2>4. General syntax rules</h2>
+  <h3>Question-block structure</h3>
+  <p>Most questionnaire blocks follow this general shape. The name changes based on the activity, but the question, list, and answer sections use matching delimiters.</p>
+  <pre>&lt;Type:
+  (Question or prompt)
+  [Choices or items]
+  {Correct answer | property:value}
+&gt;</pre>
+  <div class="syntax-map">
+    <div><code>&lt;Type:</code></div><div>Selects the built-in activity, such as <code>Choices</code>, <code>Fillin</code>, or <code>Enumeration</code>.</div>
+    <div><code>( ... )</code></div><div>Contains the question or prompt text.</div>
+    <div><code>[ ... ]</code></div><div>Contains choices, orderable items, or another activity-specific list. Some activities require an empty list, written as <code>[]</code>.</div>
+    <div><code>{ ... }</code></div><div>Contains the correct answer, answer indexes, or answer settings. The meaning depends on the activity type.</div>
+    <div><code>|property:value</code></div><div>Adds an optional setting inside the answer braces, for example <code>|case:false</code>.</div>
+    <div><code>&gt;</code></div><div>Closes the questionnaire block.</div>
+  </div>
+  <h3>Whitespace and indentation</h3>
+  <p>For built-in question syntax, spaces, tabs, and newlines between the main sections are flexible. You can put a block on one line or spread it out over several lines. Indentation is for readability; it does not have to match a particular number of spaces.</p>
+  <pre>&lt;Choices:
+    (Which value is correct?)
+    [10, 20, 30]
+    {[idx:1] | case:false}
+&gt;</pre>
+  <p>Whitespace that belongs inside a sentence or answer is still part of that text. Markdown also has its own paragraph and line-break behavior. Flexible whitespace does not mean that you should remove the spaces between words.</p>
+  <h3>Literal strings with backticks</h3>
+  <p>Backticks wrap a value that should be treated as literal text. Use them when the value contains punctuation that SGML might otherwise interpret, especially commas, brackets, parentheses, braces, or vertical bars.</p>
+  <pre>&lt;Choices:
+  (Which option contains a comma?)
+  [Manila, `Washington, D.C.`, Cebu]
+  {[idx:1]}
+&gt;</pre>
+  <p>The text <code>`Washington, D.C.`</code> is treated as one choice. The comma inside the backticks does not split it into separate choices. Literal strings are also useful when you need to show SGML-looking text, such as <code>`&lt;Choices&gt;`</code>, as content instead of having it parsed as a tag.</p>
+  <h3>Escaping structural characters</h3>
+  <p>Put a backslash before a supported structural character when only that character needs to be literal. Supported escapes include backslash, backtick, vertical bar, square brackets, parentheses, braces, and angle brackets. A comma is a list separator, so wrap a comma-containing value in backticks instead of trying to escape the comma.</p>
+  <pre>\&lt;Choices\&gt; is written as text.
+The escaped character \| is a literal vertical bar.
+A comma-containing value: `Washington, D.C.`</pre>
+  <p>Use backticks for a longer literal phrase containing a separator; use backslash escaping for an individual supported symbol.</p>
+</section>
+
+<section id="questions">
+  <h2>5. Questionnaire syntax</h2>
+  <h3>Multiple choice — <code>Choices</code></h3>
+  <pre>&lt;Choices:
+  (What does CPU stand for?)
+  [Central Processing Unit,
+   Control Program Unit,
+   Core Power Utility]
+  {[idx:0]}
+&gt;</pre>
+  <p>The first choice is index <code>0</code>, the second is index <code>1</code>, and so on. <code>{[idx:0]}</code> marks the first choice as correct. You may also put the correct answer text inside the braces, but indexes are usually clearer for a choice question.</p>
+  <h3>Fill in the blank — <code>Fillin</code></h3>
+  <pre>&lt;Fillin:
+  (What does CPU stand for?)
+  []
+  {Central Processing Unit | case:false}
+&gt;</pre>
+  <p>The learner types an answer. The square brackets remain in the syntax even though they are empty. Multiple accepted answers can be written as a comma-separated list. Use <code>case:true</code> to require matching uppercase and lowercase letters.</p>
+  <pre>&lt;Fillin:
+  (What is 2 + 2?)
+  []
+  {4, Four | case:false}
+&gt;</pre>
+  <h3>Enumeration — <code>Enumeration</code></h3>
+  <p>Written enumeration asks for a number of text answers:</p>
+  <pre>&lt;Enumeration:
+  (Name three primary colors.)
+  []
+  {Red, Green, Blue | count:3 | case:false | inorder:false}
+&gt;</pre>
+  <p><code>count:3</code> asks for three entries. <code>case:false</code> makes answer checking case-insensitive. <code>inorder:false</code> allows the accepted answers in any order where the checker supports ordering behavior.</p>
+  <p>Enumeration can also be an item-ordering task:</p>
+  <pre>&lt;Enumeration:
+  (Arrange these values in ascending order.)
+  [3, 1, 4, 2]
+  {1, 2, 3, 4 | type:order}
+&gt;</pre>
+  <p>With <code>type:order</code>, learners reorder the listed items and check the result against the specified order.</p>
+  <h3>Matching — <code>connect</code></h3>
+  <pre>&lt;connect:
+  (Match each item to its meaning.)
+  [[Array, Queue]
+   [Indexed collection, First-in-first-out collection]]
+  {answers:
+    [[idx:0][idx:0]],
+    [[idx:1][idx:1]]
+   |shuffle:true}
+&gt;</pre>
+  <p>The two nested square-bracket groups contain the left and right columns. Each answer pair has the form <code>[[idx:left][idx:right]]</code>. Indexes start at zero. <code>shuffle:true</code> randomizes the displayed matching items.</p>
+  <h3>Flashcards — <code>flashcard</code></h3>
+  <pre>&lt;flashcard
+  (Computer Basics)
+  [[What does CPU mean?]
+   [What does RAM mean?]]
+  {answers:
+    [Central Processing Unit,
+     Random Access Memory]
+   |shuffle:true}
+&gt;</pre>
+  <p>The parenthesized section is the deck title. Each nested bracket in the question list is one card prompt. The answers follow <code>answers:</code> inside the braces, in the same order as the prompts. Keep the number of questions equal to the number of answers.</p>
+  <h3>Question properties</h3>
+  <table><thead><tr><th>Property</th><th>Values</th><th>Meaning</th></tr></thead><tbody>
+    <tr><td><code>case</code></td><td><code>true</code> / <code>false</code></td><td>Whether answer checking is case-sensitive.</td></tr>
+    <tr><td><code>count</code></td><td>Positive number</td><td>Number of written enumeration answers requested.</td></tr>
+    <tr><td><code>inorder</code></td><td><code>true</code> / <code>false</code></td><td>Whether an enumeration answer list requires a particular entry order where applicable.</td></tr>
+    <tr><td><code>type</code></td><td><code>order</code></td><td>Turns an enumeration into an ordering activity.</td></tr>
+    <tr><td><code>shuffle</code></td><td><code>true</code> / <code>false</code></td><td>Enables random ordering/shuffling in matching and flashcard activities.</td></tr>
+    <tr><td><code>idx</code></td><td>Zero-based number</td><td>References an item by its position: <code>idx:0</code> is the first item.</td></tr>
+  </tbody></table>
+</section>
+
+<section id="formatting">
+  <h2>6. Built-in formatting and inline components</h2>
+  <h3>Styled text — <code>st</code></h3>
+  <pre>&lt;st col:#ff0000 bg:#fff3cd&gt;Important text&lt;/st&gt;</pre>
+  <p><code>col</code> sets the text color and <code>bg</code> sets the background. Color values can use a hexadecimal color beginning with <code>#</code>. You can nest styled text when you want a section to change color temporarily.</p>
+  <pre>&lt;st col:#ff0000&gt;
+  Red outer text
+  &lt;st col:#008000&gt;Green inner text&lt;/st&gt;
+  Back to red outer text
+&lt;/st&gt;</pre>
+  <h3>Hand-marked circle — <code>encircle</code></h3>
+  <pre>&lt;encircle col:#c62828&gt;Remember this term&lt;/encircle&gt;</pre>
+  <p><code>encircle</code> draws an intentionally irregular, pen-like loop around the content, similar to circling a word on paper. It is not a standard geometric border or a filled circle. The <code>col</code> attribute chooses the stroke color; when omitted, the viewer uses red.</p>
+  <p>It can contain inline Markdown or HTML, such as <code>&lt;strong&gt;</code> or emphasis, just as other SGML inline components can.</p>
+  <h3>Information panel — <code>info</code></h3>
+  <pre>&lt;info title:"Extra information" bg:#eef6ff col:#174a73&gt;
+  &lt;p&gt;Optional details appear in a panel when its information button is tapped.&lt;/p&gt;
+&lt;/info&gt;</pre>
+  <p>The viewer inserts an information button. Tapping it opens a panel. <code>title</code> sets the heading, while <code>bg</code> and <code>col</code> customize its background and text color.</p>
+  <h3>Spoiler — <code>spoiler</code></h3>
+  <pre>&lt;spoiler title:"Reveal answer"&gt;The answer is 42.&lt;/spoiler&gt;</pre>
+  <p>The content is hidden behind an overlay until the reader reveals it.</p>
+  <h3>References — <code>ref</code></h3>
+  <pre>&lt;ref id:"topic-a"&gt;Jump to the topic&lt;/ref&gt;
+
+&lt;ref id:"topic-a" /&gt;</pre>
+  <p>The first form creates a link to the matching reference target; the self-closing form can mark a target location. Reuse the same identifier in the link and target.</p>
+</section>
+
+<section id="visuals">
+  <h2>7. Tree graphs and timelines</h2>
+  <h3>Expandable tree — <code>root</code> and <code>bh</code></h3>
+  <p><code>&lt;root&gt;</code> defines the main node. Each nested <code>&lt;bh&gt;</code> creates a branch beneath its parent. The root is visible first; tap a card to expand or collapse its children.</p>
+  <pre>&lt;root&gt;
+  &lt;h3&gt;Photosynthesis&lt;/h3&gt;
+  &lt;p&gt;How plants store energy from light.&lt;/p&gt;
+
+  &lt;bh&gt;
+    &lt;h4&gt;Light-dependent reactions&lt;/h4&gt;
+    &lt;p&gt;Light energy helps make ATP and NADPH.&lt;/p&gt;
+
+    &lt;bh&gt;
+      &lt;strong&gt;Chlorophyll&lt;/strong&gt;
+      &lt;p&gt;A pigment that absorbs light.&lt;/p&gt;
+    &lt;/bh&gt;
+  &lt;/bh&gt;
+
+  &lt;bh&gt;
+    &lt;h4&gt;Calvin cycle&lt;/h4&gt;
+    &lt;p&gt;Uses energy to help build sugars.&lt;/p&gt;
+  &lt;/bh&gt;
+&lt;/root&gt;</pre>
+  <p>Tree cards can contain normal HTML, Markdown-rendered content, styled text, information panels, and supported nested components.</p>
+  <h3>Step-by-step timeline — <code>line</code> and <code>node</code></h3>
+  <p><code>&lt;line&gt;</code> creates a vertical timeline. Every <code>&lt;node&gt;</code> is one step. Set <code>title:"..."</code> to choose its visible title. The first step appears initially. Tapping the current step reveals the next; tapping an earlier step moves back to it.</p>
+  <pre>&lt;line&gt;
+  &lt;node title:"Plan"&gt;
+    &lt;p&gt;Define the goal and requirements.&lt;/p&gt;
+  &lt;/node&gt;
+
+  &lt;node title:"Build"&gt;
+    &lt;p&gt;Implement the planned solution.&lt;/p&gt;
+  &lt;/node&gt;
+
+  &lt;node title:"Test"&gt;
+    &lt;p&gt;Check expected and edge-case behavior.&lt;/p&gt;
+  &lt;/node&gt;
+
+  &lt;node title:"Release"&gt;
+    &lt;p&gt;Publish the finished work.&lt;/p&gt;
+  &lt;/node&gt;
+&lt;/line&gt;</pre>
+  <p>Both tree and timeline components have a resize handle along their bottom edge. Drag it to make the visual area taller or shorter.</p>
+</section>
+
+<section id="html">
+  <h2>8. Markdown, HTML, SVG, and LaTeX</h2>
+  <h3>Markdown support</h3>
+  <p>Ordinary content is rendered through Markdown. Common forms include headings, emphasis, links, lists, tables, blockquotes, and fenced code.</p>
+  <pre># Main heading
+## Section heading
+
+**Bold**, *italic*, and [a link](https://example.com).
+
+- First item
+- Second item
+
+| Term | Meaning |
+|---|---|
+| RAM | Random Access Memory |</pre>
+  <h3>HTML tags</h3>
+  <p>SGML documents can use standard HTML elements directly, for example <code>&lt;p&gt;</code>, <code>&lt;div&gt;</code>, <code>&lt;span&gt;</code>, headings, lists, tables, images, and media elements. HTML is useful when Markdown is not expressive enough.</p>
+  <pre>&lt;div style="border:1px solid #d9dee5;padding:12px;border-radius:6px"&gt;
+  &lt;h3&gt;Important definition&lt;/h3&gt;
+  &lt;p&gt;A &lt;strong&gt;queue&lt;/strong&gt; follows FIFO order.&lt;/p&gt;
+&lt;/div&gt;</pre>
+  <p>The viewer removes certain embedded browsing and plugin elements, including ordinary <code>iframe</code>, <code>object</code>, and <code>embed</code> tags. Do not put private information or untrusted code in a study guide.</p>
+  <h3>Isolated HTML block (ICB)</h3>
+  <p>A line beginning with three tildes followed by a name starts an isolated HTML container. A line containing only three tildes closes it. This is intended for standalone HTML/SVG examples that need their own scrollable, resizable area.</p>
+  <pre>~~~Mini Example
+&lt;div style="padding:16px;background:#eef6ff"&gt;
+  &lt;h2&gt;An isolated HTML panel&lt;/h2&gt;
+  &lt;p&gt;This HTML is displayed in its own area.&lt;/p&gt;
+&lt;/div&gt;
+~~~</pre>
+  <p>The content runs in a sandboxed iframe separated from the viewer page. Use ICB only when a separate HTML environment is needed; ordinary text and components do not need it.</p>
+  <h3>LaTeX math</h3>
+  <p>MathJax renders inline math with one dollar sign on each side, or display math with double dollar signs.</p>
+  <pre>Inline: $a^2 + b^2 = c^2$
+
+Display:
+$$
+\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$</pre>
+</section>
+
+<section id="editor">
+  <h2>9. Mobile editor and smart suggestions</h2>
+  <p>The editor uses a real text area for editing. Native Android/mobile selection handles, long-press selection, Select All, copy, cut, and paste come from the browser. Syntax colors and line numbers are display overlays; they do not replace text selection.</p>
+  <ul>
+    <li>Type the beginning of a built-in syntax, such as <code>&lt;Choi</code>, to see the <strong>Choices</strong> suggestion. Tapping it inserts the full question structure and places the cursor at an editable location.</li>
+    <li>Typing <code>&lt;enci</code> suggests the full <code>encircle</code> template.</li>
+    <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested. Color suggestions use hexadecimal values.</li>
+    <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
+    <li>Use <strong>Find</strong>, <strong>Replace</strong>, <strong>Go to line</strong>, and <strong>Suggest</strong> for larger documents. The editor also supports indentation, bracket pairing, and syntax-aware templates.</li>
+  </ul>
+  <p>The editor's language profile is in <code>js/editor-language.js</code>. Built-in tag names, attributes, snippets, and context-based suggestions are data-driven, so ordinary syntax additions can be made in that profile without rewriting the editor engine.</p>
+  <div class="note">While the editor is open, browser/system Back navigation is held to prevent accidental exit. Use <strong>Close Editor</strong> to leave the editor normally.</div>
+</section>
+
+<section id="offline">
+  <h2>10. Automatic resource caching and offline use</h2>
+  <p>There is no manual offline-mode switch. When the network is available, the viewer fetches updated app resources and caches successful responses. If the network is unavailable or a request fails, the service worker serves the last successfully cached app resources when available.</p>
+  <p>The cache includes the app shell, JavaScript, CSS, local libraries, and this documentation page. Open the viewer once while online before relying on offline access, so the browser has a version to use later.</p>
+  <div class="note good"><strong>Remember:</strong> the viewer, editor, and documentation can load from cache after a successful first visit. Fetching a brand-new remote resource still needs a network connection. Documents already saved in this browser are stored locally.</div>
+</section>
+
+<section id="quick-reference">
+  <h2>11. Quick reference</h2>
+  <table><thead><tr><th>Syntax</th><th>Purpose</th></tr></thead><tbody>
+    <tr><td><code>&lt;Choices: (...) [...] {...}&gt;</code></td><td>Multiple-choice question.</td></tr>
+    <tr><td><code>&lt;Fillin: (...) [] {...}&gt;</code></td><td>Typed answer question.</td></tr>
+    <tr><td><code>&lt;Enumeration: (...) [...] {...}&gt;</code></td><td>Written list or ordering task.</td></tr>
+    <tr><td><code>&lt;connect: (...) [[...][...]] {...}&gt;</code></td><td>Match two columns.</td></tr>
+    <tr><td><code>&lt;flashcard (...) [[...]] {answers:[...]}&gt;</code></td><td>Question/answer card deck.</td></tr>
+    <tr><td><code>&lt;st bg:#hex col:#hex&gt;...&lt;/st&gt;</code></td><td>Styled inline text.</td></tr>
+    <tr><td><code>&lt;encircle col:#hex&gt;...&lt;/encircle&gt;</code></td><td>Draw a hand-marked loop around content.</td></tr>
+    <tr><td><code>&lt;info title:"..."&gt;...&lt;/info&gt;</code></td><td>Expandable information panel.</td></tr>
+    <tr><td><code>&lt;spoiler title:"..."&gt;...&lt;/spoiler&gt;</code></td><td>Hidden inline text revealed on tap.</td></tr>
+    <tr><td><code>&lt;ref id:"..."&gt;...&lt;/ref&gt;</code></td><td>Reference link.</td></tr>
+    <tr><td><code>&lt;root&gt;...&lt;bh&gt;...&lt;/bh&gt;&lt;/root&gt;</code></td><td>Expandable tree.</td></tr>
+    <tr><td><code>&lt;line&gt;...&lt;node title:"..."&gt;...&lt;/node&gt;&lt;/line&gt;</code></td><td>Step-by-step timeline.</td></tr>
+    <tr><td><code>~~~Name ... ~~~</code></td><td>Isolated HTML container.</td></tr>
+    <tr><td><code>$...$</code> / <code>$$...$$</code></td><td>Inline / display math.</td></tr>
+  </tbody></table>
+</section>
+<footer style="padding:18px 0;color:#69717c;font-size:12px">SGML Viewer Documentation · Stored alongside the viewer and included in the offline app-shell cache.</footer>
+</main>
+</body>
+</html>

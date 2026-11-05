@@ -208,8 +208,13 @@ A comma-containing value: `Washington, D.C.`</pre>
 &lt;/st&gt;</pre>
   <h3>Hand-marked circle — <code>encircle</code></h3>
   <pre>&lt;encircle col:#c62828&gt;Remember this term&lt;/encircle&gt;</pre>
-  <p><code>encircle</code> draws an intentionally irregular, pen-like loop around the content, similar to circling a word on paper. It is not a standard geometric border or a filled circle. The <code>col</code> attribute chooses the stroke color; when omitted, the viewer uses red.</p>
-  <p>It can contain inline Markdown or HTML, such as <code>&lt;strong&gt;</code> or emphasis, just as other SGML inline components can.</p>
+  <p><code>encircle</code> draws a hand-marked outline around exactly the content between its opening and closing tags. Inline phrases stay in the text flow. When the range contains block Markdown such as a heading, list, quote, separated paragraphs, or display math, SGML places one outline around the complete rendered block range. Text before the opening tag and after the closing tag stays outside. The <code>col</code> attribute chooses the stroke color; when omitted, the viewer uses red.</p>
+  <pre>&lt;encircle col:#c62828&gt;
+# Study Guide: SGML
+This whole heading and paragraph range is encircled.
+$EMC$
+&lt;/encircle&gt;</pre>
+  <p>Inline Markdown such as <code>**bold**</code> and <code>*italic*</code> is supported inside either kind of encircle.</p>
   <h3>Information panel — <code>info</code></h3>
   <pre>&lt;info title:"Extra information" bg:#eef6ff col:#174a73&gt;
   &lt;p&gt;Optional details appear in a panel when its information button is tapped.&lt;/p&gt;

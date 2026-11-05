@@ -3,6 +3,7 @@
 
 	const ASSETS={
 		mammoth:'https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js',
+		jszip:'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
 		pdfjs:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
 		pdfWorker:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 	};
@@ -15,6 +16,7 @@
 		'th','thead','tr','u','ul'
 	]);
 	const DROP_CONTENT_TAGS=new Set(['script','style','iframe','object','embed','svg','math','form','input','button','textarea','select','option','link','meta','base']);
+	const SVG_NS='http://www.w3.org/2000/svg';
 	let pdfWorkerBlobURL='';
 	const STYLE_PROPERTIES=new Set(['color','background-color','font-weight','font-style','font-size','font-family','text-align','text-decoration','vertical-align','border','border-color','border-style','border-width','border-collapse','padding','padding-left','padding-right','padding-top','padding-bottom','margin','margin-left','margin-right','margin-top','margin-bottom','width','max-width','height']);
 
@@ -110,6 +112,40 @@
 		return safe.join('; ');
 	}
 
+	const SVG_BLOCKED_ELEMENTS=new Set(['script','iframe','object','embed','applet','frame','frameset','portal']);
+
+	function hasDangerousEmbeddedCode(value){
+		return /(?:javascript|vbscript)\s*:|data\s*:\s*text\/html|expression\s*\(|-moz-binding|behavior\s*:/i.test(String(value||''));
+	}
+
+	function sanitizeSVGSubtree(node,outputDoc){
+		if(node.nodeType===Node.TEXT_NODE)return outputDoc.createTextNode(node.nodeValue||'');
+		if(node.nodeType===Node.CDATA_SECTION_NODE)return outputDoc.createTextNode(node.nodeValue||'');
+		if(node.nodeType===Node.COMMENT_NODE)return outputDoc.createComment(node.nodeValue||'');
+		if(node.nodeType!==Node.ELEMENT_NODE)return null;
+
+		const tag=String(node.localName||node.nodeName||'').toLowerCase();
+		if(SVG_BLOCKED_ELEMENTS.has(tag))return null;
+		if(tag==='style'&&hasDangerousEmbeddedCode(node.textContent||''))return null;
+
+		// Import the original SVG element with its original namespace, qualified
+		// name, attributes, and casing. No SVG shape or attribute whitelist is used.
+		const clone=outputDoc.importNode(node,false);
+		for(const attribute of Array.from(clone.attributes||[])){
+			const name=String(attribute.name||attribute.localName||'').toLowerCase();
+			const value=attribute.value||'';
+			if(name.startsWith('on')||name==='srcdoc'||name==='srcset'||hasDangerousEmbeddedCode(value)){
+				if(attribute.namespaceURI)clone.removeAttributeNS(attribute.namespaceURI,attribute.localName);
+				else clone.removeAttribute(attribute.name);
+			}
+		}
+		for(const child of Array.from(node.childNodes||[])){
+			const safeChild=sanitizeSVGSubtree(child,outputDoc);
+			if(safeChild)clone.appendChild(safeChild);
+		}
+		return clone;
+	}
+
 	function sanitizeHtmlFragment(html){
 		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
 		const outputDoc=document.implementation.createHTMLDocument('');
@@ -118,6 +154,7 @@
 			if(node.nodeType===Node.TEXT_NODE)return outputDoc.createTextNode(node.nodeValue||'');
 			if(node.nodeType!==Node.ELEMENT_NODE)return null;
 			const tag=node.tagName.toLowerCase();
+			if(node.namespaceURI===SVG_NS||tag==='svg')return sanitizeSVGSubtree(node,outputDoc);
 			if(DROP_CONTENT_TAGS.has(tag))return null;
 			if(!HTML_TAGS.has(tag)){
 				const fragment=outputDoc.createDocumentFragment();
@@ -182,9 +219,12 @@
 	function serializeCompactNode(node){
 		if(node.nodeType===Node.TEXT_NODE)return escapeSerializedText(node.nodeValue||'');
 		if(node.nodeType!==Node.ELEMENT_NODE)return '';
-		const tag=node.tagName.toLowerCase();
+		// Keep SVG's case-sensitive element names exactly as imported. Lowercasing
+		// names such as linearGradient or foreignObject can change SVG semantics.
+		const isSVG=node.namespaceURI===SVG_NS;
+		const tag=isSVG?node.localName:node.tagName.toLowerCase();
 		const open='<'+tag+serializeAttributes(node)+'>';
-		if(HTML_VOID_TAGS.has(tag))return open;
+		if(!isSVG&&HTML_VOID_TAGS.has(tag))return open;
 		return open+Array.from(node.childNodes||[]).map(serializeCompactNode).join('')+'</'+tag+'>';
 	}
 
@@ -332,9 +372,11 @@
 		return output;
 	}
 
-	function buildImportedWrapper(kind,title,fragment){
+	function buildImportedWrapper(kind,title,fragment,options={}){
 		const safeTitle=escapeHTML(String(title||'Imported document').replace(/\.[^.]+$/,''));
-		return '<div class="sgml-imported-document sgml-imported-'+kind+'" data-sgml-imported-from="'+kind+'">\n<h1>'+safeTitle+'</h1>\n'+fragment+'\n</div>';
+		const baseClass=options.baseClass&&/^[a-z0-9_-]+$/i.test(options.baseClass)?' '+options.baseClass:'';
+		const styleBlock=options.css?'<style data-sgml-docx-styles>\n'+options.css+'\n</style>\n':'';
+		return '<div class="sgml-imported-document sgml-imported-'+kind+baseClass+'" data-sgml-imported-from="'+kind+'">\n<h1>'+safeTitle+'</h1>\n'+styleBlock+fragment+'\n</div>';
 	}
 
 	function escapePDFText(value){return escapeHTML(String(value||'').replace(/\u00a0/g,' '));}
@@ -401,22 +443,491 @@
 		});
 	}
 
+	const WORD_NS='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+	const WORD_HIGHLIGHTS={
+		yellow:'#ffff00',green:'#00ff00',cyan:'#00ffff',magenta:'#ff00ff',blue:'#0000ff',red:'#ff0000',
+		darkblue:'#000080',darkcyan:'#008080',darkgreen:'#008000',darkmagenta:'#800080',darkred:'#800000',
+		darkyellow:'#808000',darkgray:'#808080',lightgray:'#c0c0c0',black:'#000000',white:'#ffffff'
+	};
+
+	function wordChild(parent,localName){
+		if(!parent)return null;
+		for(const child of Array.from(parent.childNodes||[])){
+			if(child.nodeType===Node.ELEMENT_NODE&&child.namespaceURI===WORD_NS&&child.localName===localName)return child;
+		}
+		return null;
+	}
+
+	function wordDescendants(parent,localName){
+		return Array.from(parent&&parent.getElementsByTagNameNS?parent.getElementsByTagNameNS(WORD_NS,localName):[]);
+	}
+
+	function wordAttr(element,name='val'){
+		if(!element)return '';
+		return element.getAttributeNS(WORD_NS,name)||element.getAttribute('w:'+name)||'';
+	}
+
+	function wordRGB(value){
+		const color=String(value||'').trim();
+		return /^[0-9a-f]{6}$/i.test(color)?'#'+color:'';
+	}
+
+	function wordRunColorStyle(rPr){
+		const css={};
+		if(!rPr)return css;
+		const color=wordRGB(wordAttr(wordChild(rPr,'color')));
+		if(color)css.color=color;
+		const size=Number(wordAttr(wordChild(rPr,'sz'))||wordAttr(wordChild(rPr,'szCs')));
+		if(Number.isFinite(size)&&size>0&&size<=3276)css['font-size']=(size/2)+'pt';
+		const highlight=wordAttr(wordChild(rPr,'highlight')).toLowerCase();
+		if(highlight&&WORD_HIGHLIGHTS[highlight])css['background-color']=WORD_HIGHLIGHTS[highlight];
+		const shading=wordChild(rPr,'shd');
+		const fill=wordRGB(wordAttr(shading,'fill'));
+		if(fill)css['background-color']=fill;
+		const strike=wordChild(rPr,'strike');
+		const doubleStrike=wordChild(rPr,'dstrike');
+		if(strike||doubleStrike){
+			const enabled=element=>element&&!['0','false','off','none','no'].includes(wordAttr(element).toLowerCase());
+			css['text-decoration']=enabled(strike)||enabled(doubleStrike)?'line-through':'none';
+		}
+		return css;
+	}
+
+	function wordParagraphStyle(pPr){
+		const css={};
+		if(!pPr)return css;
+		const alignment=wordAttr(wordChild(pPr,'jc')).toLowerCase();
+		if(alignment==='both'||alignment==='distribute'||alignment==='thaidistribute')css['text-align']='justify';
+		else if(['left','center','right'].includes(alignment))css['text-align']=alignment;
+		else if(alignment==='start'||alignment==='end'){
+			const bidi=wordChild(pPr,'bidi');
+			const rtl=bidi&&!['0','false','off','none','no'].includes(wordAttr(bidi).toLowerCase());
+			css['text-align']=alignment==='start'?(rtl?'right':'left'):(rtl?'left':'right');
+		}
+		const shading=wordChild(pPr,'shd');
+		const fill=wordRGB(wordAttr(shading,'fill'));
+		if(fill)css['background-color']=fill;
+		return css;
+	}
+
+	function mergeWordCSS(...objects){
+		const result={};
+		objects.forEach(item=>Object.assign(result,item||{}));
+		return result;
+	}
+
+	function collectWordText(element){
+		let value='';
+		function walk(node){
+			for(const child of Array.from(node.childNodes||[])){
+				if(child.nodeType!==Node.ELEMENT_NODE||child.namespaceURI!==WORD_NS)continue;
+				if(child.localName==='t')value+=child.textContent||'';
+				else if(child.localName==='tab'||child.localName==='br'||child.localName==='cr')value+=' ';
+				else walk(child);
+			}
+		}
+		walk(element);
+		return value;
+	}
+
+	function wordStyleChain(styleMap,id){
+		const chain=[];
+		const seen=new Set();
+		let current=id;
+		while(current&&!seen.has(current)&&styleMap.has(current)){
+			seen.add(current);
+			const style=styleMap.get(current);
+			chain.unshift(style);
+			current=style.basedOn;
+		}
+		return chain;
+	}
+
+	async function extractDocxColorFormatting(bytes,JSZip){
+		try{
+			const zip=await JSZip.loadAsync(bytesToArrayBuffer(bytesFrom(bytes)));
+			const documentFile=zip.file('word/document.xml');
+			if(!documentFile)return[];
+			const documentXML=await documentFile.async('string');
+			const documentDoc=new DOMParser().parseFromString(documentXML,'application/xml');
+			if(documentDoc.getElementsByTagName('parsererror').length)return[];
+
+			const styleMap=new Map();
+			const stylesFile=zip.file('word/styles.xml');
+			let stylesDoc=null;
+			if(stylesFile){
+				const stylesXML=await stylesFile.async('string');
+				stylesDoc=new DOMParser().parseFromString(stylesXML,'application/xml');
+				for(const style of wordDescendants(stylesDoc,'style')){
+					const id=style.getAttributeNS(WORD_NS,'styleId')||style.getAttribute('w:styleId');
+					if(!id)continue;
+					styleMap.set(id,{
+						basedOn:wordAttr(wordChild(style,'basedOn')),
+						pPr:wordChild(style,'pPr'),
+						rPr:wordChild(style,'rPr')
+					});
+				}
+			}
+
+			const defaults=stylesDoc?wordDescendants(stylesDoc,'docDefaults')[0]:null;
+			const defaultPPr=wordChild(wordChild(defaults,'pPrDefault'),'pPr');
+			const defaultRPr=wordChild(wordChild(defaults,'rPrDefault'),'rPr');
+			const baseParagraphCSS=wordParagraphStyle(defaultPPr);
+			const baseRunCSS=wordRunColorStyle(defaultRPr);
+			const body=wordDescendants(documentDoc,'body')[0];
+			if(!body)return[];
+
+			return wordDescendants(body,'p').map(paragraph=>{
+				const pPr=wordChild(paragraph,'pPr');
+				const paragraphStyleId=wordAttr(wordChild(pPr,'pStyle'));
+				const styleChain=wordStyleChain(styleMap,paragraphStyleId);
+				let paragraphCSS=mergeWordCSS(baseParagraphCSS);
+				let inheritedRunCSS=mergeWordCSS(baseRunCSS);
+				styleChain.forEach(style=>{
+					paragraphCSS=mergeWordCSS(paragraphCSS,wordParagraphStyle(style.pPr));
+					inheritedRunCSS=mergeWordCSS(inheritedRunCSS,wordRunColorStyle(style.rPr),wordRunColorStyle(wordChild(style.pPr,'rPr')));
+				});
+				paragraphCSS=mergeWordCSS(paragraphCSS,wordParagraphStyle(pPr));
+				inheritedRunCSS=mergeWordCSS(inheritedRunCSS,wordRunColorStyle(wordChild(pPr,'rPr')));
+
+				const runs=wordDescendants(paragraph,'r').filter(run=>{
+					let ancestor=run.parentNode;
+					while(ancestor&&ancestor!==paragraph&&!(ancestor.namespaceURI===WORD_NS&&ancestor.localName==='p'))ancestor=ancestor.parentNode;
+					return ancestor===paragraph;
+				}).map(run=>{
+					const rPr=wordChild(run,'rPr');
+					const runStyleId=wordAttr(wordChild(rPr,'rStyle'));
+					let runStyleCSS={};
+					wordStyleChain(styleMap,runStyleId).forEach(style=>{runStyleCSS=mergeWordCSS(runStyleCSS,wordRunColorStyle(style.rPr));});
+					return{text:collectWordText(run),css:mergeWordCSS(inheritedRunCSS,runStyleCSS,wordRunColorStyle(rPr))};
+				}).filter(run=>run.text);
+				return{text:collectWordText(paragraph),css:paragraphCSS,runs};
+			});
+		}catch(error){
+			console.warn('DOCX formatting could not be restored; keeping the normal DOCX conversion.',error);
+			return[];
+		}
+	}
+
+	function normalizeWordMatchText(value){
+		return String(value||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+	}
+
+	function escapeRegExp(value){
+		return String(value||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+	}
+
+	function findWordRunMatch(fullText,runText,fromIndex){
+		if(!runText)return null;
+		let index=fullText.indexOf(runText,fromIndex);
+		if(index>=0)return{index,length:runText.length};
+		const pattern=runText.trim().split(/(\s+)/).filter(Boolean).map(part=>/^\s+$/.test(part)?'[\\s\\u00a0]+':escapeRegExp(part)).join('');
+		if(!pattern)return null;
+		const match=new RegExp(pattern).exec(fullText.slice(fromIndex));
+		return match?{index:fromIndex+match.index,length:match[0].length}:null;
+	}
+
+	function wordTextRange(element,start,length){
+		const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT);
+		let node,position=0,startNode=null,startOffset=0,endNode=null,endOffset=0;
+		while((node=walker.nextNode())){
+			const next=position+(node.nodeValue||'').length;
+			if(!startNode&&start>=position&&start<=next){startNode=node;startOffset=start-position;}
+			if(startNode&&start+length>=position&&start+length<=next){endNode=node;endOffset=start+length-position;break;}
+			position=next;
+		}
+		if(!startNode||!endNode)return null;
+		const range=document.createRange();
+		range.setStart(startNode,startOffset);
+		range.setEnd(endNode,endOffset);
+		return range;
+	}
+
+	const DOCX_INHERITABLE_PROPERTIES=new Set(['color','font-size','font-family','font-weight','font-style','text-decoration','vertical-align']);
+	const DOCX_CSS_PROPERTIES=new Set(['color','background-color','font-size','text-align','text-decoration']);
+
+	function safeDocxCSS(css){
+		const result={};
+		Object.keys(css||{}).sort().forEach(property=>{
+			const value=String(css[property]||'').trim();
+			if(!DOCX_CSS_PROPERTIES.has(property)||!value)return;
+			if(property==='color'||property==='background-color'){
+				if(/^#[0-9a-f]{6}$/i.test(value))result[property]=value;
+			}else if(property==='font-size'){
+				if(/^\d+(?:\.\d+)?pt$/.test(value))result[property]=value;
+			}else if(property==='text-align'){
+				if(['left','right','center','justify'].includes(value))result[property]=value;
+			}else if(property==='text-decoration'){
+				if(['line-through','none'].includes(value))result[property]=value;
+			}
+		});
+		return result;
+	}
+
+	function cssSignature(css){
+		return Object.keys(css).sort().map(property=>property+':'+css[property]).join(';');
+	}
+
+	function createDocxStyleManager(){
+		const classes=new Map();
+		const rules=[];
+		return{
+			classFor(css){
+				const safe=safeDocxCSS(css);
+				const signature=cssSignature(safe);
+				if(!signature)return'';
+				if(classes.has(signature))return classes.get(signature);
+				const className='docx-style-'+(classes.size+1);
+				classes.set(signature,className);
+				const declarations=Object.entries(safe).map(([property,value])=>property+':'+value).join(';');
+				rules.push('.sgml-imported-docx .'+className+'{'+declarations+'}');
+				if(safe['text-align']){
+					const align=safe['text-align'];
+					const margins=align==='center'?'margin-left:auto;margin-right:auto':align==='right'?'margin-left:auto;margin-right:0':'margin-left:0;margin-right:auto';
+					rules.push('.sgml-imported-docx svg.'+className+'{display:block;'+margins+'}');
+				}
+				return className;
+			},
+			addBase(css){
+				const safe=safeDocxCSS(css);
+				if(!Object.keys(safe).length)return'';
+				const className='docx-base-style';
+				const declarations=Object.entries(safe).map(([property,value])=>property+':'+value).join(';');
+				rules.unshift('.sgml-imported-docx.'+className+'{'+declarations+'}');
+				if(safe['text-align']){
+					const align=safe['text-align'];
+					const margins=align==='center'?'margin-left:auto;margin-right:auto':align==='right'?'margin-left:auto;margin-right:0':'margin-left:0;margin-right:auto';
+					rules.push('.sgml-imported-docx.'+className+' svg{display:block;'+margins+'}');
+				}
+				return className;
+			},
+			cssText(){return rules.join('\n');}
+		};
+	}
+
+	function commonCSS(items,properties){
+		if(!items.length)return{};
+		const first=items[0]||{};
+		const common={};
+		Object.keys(first).forEach(property=>{
+			if(!properties.has(property))return;
+			const value=first[property];
+			if(items.every(item=>item&&item[property]===value))common[property]=value;
+		});
+		return common;
+	}
+
+	function dominantCSSValue(items,property,minimumRatio=0.8){
+		if(!items.length)return'';
+		const counts=new Map();
+		for(const item of items){
+			const value=String(item&&item[property]||'');
+			counts.set(value,(counts.get(value)||0)+1);
+		}
+		let bestValue='';
+		let bestCount=0;
+		for(const [value,count] of counts){
+			if(value&&count>bestCount){bestValue=value;bestCount=count;}
+		}
+		return bestCount/items.length>=minimumRatio?bestValue:'';
+	}
+
+	function withoutCommonCSS(css,common){
+		const remaining={};
+		Object.entries(css||{}).forEach(([property,value])=>{
+			if(common[property]!==value)remaining[property]=value;
+		});
+		return remaining;
+	}
+
+	function applyWordRunClasses(element,runs,commonRunCSS,styleManager){
+		const text=element.textContent||'';
+		let cursor=0;
+		for(const run of runs||[]){
+			if(!run.text)continue;
+			const match=findWordRunMatch(text,run.text,cursor)||findWordRunMatch(text,run.text,0);
+			if(!match)continue;
+			cursor=match.index+match.length;
+			const className=styleManager.classFor(withoutCommonCSS(run.css||{},commonRunCSS));
+			if(!className)continue;
+			const range=wordTextRange(element,match.index,match.length);
+			if(!range)continue;
+			const span=document.createElement('span');
+			span.className=className;
+			try{span.appendChild(range.extractContents());range.insertNode(span);}catch(_){continue;}
+		}
+	}
+
+	function applyDocxColorFormatting(html,paragraphs){
+		if(!paragraphs||!paragraphs.length)return{html,css:'',baseClass:''};
+		const allRuns=paragraphs.flatMap(item=>item.runs||[]).filter(run=>run&&run.text);
+		const runStyles=allRuns.map(run=>run.css||{});
+		const commonRun=commonCSS(runStyles,DOCX_INHERITABLE_PROPERTIES);
+		// A document-wide default such as 11pt often applies to nearly every run,
+		// while a few headings or emphasis runs have explicit sizes. Put the
+		// dominant default on the wrapper and emit classes only for the exceptions.
+		const dominantFontSize=dominantCSSValue(runStyles,'font-size',0.8);
+		if(dominantFontSize)commonRun['font-size']=dominantFontSize;
+		const commonParagraph=commonCSS(paragraphs.map(item=>item.css||{}),new Set(['text-align']));
+		const baseCSS=Object.assign({},commonRun,commonParagraph);
+		const styleManager=createDocxStyleManager();
+		const baseClass=styleManager.addBase(baseCSS);
+
+		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		const lookup=new Map();
+		paragraphs.forEach(item=>{
+			const key=normalizeWordMatchText(item.text);
+			if(!key)return;
+			if(!lookup.has(key))lookup.set(key,[]);
+			lookup.get(key).push(item);
+		});
+		const candidates=Array.from(parsed.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li')).filter(element=>!(element.tagName.toLowerCase()==='li'&&element.querySelector('p')));
+		for(const element of candidates){
+			const queue=lookup.get(normalizeWordMatchText(element.textContent));
+			if(!queue||!queue.length)continue;
+			const item=queue.shift();
+			const paragraphClass=styleManager.classFor(withoutCommonCSS(item.css||{},commonParagraph));
+			if(paragraphClass)element.classList.add(paragraphClass);
+			applyWordRunClasses(element,item.runs,commonRun,styleManager);
+		}
+		return{html:parsed.body.innerHTML,css:styleManager.cssText(),baseClass};
+	}
+
+	function parseDocxSVG(markup,doc){
+		try{
+			let source=String(markup||'');
+			const rootOpenTag=/<svg\b[^>]*>/i.exec(source);
+			const hadNamespace=!!(rootOpenTag&&/\bxmlns\s*=/i.test(rootOpenTag[0]));
+			if(rootOpenTag&&!hadNamespace){
+				source=source.replace(/<svg\b/i,match=>match+' xmlns="'+SVG_NS+'"');
+			}
+			const parsed=new DOMParser().parseFromString(source,'image/svg+xml');
+			if(parsed.getElementsByTagName('parsererror').length)return null;
+			const root=parsed.documentElement;
+			if(!root||String(root.localName||'').toLowerCase()!=='svg'||root.namespaceURI!==SVG_NS)return null;
+			if(!hadNamespace)root.removeAttribute('xmlns');
+			return doc.importNode(root,true);
+		}catch(_){return null;}
+	}
+
+	function backtickStateAfter(text,state=''){
+		const pattern=/`+/g;
+		let match;
+		while((match=pattern.exec(String(text||'')))){
+			if(match[0].length>=3)continue;
+			if(!state)state=match[0].length;
+			else if(state===match[0].length)state='';
+		}
+		return state;
+	}
+
+	function inlineCodeStateAt(text,index,state=''){
+		return backtickStateAfter(String(text||'').slice(0,index),state);
+	}
+
+	function restoreDocxSVGMarkup(html){
+		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		const blocks=Array.from(parsed.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td,th'))
+			.filter(element=>!element.closest('pre,code'))
+			.filter(element=>!(element.tagName.toLowerCase()==='li'&&element.querySelector('p')))
+			.filter(element=>!(['td','th'].includes(element.tagName.toLowerCase())&&element.querySelector('p,li,h1,h2,h3,h4,h5,h6')));
+		let fence=null;
+		let inlineTicks='';
+		for(let i=0;i<blocks.length;i++){
+			const block=blocks[i];
+			if(!block.isConnected)continue;
+			const text=block.textContent||'';
+			const trimmed=text.trim();
+			const fenceMatch=/^(`{3,}|~{3,})(.*)$/.exec(trimmed);
+			if(fence){
+				if(fenceMatch&&fenceMatch[1][0]===fence.char&&fenceMatch[1].length>=fence.length&&!fenceMatch[2].trim())fence=null;
+				continue;
+			}
+			if(fenceMatch){fence={char:fenceMatch[1][0],length:fenceMatch[1].length};continue;}
+			const svgStart=text.search(/<svg\b/i);
+			if(svgStart>=0&&!inlineCodeStateAt(text,svgStart,inlineTicks)){
+				const pieces=[];
+				const offsets=[];
+				let combined='';
+				let endBlock=-1;
+				let localEnd=-1;
+				for(let j=i;j<blocks.length;j++){
+					const piece=blocks[j].textContent||'';
+					offsets.push(combined.length+(j===i?0:1));
+					pieces.push(piece);
+					combined+=(j===i?'':'\n')+piece;
+					const close=combined.slice(svgStart).search(/<\/svg\s*>/i);
+					if(close>=0){
+						const closeMatch=combined.slice(svgStart+close).match(/^<\/svg\s*>/i);
+						const absoluteEnd=svgStart+close+closeMatch[0].length;
+						for(let k=0;k<offsets.length;k++){
+							const begin=offsets[k];
+							const finish=begin+pieces[k].length;
+							if(absoluteEnd<=finish){endBlock=i+k;localEnd=absoluteEnd-begin;break;}
+						}
+						break;
+					}
+				}
+				if(endBlock>=i){
+					const markup=combined.slice(svgStart,offsets[endBlock-i]+localEnd);
+					const svg=parseDocxSVG(markup,parsed);
+					if(svg){
+						const first=blocks[i];
+						const last=blocks[endBlock];
+						const prefix=(first.textContent||'').slice(0,svgStart);
+						const suffix=(last.textContent||'').slice(localEnd);
+						// Preserve Word-generated class hooks without wrapping a standalone SVG
+						// in the paragraph/span markup used for ordinary text.
+						const inheritedClasses=new Set();
+						[first,...Array.from(first.querySelectorAll('[class]'))].forEach(element=>{
+							String(element.className&&typeof element.className==='string'?element.className:element.getAttribute('class')||'').split(/\s+/).filter(Boolean).forEach(name=>inheritedClasses.add(name));
+						});
+						if(!prefix.trim()&&!suffix.trim()&&first.parentNode){
+							if(inheritedClasses.size)svg.classList.add(...inheritedClasses);
+							first.parentNode.insertBefore(svg,first);
+							for(let j=i;j<=endBlock;j++)if(blocks[j].parentNode)blocks[j].parentNode.removeChild(blocks[j]);
+						}else{
+							while(first.firstChild)first.removeChild(first.firstChild);
+							if(prefix)first.appendChild(parsed.createTextNode(prefix));
+							first.appendChild(svg);
+							if(suffix)first.appendChild(parsed.createTextNode(suffix));
+							for(let j=i+1;j<=endBlock;j++)if(blocks[j].parentNode)blocks[j].parentNode.removeChild(blocks[j]);
+						}
+						inlineTicks=backtickStateAfter(prefix+suffix,inlineTicks);
+						i=endBlock;
+						continue;
+					}
+				}
+			}
+			inlineTicks=backtickStateAfter(text,inlineTicks);
+		}
+		return parsed.body.innerHTML;
+	}
+
 	async function convertDocx(bytes,fileName){
 		const mammoth=await loadScript(ASSETS.mammoth,'mammoth');
 		const data=bytesFrom(bytes);
 		const arrayBuffer=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
-		// Mammoth intentionally ignores underline by default. Map explicitly
-		// underlined Word runs to semantic HTML <u> elements so the formatting
-		// survives sanitization, editing, storage, and SGML rendering.
+		// Keep v3's Mammoth conversion and explicit underline mapping. Only restore
+		// Word paragraph alignment and direct/styled text color, size, and shading.
 		const result=await mammoth.convertToHtml({arrayBuffer},{
 			styleMap:['u => u'],
 			includeDefaultStyleMap:true
 		});
-		const clean=sanitizeHtmlFragment(result.value||'');
+		let formatting=[];
+		try{
+			const JSZip=await loadScript(ASSETS.jszip,'JSZip');
+			formatting=await extractDocxColorFormatting(data,JSZip);
+		}catch(error){
+			console.warn('Additional DOCX formatting is unavailable; using the normal v3 conversion.',error);
+		}
+		const formatted=applyDocxColorFormatting(result.value||'',formatting);
+		const withSVG=restoreDocxSVGMarkup(formatted.html);
+		const clean=sanitizeHtmlFragment(withSVG);
 		const readable=formatHTMLForEditing(clean);
 		const restored=restoreSGMLMarkupInHTML(readable);
 		return{
-			content:buildImportedWrapper('docx',fileName,restored),
+			content:buildImportedWrapper('docx',fileName,restored,{baseClass:formatted.baseClass,css:formatted.css}),
 			kind:'docx',
 			warnings:(result.messages||[]).map(item=>String(item.message||'Document conversion note'))
 		};

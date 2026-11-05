@@ -200,7 +200,7 @@
 	const HTML_BLOCK_TAGS=new Set([
 		'article','aside','blockquote','dd','div','dl','dt','fieldset','figcaption','figure','footer',
 		'h1','h2','h3','h4','h5','h6','header','hr','li','main','nav','ol','p','pre','section',
-		'table','tbody','td','tfoot','th','thead','tr','ul'
+		'table','tbody','td','tfoot','th','thead','tr','ul','docx-line'
 	]);
 	const HTML_VOID_TAGS=new Set(['br','hr','img']);
 
@@ -268,6 +268,30 @@
 			?serializePrettyNode(node,0):serializeCompactNode(node)).join('\n');
 	}
 
+	// DOCX paragraphs are Word layout containers, not SGML source syntax. Use
+	// a temporary grouping element so a paragraph's inline runs remain together,
+	// then remove that element after formatting. Only explicitly formatted Word
+	// paragraphs retain a non-paragraph block so alignment, shading, or other
+	// paragraph-level styling remains visible in the rendered document.
+	function flattenDocxParagraphs(html){
+		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		const paragraphs=Array.from(parsed.body.querySelectorAll('p'));
+		paragraphs.forEach(paragraph=>{
+			const parent=paragraph.parentNode;
+			if(!parent)return;
+			const classes=String(paragraph.getAttribute('class')||'').trim();
+			const keepBlock=!!(classes||paragraph.hasAttribute('style')||paragraph.hasAttribute('align')||paragraph.hasAttribute('dir')||paragraph.hasAttribute('id'));
+			const replacement=parsed.createElement(keepBlock?'div':'docx-line');
+			if(classes)replacement.setAttribute('class',classes);
+			for(const name of ['id','dir','align','style','title']){
+				if(paragraph.hasAttribute(name))replacement.setAttribute(name,paragraph.getAttribute(name));
+			}
+			while(paragraph.firstChild)replacement.appendChild(paragraph.firstChild);
+			parent.replaceChild(replacement,paragraph);
+		});
+		return formatHTMLForEditing(parsed.body.innerHTML).replace(/<docx-line>([\s\S]*?)<\/docx-line>/gi,'$1');
+	}
+
 	function isInsideCodeOrPre(source,index){
 		const before=source.slice(0,index).toLowerCase();
 		for(const tag of ['pre','code']){
@@ -328,42 +352,101 @@
 		return textarea.value;
 	}
 
+	function expandStandaloneParagraphRange(source,start,end){
+		// Mammoth wraps every Word paragraph in <p> and often adds <span> around
+		// each run. If the only content in that paragraph is one SGML/HTML token,
+		// remove the generated paragraph wrapper so block components such as
+		// <root>, <bh>, <line>, and future custom syntax reach the SGML parser at
+		// the document level instead of being trapped inside a Word paragraph.
+		const before=source.slice(0,start);
+		const paragraphOpens=Array.from(before.matchAll(/<p\b[^>]*>/gi));
+		if(!paragraphOpens.length)return{start,end};
+		const paragraphOpen=paragraphOpens[paragraphOpens.length-1];
+		const lastClose=before.toLowerCase().lastIndexOf('</p');
+		if(lastClose>paragraphOpen.index)return{start,end};
+		const openEnd=paragraphOpen.index+paragraphOpen[0].length;
+		const beforeToken=source.slice(openEnd,start).replace(/<[^>]*>/g,'').replace(/&nbsp;/gi,' ').trim();
+		if(beforeToken)return{start,end};
+		const closeStart=source.toLowerCase().indexOf('</p',end);
+		if(closeStart<0)return{start,end};
+		const closeEnd=source.indexOf('>',closeStart);
+		if(closeEnd<0)return{start,end};
+		const afterToken=source.slice(end,closeStart).replace(/<[^>]*>/g,'').replace(/&nbsp;/gi,' ').trim();
+		if(afterToken)return{start,end};
+		return{start:paragraphOpen.index,end:closeEnd+1};
+	}
+
+	function dangerousImportedTagName(source,start,end){
+		const token=String(source||'').slice(start,end);
+		const match=token.match(/^&lt;\s*\/?\s*([a-z][a-z0-9_.:-]*)/i);
+		if(!match)return'';
+		const name=match[1].toLowerCase();
+		return ['script','iframe','object','embed','applet','frame','frameset','portal'].includes(name)?name:'';
+	}
+
+	function sanitizeRestoredTagText(value){
+		// Keep the source language open-ended, but do not turn executable HTML
+		// attributes or script URLs from an imported DOCX into active content.
+		return String(value||'')
+			.replace(/\s+on[a-z0-9_:-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,'')
+			.replace(/\s+(?:href|src|xlink:href|formaction|action)\s*=\s*(["'])\s*(?:javascript|vbscript):[\s\S]*?\1/gi,'')
+			.replace(/\s+(?:href|src|xlink:href|formaction|action)\s*=\s*(?:javascript|vbscript):[^\s>]+/gi,'');
+	}
+
+	function isInsideMarkdownFence(source,index){
+		// DOCX often stores each source-code line as its own Word paragraph.
+		// Reconstruct logical lines from those paragraph boundaries and track
+		// Markdown fences without knowing or listing any SGML component names.
+		const prefix=String(source||'').slice(0,index)
+			.replace(/<br\b[^>]*>/gi,'\n')
+			.replace(/<\/(?:p|div|li|h[1-6]|pre|section|tr)\s*>/gi,'\n')
+			.replace(/<[^>]*>/g,'');
+		let fence=null;
+		for(const line of prefix.split(/\r?\n/)){
+			if(fence){
+				const close=new RegExp('^\\s{0,3}'+fence.char+'{'+fence.length+',}\\s*$');
+				if(close.test(line))fence=null;
+				continue;
+			}
+			const opening=/^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+			if(opening)fence={char:opening[1][0],length:opening[1].length};
+		}
+		return!!fence;
+	}
+
 	function restoreSGMLMarkupInHTML(html){
 		const source=String(html||'');
 		const replacements=[];
-		const blocked=[];
-		const startPattern=/&lt;(Choices|Fillin|Enumeration|connect|flashcard)\b/gi;
+		// Do not enumerate SGML component names here. Every SGML version may add
+		// new tags or question syntaxes; the converter's job is only to undo the
+		// HTML entity-escaping Mammoth applies to tag-shaped DOCX text. The SGML
+		// renderer remains the single authority for which syntax it understands.
+		const startPattern=/&lt;\s*\/?\s*[a-z][a-z0-9_.:-]*(?=:|\s|\/|&gt;)/gi;
 		let match;
 		while((match=startPattern.exec(source))){
 			const start=match.index;
-			if(isInsideCodeOrPre(source,start))continue;
+			if(isInsideCodeOrPre(source,start)||isInsideMarkdownFence(source,start))continue;
 			const end=findEncodedBlockEnd(source,start);
 			if(end<0)continue;
-
-			// If SGML syntax is spread over Word paragraphs, absorb the paragraph
-			// wrapper at each edge so the rendered question is not nested in <p>.
-			let replacementStart=start;
-			const priorTagStart=source.lastIndexOf('<',start);
-			const priorTagEnd=priorTagStart>=0?source.indexOf('>',priorTagStart):-1;
-			if(priorTagStart>=0&&priorTagEnd>=0&&priorTagEnd<start&&/^<p\b[^>]*>$/i.test(source.slice(priorTagStart,priorTagEnd+1))&&/^\s*$/.test(source.slice(priorTagEnd+1,start))){
-				replacementStart=priorTagStart;
+			// Block active embedded-content elements. Skip their matching closing
+			// token too, so their contents cannot be partially decoded as markup.
+			const dangerousName=dangerousImportedTagName(source,start,end);
+			if(dangerousName){
+				const isClosing=/^&lt;\s*\//i.test(source.slice(start,end));
+				let skipTo=end;
+				if(!isClosing){
+					const closing=new RegExp('&lt;\\s*\\/\\s*'+dangerousName+'\\s*&gt;','ig');
+					closing.lastIndex=end;
+					const closeMatch=closing.exec(source);
+					if(closeMatch)skipTo=closing.lastIndex;
+				}
+				startPattern.lastIndex=skipTo;
+				continue;
 			}
-			let replacementEnd=end;
-			const trailingParagraph=/^\s*<\/p\s*>/i.exec(source.slice(end));
-			if(trailingParagraph)replacementEnd=end+trailingParagraph[0].length;
-
-			replacements.push({start:replacementStart,end:replacementEnd,text:restoreEncodedSGMLBlock(source.slice(replacementStart,replacementEnd))});
-			blocked.push({start:replacementStart,end:replacementEnd});
-			startPattern.lastIndex=replacementEnd;
-		}
-
-		const inlinePattern=/&lt;(\/?)((?:st|spoiler|encircle|info|root|line|ref|bh))\b((?:(?!&lt;).)*?)&gt;/gi;
-		while((match=inlinePattern.exec(source))){
-			const start=match.index;
-			const end=inlinePattern.lastIndex;
-			if(isInsideCodeOrPre(source,start))continue;
-			if(blocked.some(range=>start>=range.start&&end<=range.end))continue;
-			replacements.push({start,end,text:restoreEncodedSGMLBlock(source.slice(start,end))});
+			const expanded=expandStandaloneParagraphRange(source,start,end);
+			const raw=restoreEncodedSGMLBlock(source.slice(expanded.start,expanded.end));
+			replacements.push({start:expanded.start,end:expanded.end,text:sanitizeRestoredTagText(raw)});
+			startPattern.lastIndex=expanded.end;
 		}
 
 		replacements.sort((a,b)=>b.start-a.start);
@@ -376,7 +459,7 @@
 		const safeTitle=escapeHTML(String(title||'Imported document').replace(/\.[^.]+$/,''));
 		const baseClass=options.baseClass&&/^[a-z0-9_-]+$/i.test(options.baseClass)?' '+options.baseClass:'';
 		const styleBlock=options.css?'<style data-sgml-docx-styles>\n'+options.css+'\n</style>\n':'';
-		return '<div class="sgml-imported-document sgml-imported-'+kind+baseClass+'" data-sgml-imported-from="'+kind+'">\n<h1>'+safeTitle+'</h1>\n'+styleBlock+fragment+'\n</div>';
+		return '<div class="sgml-imported-document sgml-imported-'+kind+baseClass+'" data-sgml-imported-from="'+kind+'">\n'+styleBlock+fragment+'\n</div>';
 	}
 
 	function escapePDFText(value){return escapeHTML(String(value||'').replace(/\u00a0/g,' '));}
@@ -904,6 +987,80 @@
 		return parsed.body.innerHTML;
 	}
 
+	function docxBlockTextWithBreaks(element){
+		let text='';
+		function visit(node){
+			for(const child of Array.from(node.childNodes||[])){
+				if(child.nodeType===Node.TEXT_NODE)text+=child.nodeValue||'';
+				else if(child.nodeType===Node.ELEMENT_NODE){
+					if(child.tagName&&child.tagName.toLowerCase()==='br')text+='\n';
+					else visit(child);
+				}
+			}
+		}
+		visit(element);
+		return text;
+	}
+
+	function extractDocxRawICBBlocks(html){
+		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		const blocks=Array.from(parsed.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td,th'))
+			.filter(element=>!element.closest('pre,code'))
+			.filter(element=>!(element.tagName.toLowerCase()==='li'&&element.querySelector('p')))
+			.filter(element=>!(['td','th'].includes(element.tagName.toLowerCase())&&element.querySelector('p,li,h1,h2,h3,h4,h5,h6')));
+		const groups=[];
+		let active=null;
+		for(let index=0;index<blocks.length;index++){
+			const block=blocks[index];
+			const text=docxBlockTextWithBreaks(block);
+			const lines=text.split(/\r?\n/);
+			for(let lineIndex=0;lineIndex<lines.length;lineIndex++){
+				const line=lines[lineIndex];
+				if(!active){
+					const opening=/^\s{0,3}(~{3,})([^\r\n~].*)$/.exec(line);
+					if(opening&&lineIndex===0){
+						active={start:index,lines:[line],fenceLength:opening[1].length};
+					}
+					continue;
+				}
+				active.lines.push(line);
+				const close=new RegExp('^\\s{0,3}~{'+active.fenceLength+',}\\s*$');
+				if(close.test(line)&&lineIndex===lines.length-1){
+					active.end=index;
+					const selected=blocks.slice(active.start,active.end+1);
+					if(selected.length&&selected.every(item=>item.parentNode===selected[0].parentNode))groups.push({
+						start:active.start,
+						end:active.end,
+						parent:selected[0].parentNode,
+						first:selected[0],
+						nodes:selected,
+						source:active.lines.join('\n')
+					});
+					active=null;
+					break;
+				}
+			}
+		}
+		const rawBlocks=[];
+		for(const group of groups.reverse()){
+			const index=rawBlocks.length;
+			const token='\uE300SGMLDOCXRAWICB'+index+'\uE301';
+			const placeholder=parsed.createTextNode(token);
+			group.parent.insertBefore(placeholder,group.first);
+			group.nodes.forEach(node=>{if(node.parentNode===group.parent)group.parent.removeChild(node);});
+			rawBlocks.unshift({token,source:group.source});
+		}
+		return{html:parsed.body.innerHTML,blocks:rawBlocks};
+	}
+
+	function restoreDocxRawICBBlocks(source,blocks){
+		let result=String(source||'');
+		for(const block of blocks||[]){
+			result=result.split(block.token).join(block.source);
+		}
+		return result;
+	}
+
 	async function convertDocx(bytes,fileName){
 		const mammoth=await loadScript(ASSETS.mammoth,'mammoth');
 		const data=bytesFrom(bytes);
@@ -923,11 +1080,20 @@
 		}
 		const formatted=applyDocxColorFormatting(result.value||'',formatting);
 		const withSVG=restoreDocxSVGMarkup(formatted.html);
-		const clean=sanitizeHtmlFragment(withSVG);
-		const readable=formatHTMLForEditing(clean);
+		// ~~~Name blocks are SGML's isolated raw-HTML containers. Lift their
+		// original Word text out before sanitization so SVG, <style>, buttons,
+		// scripts, and all other authored contents are not HTML-escaped or
+		// rewritten by the ordinary DOCX HTML sanitizer.
+		const rawICB=extractDocxRawICBBlocks(withSVG);
+		const clean=sanitizeHtmlFragment(rawICB.html);
+		// Mammoth emits one <p> for every Word paragraph. Those wrappers are not
+		// part of SGML source, so flatten them to newlines (retaining a classed
+		// block only when it carries exceptional Word paragraph formatting).
+		const readable=flattenDocxParagraphs(clean);
 		const restored=restoreSGMLMarkupInHTML(readable);
+		const sourceWithRawICB=restoreDocxRawICBBlocks(restored,rawICB.blocks);
 		return{
-			content:buildImportedWrapper('docx',fileName,restored,{baseClass:formatted.baseClass,css:formatted.css}),
+			content:buildImportedWrapper('docx',fileName,sourceWithRawICB,{baseClass:formatted.baseClass,css:formatted.css}),
 			kind:'docx',
 			warnings:(result.messages||[]).map(item=>String(item.message||'Document conversion note'))
 		};

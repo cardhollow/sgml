@@ -57,7 +57,7 @@ This creates a new local document and opens the editor.
 
 ### Import a text, DOCX, or PDF file
 
-Upload File accepts `.sgml`, `.txt`, `.md`, `.docx`, and `.pdf` files. DOCX is converted to safe HTML with Mammoth.js. PDF.js extracts selectable PDF text and converts it to HTML organized by page. The resulting HTML is sent through the existing SGML renderer, so the normal SGML parsing for recognizable built-in constructs remains available.
+Upload File accepts `.sgml`, `.txt`, `.md`, `.docx`, and `.pdf` files. DOCX is converted to safe HTML with Mammoth.js; explicitly underlined Word text is preserved as HTML `<u>` elements. PDF.js extracts selectable PDF text and converts it to HTML organized by page. The resulting HTML is sent through the existing SGML renderer, so the normal SGML parsing for recognizable built-in constructs remains available.
 
 PDF conversion does not include OCR. A scanned PDF made only of images will report that it has no extractable text. Complex PDF layouts may be approximated rather than reproduced exactly.
 

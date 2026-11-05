@@ -787,12 +787,62 @@
 body.sgml-editor-active{overflow:hidden;overscroll-behavior:none}
 @media(max-width:520px){.sgml-editor-hint{display:none}.sgml-editor-head{gap:5px;padding:6px;max-height:90px}.sgml-editor-head button{font-size:11px;padding:5px 6px}.sgml-editor-actions{gap:5px;padding:6px;max-height:65px}.sgml-editor-drawer{border-radius:6px}#highlight,#ta,#editor-gutter{font-size:12px}.sgml-editor-foot{padding:5px 7px}.sgml-editor-foot span:last-child{display:none}}
 
-/* SGML encircle: an irregular, pencil-like loop around inline content. */
-.sgml-encircle{display:inline-block;position:relative;isolation:isolate;vertical-align:baseline;padding:.12em .5em .16em;white-space:normal;}
-.sgml-encircle-content{position:relative;z-index:1;}
-.sgml-encircle-mark{position:absolute;z-index:0;left:-.16em;top:-.22em;width:calc(100% + .32em);height:calc(100% + .44em);overflow:visible;pointer-events:none;fill:none;stroke:var(--sgml-encircle-color,#c62828);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;}
-.sgml-encircle-second{stroke-width:1.25;opacity:.58;}
+/* SGML encircle: inline selections stay inline; ranges containing Markdown
+   blocks get one block wrapper around the complete rendered range. */
+.sgml-encircle{
+  --sgml-encircle-color:#c62828;
+}
+.sgml-encircle:not(.sgml-encircle-block){
+  display:inline;
+  vertical-align:baseline;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  padding:.12em .34em .16em;
+  border:2px solid var(--sgml-encircle-color);
+  border-radius:48% 52% 46% 54% / 52% 44% 56% 48%;
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+}
+.sgml-encircle-content{display:inline;}
 .sgml-encircle-content>p{display:inline;margin:0;}
+
+/* A block encircle represents the exact source range between its SGML tags.
+   Use a separate layer for the loose hand-drawn loop, so the stroke never
+   becomes part of the text layout or overlaps glyphs. */
+.sgml-encircle-block{
+  position:relative;
+  display:flow-root;
+  box-sizing:border-box;
+  width:fit-content;
+  max-width:100%;
+  min-width:0;
+  margin:.7em 0;
+  padding:.8em 1.15em;
+  border:0;
+  vertical-align:initial;
+  overflow:visible;
+  isolation:isolate;
+}
+.sgml-encircle-block::before{
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:0;
+  border:2px solid var(--sgml-encircle-color);
+  border-radius:24% 19% 27% 21% / 18% 22% 16% 20%;
+  transform:rotate(-.35deg);
+  pointer-events:none;
+}
+.sgml-encircle-block>.sgml-encircle-content{
+  position:relative;
+  z-index:1;
+  display:block;
+  min-width:0;
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+.sgml-encircle-block>.sgml-encircle-content>:first-child{margin-top:0;}
+.sgml-encircle-block>.sgml-encircle-content>:last-child{margin-bottom:0;}
 
 /* Documentation is available inside the viewer and also as a standalone cached page. */
 #documentation-modal{z-index:10002}

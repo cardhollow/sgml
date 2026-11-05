@@ -1,11 +1,12 @@
 'use strict';
 
-const CACHE_NAME = 'sgml-viewer-cache-v12';
-const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v12-';
+const CACHE_NAME = 'sgml-viewer-cache-v15';
+const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v15-';
 const SHARE_CACHE_NAME = 'sgml-viewer-share-v1';
 const CONVERTER_CACHE_NAME = 'sgml-viewer-converters-v1';
 const CONVERTER_RESOURCES = [
   'https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js',
+  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 ];

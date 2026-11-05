@@ -244,7 +244,8 @@
 		const parts=[];
 		let previousWasBlock=false;
 		for(const child of children){
-			if(child.nodeType===Node.TEXT_NODE&&!String(child.nodeValue||'').trim())continue;
+			// Whitespace-only text nodes can be intentional DOCX content (tabs,
+			// indentation, or blank spacing). Serialize them instead of dropping them.
 			const isBlock=child.nodeType===Node.ELEMENT_NODE&&HTML_BLOCK_TAGS.has(child.tagName.toLowerCase());
 			if(isBlock){
 				parts.push('\n'+childIndent+serializePrettyNode(child,depth+1));
@@ -263,7 +264,8 @@
 	// changes source layout only; it does not add line breaks inside paragraphs.
 	function formatHTMLForEditing(html){
 		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
-		const nodes=Array.from(parsed.body.childNodes||[]).filter(node=>!(node.nodeType===Node.TEXT_NODE&&!String(node.nodeValue||'').trim()));
+		// Keep whitespace-only top-level text nodes too; they may originate from DOCX.
+		const nodes=Array.from(parsed.body.childNodes||[]);
 		return nodes.map(node=>node.nodeType===Node.ELEMENT_NODE&&HTML_BLOCK_TAGS.has(node.tagName.toLowerCase())
 			?serializePrettyNode(node,0):serializeCompactNode(node)).join('\n');
 	}
@@ -275,6 +277,12 @@
 	// paragraph-level styling remains visible in the rendered document.
 	function flattenDocxParagraphs(html){
 		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		// Mammoth uses <br> for explicit Word line breaks. Keep those as actual
+		// source newlines instead of leaving them as HTML tags in the SGML text.
+		Array.from(parsed.body.querySelectorAll('br')).forEach(lineBreak=>{
+			if(lineBreak.closest('pre,code,svg')||!lineBreak.parentNode)return;
+			lineBreak.parentNode.replaceChild(parsed.createTextNode('\n'),lineBreak);
+		});
 		const paragraphs=Array.from(parsed.body.querySelectorAll('p'));
 		paragraphs.forEach(paragraph=>{
 			const parent=paragraph.parentNode;
@@ -548,6 +556,54 @@
 	function wordAttr(element,name='val'){
 		if(!element)return '';
 		return element.getAttributeNS(WORD_NS,name)||element.getAttribute('w:'+name)||'';
+	}
+
+	// Mammoth omits some visually blank Word paragraphs. Add a temporary text
+	// marker to those paragraphs before conversion, then remove the marker while
+	// retaining the empty HTML block so every intentional blank line survives.
+	function markEmptyDocxParagraphs(documentXML){
+		const documentDoc=new DOMParser().parseFromString(String(documentXML||''),'application/xml');
+		if(documentDoc.getElementsByTagName('parsererror').length)return{xml:documentXML,markers:[]};
+		const body=wordDescendants(documentDoc,'body')[0];
+		if(!body)return{xml:documentXML,markers:[]};
+		let markerPrefix='SGMLDOCX_EMPTY_PARAGRAPH_';
+		while(String(documentXML||'').includes(markerPrefix))markerPrefix+='_X';
+		const markers=[];
+		for(const paragraph of wordDescendants(body,'p')){
+			const hasText=wordDescendants(paragraph,'t').some(node=>(node.textContent||'').length>0)||
+				wordDescendants(paragraph,'delText').some(node=>(node.textContent||'').length>0)||
+				wordDescendants(paragraph,'instrText').some(node=>(node.textContent||'').length>0);
+			const hasNonTextContent=['tab','br','cr','drawing','pict','object','sym','footnoteReference','endnoteReference','altChunk'].some(name=>wordDescendants(paragraph,name).length>0);
+			if(hasText||hasNonTextContent)continue;
+			const marker=markerPrefix+String(markers.length).padStart(6,'0')+'_END';
+			const run=documentDoc.createElementNS(WORD_NS,'w:r');
+			const text=documentDoc.createElementNS(WORD_NS,'w:t');
+			text.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');
+			text.textContent=marker;
+			run.appendChild(text);
+			paragraph.appendChild(run);
+			markers.push(marker);
+		}
+		return{xml:new XMLSerializer().serializeToString(documentDoc),markers};
+	}
+
+	function restoreDocxEmptyParagraphMarkers(html,markers){
+		if(!markers||!markers.length)return String(html||'');
+		const markerSet=new Set(markers);
+		const parsed=new DOMParser().parseFromString('<!doctype html><body>'+String(html||'')+'</body>','text/html');
+		const candidates=Array.from(parsed.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td,th'));
+		for(const element of candidates){
+			if(!markerSet.has(String(element.textContent||'').trim()))continue;
+			const tag=element.tagName.toLowerCase();
+			if(/^h[1-6]$/.test(tag)){
+				const paragraph=parsed.createElement('p');
+				for(const attribute of Array.from(element.attributes||[]))paragraph.setAttribute(attribute.name,attribute.value);
+				element.parentNode.replaceChild(paragraph,element);
+			}else{
+				while(element.firstChild)element.removeChild(element.firstChild);
+			}
+		}
+		return parsed.body.innerHTML;
 	}
 
 	function wordRGB(value){
@@ -965,7 +1021,7 @@
 						[first,...Array.from(first.querySelectorAll('[class]'))].forEach(element=>{
 							String(element.className&&typeof element.className==='string'?element.className:element.getAttribute('class')||'').split(/\s+/).filter(Boolean).forEach(name=>inheritedClasses.add(name));
 						});
-						if(!prefix.trim()&&!suffix.trim()&&first.parentNode){
+						if(!prefix&&!suffix&&first.parentNode){
 							if(inheritedClasses.size)svg.classList.add(...inheritedClasses);
 							first.parentNode.insertBefore(svg,first);
 							for(let j=i;j<=endBlock;j++)if(blocks[j].parentNode)blocks[j].parentNode.removeChild(blocks[j]);
@@ -1065,20 +1121,36 @@
 		const mammoth=await loadScript(ASSETS.mammoth,'mammoth');
 		const data=bytesFrom(bytes);
 		const arrayBuffer=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
-		// Keep v3's Mammoth conversion and explicit underline mapping. Only restore
-		// Word paragraph alignment and direct/styled text color, size, and shading.
-		const result=await mammoth.convertToHtml({arrayBuffer},{
-			styleMap:['u => u'],
-			includeDefaultStyleMap:true
-		});
+		let conversionArrayBuffer=arrayBuffer;
+		let emptyParagraphMarkers=[];
 		let formatting=[];
 		try{
 			const JSZip=await loadScript(ASSETS.jszip,'JSZip');
+			const zip=await JSZip.loadAsync(arrayBuffer);
+			const documentFile=zip.file('word/document.xml');
+			if(documentFile){
+				const documentXML=await documentFile.async('string');
+				const marked=markEmptyDocxParagraphs(documentXML);
+				emptyParagraphMarkers=marked.markers;
+				if(emptyParagraphMarkers.length){
+					zip.file('word/document.xml',marked.xml);
+					conversionArrayBuffer=await zip.generateAsync({type:'arraybuffer'});
+				}
+			}
 			formatting=await extractDocxColorFormatting(data,JSZip);
 		}catch(error){
-			console.warn('Additional DOCX formatting is unavailable; using the normal v3 conversion.',error);
+			console.warn('Additional DOCX formatting or blank-line preservation is unavailable; using the original DOCX package.',error);
+			conversionArrayBuffer=arrayBuffer;
+			emptyParagraphMarkers=[];
 		}
-		const formatted=applyDocxColorFormatting(result.value||'',formatting);
+		// Preserve the original Word paragraph structure before Mammoth converts
+		// it to HTML; otherwise empty paragraphs can disappear during conversion.
+		const result=await mammoth.convertToHtml({arrayBuffer:conversionArrayBuffer},{
+			styleMap:['u => u'],
+			includeDefaultStyleMap:true
+		});
+		const withEmptyParagraphs=restoreDocxEmptyParagraphMarkers(result.value||'',emptyParagraphMarkers);
+		const formatted=applyDocxColorFormatting(withEmptyParagraphs,formatting);
 		const withSVG=restoreDocxSVGMarkup(formatted.html);
 		// ~~~Name blocks are SGML's isolated raw-HTML containers. Lift their
 		// original Word text out before sanitization so SVG, <style>, buttons,
@@ -1086,9 +1158,8 @@
 		// rewritten by the ordinary DOCX HTML sanitizer.
 		const rawICB=extractDocxRawICBBlocks(withSVG);
 		const clean=sanitizeHtmlFragment(rawICB.html);
-		// Mammoth emits one <p> for every Word paragraph. Those wrappers are not
-		// part of SGML source, so flatten them to newlines (retaining a classed
-		// block only when it carries exceptional Word paragraph formatting).
+		// Flatten Word paragraphs to source newlines while retaining empty
+		// paragraphs and explicit Word line breaks.
 		const readable=flattenDocxParagraphs(clean);
 		const restored=restoreSGMLMarkupInHTML(readable);
 		const sourceWithRawICB=restoreDocxRawICBBlocks(restored,rawICB.blocks);

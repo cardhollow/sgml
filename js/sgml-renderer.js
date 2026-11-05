@@ -1388,13 +1388,29 @@ table{max-width:none}
 			return`<span class="sgml-spoiler" id="${id}"><span class="sgml-spoiler-content">${content}</span><span class="sgml-spoiler-overlay" role="button" tabindex="0" aria-label="Reveal spoiler" onclick="revealSpoiler('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();revealSpoiler('${id}');}"></span></span>`;
 		}
 
-		function buildEncircleHTML(component){
+		function encircleNeedsBlockLayout(source){
+			const text=normalizeComponentSource(source||'');
+			// Headings, lists, quotes, fenced code, tables and separated paragraphs
+			// are block Markdown. They must be wrapped by a block container rather
+			// than an inline span, otherwise the browser reparses the span around
+			// block elements and the encircle no longer covers the user's range.
+			return /(?:^|\n)\s{0,3}(?:#{1,6}\s+|>\s?|[-+*]\s+|\d+[.)]\s+|```|~~~|\$\$|\|.*\|\s*$|<(?:p|div|h[1-6]|ul|ol|blockquote|pre|table)\b)/im.test(text)
+				|| /\n\s*\n/.test(text.trim());
+		}
+
+		function buildEncircleHTML(component,forceBlock=false){
 			const attrs=parseComponentAttributes(component.open||'');
 			const candidate=String(attrs.col||'#c62828').trim();
 			const color=/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(candidate)?candidate:'#c62828';
 			let content=renderEmbeddedSGML(component.content||'');
+			const blockLayout=forceBlock||encircleNeedsBlockLayout(component.content||'');
+
+			if(blockLayout){
+				return `<div class="sgml-encircle sgml-encircle-block" style="--sgml-encircle-color:${escapeHTMLAttribute(color)}"><div class="sgml-encircle-content">${content}</div></div>`;
+			}
+
 			content=content.replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/i,'$1');
-			return `<span class="sgml-encircle" style="--sgml-encircle-color:${escapeHTMLAttribute(color)}"><span class="sgml-encircle-content">${content}</span><svg class="sgml-encircle-mark" viewBox="0 0 100 42" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M 7 22 C 2 11, 22 4, 47 6 C 71 2, 98 8, 95 21 C 98 31, 77 37, 52 34 C 27 38, 5 32, 7 22 Z"></path><path class="sgml-encircle-second" d="M 5 20 C 8 7, 29 7, 51 4 C 76 3, 96 10, 97 22 C 96 32, 72 36, 48 36 C 23 35, 3 30, 5 20 Z"></path></svg></span>`;
+			return `<span class="sgml-encircle" style="--sgml-encircle-color:${escapeHTMLAttribute(color)}"><span class="sgml-encircle-content">${content}</span></span>`;
 		}
 
 		function revealSpoiler(id){
@@ -1784,7 +1800,8 @@ table{max-width:none}
 			allowedComponents.forEach(component=>{
 				rebuilt+=text.slice(cursor,component.index);
 
-				if(component.type==='info'||component.type==='spoiler'||component.type==='encircle'){
+				const blockEncircle=component.type==='encircle'&&encircleNeedsBlockLayout(component.content||'');
+				if(component.type==='info'||component.type==='spoiler'||(component.type==='encircle'&&!blockEncircle)){
 					const id=inlineSlots.length;
 					inlineSlots.push(component);
 					rebuilt+=`\uE210SGMLINLINE${id}\uE211`;
@@ -1818,6 +1835,7 @@ table{max-width:none}
 				let html='';
 				if(component.type==='root')html=buildTreeHTML({content:component.content});
 				else if(component.type==='line')html=buildLineHTML({content:component.content});
+				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
 				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});
 
@@ -2326,7 +2344,8 @@ table{max-width:none}
 			extracted.components.forEach(component=>{
 				rebuilt+=text.slice(cursor,component.index);
 
-				if(component.type==='info'||component.type==='spoiler'||component.type==='encircle'){
+				const blockEncircle=component.type==='encircle'&&encircleNeedsBlockLayout(component.content||'');
+				if(component.type==='info'||component.type==='spoiler'||(component.type==='encircle'&&!blockEncircle)){
 					const index=inline.length;
 					inline.push(component);
 					rebuilt+=`\uE210SGMLINLINE${index}\uE211`;
@@ -2359,6 +2378,7 @@ table{max-width:none}
 				let html='';
 				if(component.type==='root')html=buildTreeHTML({content:component.content});
 				else if(component.type==='line')html=buildLineHTML({content:component.content});
+				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
 				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});
 

@@ -405,7 +405,13 @@
 		const mammoth=await loadScript(ASSETS.mammoth,'mammoth');
 		const data=bytesFrom(bytes);
 		const arrayBuffer=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
-		const result=await mammoth.convertToHtml({arrayBuffer});
+		// Mammoth intentionally ignores underline by default. Map explicitly
+		// underlined Word runs to semantic HTML <u> elements so the formatting
+		// survives sanitization, editing, storage, and SGML rendering.
+		const result=await mammoth.convertToHtml({arrayBuffer},{
+			styleMap:['u => u'],
+			includeDefaultStyleMap:true
+		});
 		const clean=sanitizeHtmlFragment(result.value||'');
 		const readable=formatHTMLForEditing(clean);
 		const restored=restoreSGMLMarkupInHTML(readable);

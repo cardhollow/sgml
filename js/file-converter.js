@@ -79,8 +79,32 @@
 		return text.replace(/^\uFEFF/,'');
 	}
 
+	// Protect authored source characters during intermediate HTML processing.
+	// This keeps literal <, >, and & distinct from HTML syntax and entities.
+	function createLiteralCharacterTokens(source,label='SGML_LITERAL'){
+		let prefix='__'+label+'_';
+		const original=String(source||'');
+		while(original.includes(prefix))prefix+='_X';
+		return[
+			{character:'&',token:prefix+'AMP__'},
+			{character:'<',token:prefix+'LT__'},
+			{character:'>',token:prefix+'GT__'}
+		];
+	}
+
+	function protectLiteralCharacters(value,tokens){
+		const lookup=new Map((tokens||[]).map(item=>[item.character,item.token]));
+		return String(value==null?'':value).replace(/[&<>]/g,character=>lookup.get(character)||character);
+	}
+
+	function restoreLiteralCharacters(value,tokens){
+		let result=String(value==null?'':value);
+		for(const item of tokens||[])result=result.split(item.token).join(item.character);
+		return result;
+	}
+
 	function escapeHTML(value){
-		return value;
+		return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 	}
 
 	function safeURL(value,forImage){
@@ -470,14 +494,14 @@
 		return '<div class="sgml-imported-document sgml-imported-'+kind+baseClass+'" data-sgml-imported-from="'+kind+'">\n'+styleBlock+fragment+'\n</div>';
 	}
 
-	function escapePDFText(value){return escapeHTML(String(value||'').replace(/\u00a0/g,' '));}
+	function escapePDFText(value,tokens){return escapeHTML(protectLiteralCharacters(value,tokens));}
 
 	function joinPDFRow(items){
 		items.sort((a,b)=>a.x-b.x);
 		let result='';
 		let previous=null;
 		for(const item of items){
-			let value=String(item.str||'').replace(/\u00a0/g,' ');
+			let value=String(item.str==null?'':item.str);
 			if(!value)continue;
 			if(previous){
 				const gap=item.x-previous.endX;
@@ -486,13 +510,13 @@
 			result+=value;
 			previous={endX:item.x+item.width,str:value,height:item.height};
 		}
-		return result.trim();
+		return result;
 	}
 
 	function groupPDFRows(items){
 		const normalized=[];
 		for(const item of items||[]){
-			if(!item||typeof item.str!=='string'||!item.str.trim()||!Array.isArray(item.transform))continue;
+			if(!item||typeof item.str!=='string'||!item.str.length||!Array.isArray(item.transform))continue;
 			normalized.push({
 				str:item.str,
 				x:Number(item.transform[4])||0,
@@ -509,7 +533,7 @@
 			if(!row||Math.abs(row.y-item.y)>tolerance){row={y:item.y,items:[]};rows.push(row);}
 			row.items.push(item);
 		}
-		return rows.map(row=>joinPDFRow(row.items)).filter(Boolean);
+		return rows.map(row=>joinPDFRow(row.items)).filter(value=>value.length>0);
 	}
 
 	async function loadScript(url,globalName){
@@ -585,6 +609,22 @@
 			markers.push(marker);
 		}
 		return{xml:new XMLSerializer().serializeToString(documentDoc),markers};
+	}
+
+	function protectDocxSourceCharacters(documentXML){
+		const source=String(documentXML||'');
+		const documentDoc=new DOMParser().parseFromString(source,'application/xml');
+		if(documentDoc.getElementsByTagName('parsererror').length)return{xml:source,tokens:[],changed:false};
+		const tokens=createLiteralCharacterTokens(source,'SGMLDOCX_LITERAL');
+		let changed=false;
+		for(const name of ['t','delText','instrText','delInstrText']){
+			for(const node of wordDescendants(documentDoc,name)){
+				const original=node.textContent||'';
+				const protectedText=protectLiteralCharacters(original,tokens);
+				if(protectedText!==original){node.textContent=protectedText;changed=true;}
+			}
+		}
+		return{xml:changed?new XMLSerializer().serializeToString(documentDoc):source,tokens:changed?tokens:[],changed};
 	}
 
 	function restoreDocxEmptyParagraphMarkers(html,markers){
@@ -1123,26 +1163,40 @@
 		const arrayBuffer=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
 		let conversionArrayBuffer=arrayBuffer;
 		let emptyParagraphMarkers=[];
+		let literalTokens=[];
 		let formatting=[];
+		let JSZip=null;
 		try{
-			const JSZip=await loadScript(ASSETS.jszip,'JSZip');
+			JSZip=await loadScript(ASSETS.jszip,'JSZip');
 			const zip=await JSZip.loadAsync(arrayBuffer);
 			const documentFile=zip.file('word/document.xml');
 			if(documentFile){
 				const documentXML=await documentFile.async('string');
 				const marked=markEmptyDocxParagraphs(documentXML);
 				emptyParagraphMarkers=marked.markers;
-				if(emptyParagraphMarkers.length){
-					zip.file('word/document.xml',marked.xml);
+				const protectedSource=protectDocxSourceCharacters(marked.xml);
+				literalTokens=protectedSource.tokens;
+				if(emptyParagraphMarkers.length||protectedSource.changed){
+					zip.file('word/document.xml',protectedSource.xml);
 					conversionArrayBuffer=await zip.generateAsync({type:'arraybuffer'});
 				}
 			}
-			formatting=await extractDocxColorFormatting(data,JSZip);
 		}catch(error){
-			console.warn('Additional DOCX formatting or blank-line preservation is unavailable; using the original DOCX package.',error);
+			console.warn('DOCX source preparation is unavailable; using the original DOCX package.',error);
 			conversionArrayBuffer=arrayBuffer;
 			emptyParagraphMarkers=[];
+			literalTokens=[];
+			JSZip=null;
 		}
+		if(JSZip){
+			try{
+				formatting=await extractDocxColorFormatting(new Uint8Array(conversionArrayBuffer),JSZip);
+			}catch(error){
+				console.warn('DOCX color formatting could not be restored; keeping the converted text.',error);
+				formatting=[];
+			}
+		}
+
 		// Preserve the original Word paragraph structure before Mammoth converts
 		// it to HTML; otherwise empty paragraphs can disappear during conversion.
 		const result=await mammoth.convertToHtml({arrayBuffer:conversionArrayBuffer},{
@@ -1151,20 +1205,15 @@
 		});
 		const withEmptyParagraphs=restoreDocxEmptyParagraphMarkers(result.value||'',emptyParagraphMarkers);
 		const formatted=applyDocxColorFormatting(withEmptyParagraphs,formatting);
-		const withSVG=restoreDocxSVGMarkup(formatted.html);
-		// ~~~Name blocks are SGML's isolated raw-HTML containers. Lift their
-		// original Word text out before sanitization so SVG, <style>, buttons,
-		// scripts, and all other authored contents are not HTML-escaped or
-		// rewritten by the ordinary DOCX HTML sanitizer.
-		const rawICB=extractDocxRawICBBlocks(withSVG);
+		// Authored source characters were protected before Mammoth and HTML parsing.
+		const rawICB=extractDocxRawICBBlocks(formatted.html);
 		const clean=sanitizeHtmlFragment(rawICB.html);
-		// Flatten Word paragraphs to source newlines while retaining empty
-		// paragraphs and explicit Word line breaks.
 		const readable=flattenDocxParagraphs(clean);
-		const restored=restoreSGMLMarkupInHTML(readable);
-		const sourceWithRawICB=restoreDocxRawICBBlocks(restored,rawICB.blocks);
+		const restoredReadable=literalTokens.length?readable:restoreSGMLMarkupInHTML(readable);
+		const sourceWithRawICB=restoreDocxRawICBBlocks(restoredReadable,rawICB.blocks);
+		const restoredSource=restoreLiteralCharacters(sourceWithRawICB,literalTokens);
 		return{
-			content:buildImportedWrapper('docx',fileName,sourceWithRawICB,{baseClass:formatted.baseClass,css:formatted.css}),
+			content:buildImportedWrapper('docx',fileName,restoredSource,{baseClass:formatted.baseClass,css:formatted.css}),
 			kind:'docx',
 			warnings:(result.messages||[]).map(item=>String(item.message||'Document conversion note'))
 		};
@@ -1185,22 +1234,28 @@
 		const data=bytesFrom(bytes);
 		const loadingTask=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,useWorkerFetch:false});
 		const pdf=await loadingTask.promise;
-		const pages=[];
+		const pageRows=[];
 		let extractedCharacters=0;
 		for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
 			const page=await pdf.getPage(pageNumber);
 			const textContent=await page.getTextContent();
 			const rows=groupPDFRows(textContent.items||[]);
 			extractedCharacters+=rows.join('').length;
-			const body='<div class="sgml-imported-pdf-text">'+rows.map(escapePDFText).join('\n')+'</div>';
-			pages.push('<section class="sgml-imported-pdf-page" data-page-number="'+pageNumber+'"><h2>Page '+pageNumber+'</h2>'+body+'</section>');
+			pageRows.push(rows);
 		}
 		if(typeof pdf.destroy==='function')await pdf.destroy();
 		if(!extractedCharacters){
 			throw new Error('This PDF has no extractable text. It may be a scanned/image-only PDF; OCR is not included.');
 		}
+		const allText=pageRows.flat().join('\n');
+		const literalTokens=createLiteralCharacterTokens(allText,'SGMLPDF_LITERAL');
+		const pages=pageRows.map((rows,index)=>{
+			const body='<div class=\"sgml-imported-pdf-text\">'+rows.map(row=>escapePDFText(row,literalTokens)).join('\n')+'</div>';
+			const pageNumber=index+1;
+			return'<section class=\"sgml-imported-pdf-page\" data-page-number=\"'+pageNumber+'\"><h2>Page '+pageNumber+'</h2>'+body+'</section>';
+		});
 		const readable=formatHTMLForEditing(pages.join('\n'));
-		const restored=restoreSGMLMarkupInHTML(readable);
+		const restored=restoreLiteralCharacters(readable,literalTokens);
 		return{content:buildImportedWrapper('pdf',fileName,restored),kind:'pdf',warnings:[]};
 	}
 

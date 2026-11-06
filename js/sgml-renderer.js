@@ -470,25 +470,26 @@ table{max-width:none}
 			if(!str)return'';
 
 			return String(str)
-				.replace(/<st\s+([^>]*?)>/gi,(m,a)=>{
+				.replace(/<st\s+([^>]*?)>/gi,(match,attributes)=>{
 					const rules=[];
+					const attributePattern=/([a-z][a-z0-9_-]*)\s*:\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+					const aliases={
+						col:'color',
+						bg:'background-color',
+						fontSize:'font-size',
+						fontFamily:'font-family'
+					};
+					let item;
 
-					a.trim().split(/\s+/).forEach(p=>{
-						const i=p.indexOf(':');
-						if(i<0)return;
+					while((item=attributePattern.exec(attributes))!==null){
+						const key=item[1];
+						let property=aliases[key]||key.replace(/[A-Z]/g,letter=>`-${letter.toLowerCase()}`).toLowerCase();
+						const value=(item[2]??item[3]??item[4]??'').trim();
+						if(!/^[a-z][a-z0-9-]*$/.test(property)||!value||/[;{}<>]/.test(value))continue;
+						rules.push(`${property}:${value}`);
+					}
 
-						let k=p.slice(0,i).trim();
-						let v=p.slice(i+1).trim();
-
-						if(k==='col')k='color';
-						else if(k==='bg')k='background-color';
-						else if(k==='fontSize')k='font-size';
-						else if(k==='fontFamily')k='font-family';
-
-						rules.push(`${k}:${v}`);
-					});
-
-					return`<span style="${rules.join(';')}">`;
+					return`<span${rules.length?` style="${escapeHTMLAttribute(rules.join(';'))}"`:''}>`;
 				})
 				.replace(/<\/st>/gi,'</span>');
 		}
@@ -509,63 +510,305 @@ table{max-width:none}
 				.replace(/"/g,'&quot;');
 		}
 
-		function renderMarkdown(mdText){
-			if(!mdText)return'';
+		function sanitizeSGMLColor(value){
+			const color=String(value||'').trim();
+			if(!color)return'';
+			if(typeof CSS!=='undefined'&&CSS.supports&&CSS.supports('color',color))return color;
+			return /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color)?color:'';
+		}
 
-			const savedRefs=[];
-			const saved=[];
-			let source=String(mdText);
+		function extractInlineSGMLComponents(source){
+			const components=[];
+			let result='';
+			let cursor=0;
 
-			source=maskLiteralStrings(source);
+			while(cursor<source.length){
+				const candidates=['ref','badge','x']
+					.map(type=>({type,found:findTagStart(source,type,cursor)}))
+					.filter(item=>item.found)
+					.sort((a,b)=>a.found.index-b.found.index);
+				const next=candidates[0];
+				if(!next)break;
 
-			source=source
-				.replace(
-					/<ref\s+id\s*:\s*"([^"]*)"\s*\/>/gi,
-					(match,id)=>{
-						const index=savedRefs.length;
-						savedRefs.push({type:'target',id});
-						return`\uE000SGMLREF${index}\uE001`;
+				const {type,found}=next;
+				let component;
+				let end=found.end;
+
+				if(type==='ref'&&/\/\s*>$/.test(found.open)){
+					component={type:'ref-target',id:getAttributeFromTag(found.open,'id')};
+				}else{
+					const matched=findMatchingTag(source,type,found.end,true);
+					if(!matched){
+						result+=source.slice(cursor,found.end);
+						cursor=found.end;
+						continue;
 					}
-				)
-				.replace(
-					/<ref\s+id\s*:\s*"([^"]*)"\s*>([\s\S]*?)<\/ref>/gi,
-					(match,id,content)=>{
-						const index=savedRefs.length;
-						savedRefs.push({type:'link',id,content});
-						return`\uE000SGMLREF${index}\uE001`;
-					}
-				)
-				.replace(
-					/<st\b[^>]*>|<\/st>/gi,
-					tag=>{
-						const id=saved.length;
-						saved.push(tag);
-						return`\uE000SGMLST${id}\uE001`;
-					}
-				);
+					end=matched.end;
+					component={
+						type:type==='ref'?'ref-link':type==='badge'?'badge':'x-mark',
+						id:type==='ref'?getAttributeFromTag(found.open,'id'):'',
+						open:found.open,
+						content:matched.content
+					};
+				}
 
-			let result=marked.parse(source,{gfm:true,breaks:true});
+				result+=source.slice(cursor,found.index);
+				const index=components.length;
+				components.push(component);
+				result+=`\uE000SGMLINLINECOMP${index}\uE001`;
+				cursor=end;
+			}
 
-			result=result.replace(
-				/\uE000SGMLST(\d+)\uE001/g,
-				(_,i)=>saved[Number(i)]||''
-			);
+			return{source:result+source.slice(cursor),components};
+		}
 
-			result=result.replace(
-				/\uE000SGMLREF(\d+)\uE001/g,
-				(_,i)=>{
-					const ref=savedRefs[Number(i)];
-					if(!ref)return'';
+		function renderMarkdown(mdText,{inline=false}={}){
+			if(mdText===undefined||mdText===null)return'';
 
-					const id=escapeHTMLAttribute(ref.id);
-					if(ref.type==='target')return`<a id="${id}" class="sgml-ref"></a>`;
-					return`<a href="#${id}" class="sgml-ref">${renderMarkdown(ref.content)}</a>`;
+			const savedST=[];
+			const savedArrows=[];
+			let source=maskLiteralStrings(String(mdText));
+
+			const inlineResult=extractInlineSGMLComponents(source);
+			source=inlineResult.source;
+
+			source=source.replace(/<arrow\b([^>]*)\/?>(?:<\/arrow\s*>)?/gi,(match,attributes)=>{
+				const tag=`<arrow ${attributes}>`;
+				const target=getAttributeFromTag(tag,'target').trim();
+				if(!target)return'';
+				const head=getAttributeFromTag(tag,'head').trim().toLowerCase();
+				const color=sanitizeSGMLColor(getAttributeFromTag(tag,'col'));
+				const rawDirection=getAttributeFromTag(tag,'dir').trim();
+				const parsedDirection=rawDirection===''?null:Number(rawDirection);
+				const dir=Number.isFinite(parsedDirection)?((parsedDirection%360)+360)%360:null;
+				const index=savedArrows.length;
+				savedArrows.push({target,head:head==='arrow'||head==='dot'?head:'',color,dir});
+				return`\uE000SGMLARROW${index}\uE001`;
+			});
+			source=source.replace(/<\/arrow\s*>/gi,'');
+
+			source=source.replace(
+				/<st\b[^>]*>|<\/st>/gi,
+				tag=>{
+					const id=savedST.length;
+					savedST.push(tag);
+					return`\uE000SGMLST${id}\uE001`;
 				}
 			);
+
+			let result=inline
+				?marked.parseInline(source,{gfm:true,breaks:true})
+				:marked.parse(source,{gfm:true,breaks:true});
+
+			result=result.replace(/\uE000SGMLST(\d+)\uE001/g,(_,i)=>savedST[Number(i)]||'');
+
+			result=result.replace(/\uE000SGMLINLINECOMP(\d+)\uE001/g,(_,i)=>{
+				const component=inlineResult.components[Number(i)];
+				if(!component)return'';
+				if(component.type==='ref-target'){
+					return`<a id="${escapeHTMLAttribute(component.id)}" class="sgml-ref"></a>`;
+				}
+				if(component.type==='ref-link'){
+					return`<a href="#${escapeHTMLAttribute(component.id)}" class="sgml-ref">${renderMarkdown(component.content,{inline:true})}</a>`;
+				}
+				if(component.type==='badge'){
+					const attrs=parseComponentAttributes(component.open);
+					const styles=[];
+					const color=sanitizeSGMLColor(attrs.col);
+					const background=sanitizeSGMLColor(attrs.bg);
+					if(color)styles.push(`color:${color}`);
+					if(background)styles.push(`background-color:${background}`);
+					return`<span class="sgml-badge"${styles.length?` style="${escapeHTMLAttribute(styles.join(';'))}"`:''}>${renderMarkdown(component.content,{inline:true})}</span>`;
+				}
+				if(component.type==='x-mark'){
+					const color=sanitizeSGMLColor(parseComponentAttributes(component.open).col)||'#c62828';
+					return`<span class="sgml-x-mark" style="--sgml-x-color:${escapeHTMLAttribute(color)}"><span class="sgml-x-content">${renderMarkdown(component.content,{inline:true})}</span><svg class="sgml-x-pencil" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="sgml-x-crayon-base" d="M 2 8 C 9 13, 16 23, 26 31 C 37 40, 46 49, 57 60 C 69 72, 84 87, 98 96"/><path class="sgml-x-crayon-texture" d="M 4 5 C 13 15, 18 24, 28 32 C 39 42, 48 52, 59 62 C 72 75, 86 88, 96 94"/><path class="sgml-x-crayon-base" d="M 97 4 C 88 12, 79 24, 69 34 C 59 44, 49 56, 38 67 C 27 79, 14 90, 3 98"/><path class="sgml-x-crayon-texture" d="M 95 7 C 86 14, 78 25, 67 36 C 57 47, 47 58, 36 69 C 24 82, 13 91, 5 96"/><path class="sgml-x-crayon-grain" d="M 8 11 C 27 31, 41 43, 61 63 C 76 78, 87 88, 94 94 M 92 10 C 73 29, 58 45, 39 65 C 24 81, 13 89, 7 94"/></svg></span>`;
+				}
+				return'';
+			});
+
+			result=result.replace(/\uE000SGMLARROW(\d+)\uE001/g,(_,i)=>{
+				const arrow=savedArrows[Number(i)];
+				if(!arrow)return'';
+				return`<span class="sgml-arrow-point" data-target="${escapeHTMLAttribute(arrow.target)}" data-head="${escapeHTMLAttribute(arrow.head)}" data-col="${escapeHTMLAttribute(arrow.color)}" data-dir="${arrow.dir===null?'':arrow.dir}" aria-hidden="true"></span>`;
+			});
 
 			result=restoreLiteralHTML(result);
 			result=restoreEscapedHTML(result);
 			return renderST(result);
+		}
+
+		function setupArrowConnections(){
+			const output=document.getElementById('sgml-output');
+			if(!output)return;
+			if(typeof window.__sgmlArrowCleanup==='function')window.__sgmlArrowCleanup();
+
+			const oldLayer=output.querySelector('.sgml-arrow-layer');
+			if(oldLayer)oldLayer.remove();
+
+			const points=[...output.querySelectorAll('.sgml-arrow-point[data-target]')];
+			if(points.length<2)return;
+
+			const svgNS='http://www.w3.org/2000/svg';
+			const layer=document.createElementNS(svgNS,'svg');
+			layer.setAttribute('class','sgml-arrow-layer');
+			layer.setAttribute('aria-hidden','true');
+			output.appendChild(layer);
+
+			const draw=()=>{
+				if(!layer.isConnected)return;
+				const outputRect=output.getBoundingClientRect();
+				const width=Math.max(output.clientWidth,output.scrollWidth,1);
+				const height=Math.max(output.scrollHeight,output.clientHeight,1);
+				layer.setAttribute('width',width);
+				layer.setAttribute('height',height);
+				layer.setAttribute('viewBox',`0 0 ${width} ${height}`);
+				layer.replaceChildren();
+
+				const groups=new Map();
+				points.forEach(point=>{
+					const target=point.dataset.target;
+					if(!groups.has(target))groups.set(target,[]);
+					groups.get(target).push(point);
+				});
+
+				const directionVector=degrees=>{
+					const angle=(degrees-90)*Math.PI/180;
+					return{x:Math.cos(angle),y:Math.sin(angle)};
+				};
+
+				const pointPosition=element=>{
+					const rect=element.getBoundingClientRect();
+					const point={
+						x:rect.left-outputRect.left+output.scrollLeft,
+						y:rect.top-outputRect.top+output.scrollTop+Math.max(rect.height/2,1)
+					};
+					const rawDirection=element.dataset.dir;
+					if(rawDirection==='')return point;
+					const direction=Number(rawDirection);
+					if(!Number.isFinite(direction))return point;
+					const vector=directionVector(direction);
+					const offset=Math.max(12,Math.min(20,rect.height*.85));
+					return{x:point.x+vector.x*offset,y:point.y+vector.y*offset};
+				};
+
+				const makePath=(tag,attrs)=>{
+					const node=document.createElementNS(svgNS,tag);
+					Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,String(value)));
+					layer.appendChild(node);
+					return node;
+				};
+
+				const curveBetween=(a,b,fromDir,toDir)=>{
+					const dx=b.x-a.x;
+					const dy=b.y-a.y;
+					const distance=Math.max(1,Math.hypot(dx,dy));
+					const chord={x:dx/distance,y:dy/distance};
+					const supplied=[fromDir,toDir].filter(value=>value!==null);
+					let preferred={x:0,y:-1};
+
+					if(supplied.length){
+						const vectors=supplied.map(directionVector);
+						const sum=vectors.reduce((value,vector)=>({x:value.x+vector.x,y:value.y+vector.y}),{x:0,y:0});
+						const length=Math.hypot(sum.x,sum.y);
+						if(length>.15)preferred={x:sum.x/length,y:sum.y/length};
+					}else if(Math.abs(dy)>54&&Math.abs(dy)>Math.abs(dx)*.42){
+						preferred={x:(a.x+b.x)/2<width/2?-1:1,y:0};
+					}
+
+					// Bend the connector along the part of the requested direction that is
+					// perpendicular to the line between the two markers. If it points
+					// directly along that line, use a clean outside curve instead.
+					const projection=preferred.x*chord.x+preferred.y*chord.y;
+					let normal={x:preferred.x-chord.x*projection,y:preferred.y-chord.y*projection};
+					let normalLength=Math.hypot(normal.x,normal.y);
+					if(normalLength<.18){
+						normal=Math.abs(dx)>=Math.abs(dy)
+							?{x:0,y:-1}
+							:{x:(a.x+b.x)/2<width/2?-1:1,y:0};
+						normalLength=1;
+					}
+					normal={x:normal.x/normalLength,y:normal.y/normalLength};
+
+					const lift=Math.min(88,Math.max(24,distance*.17+18));
+					const c1={x:a.x+dx*.28+normal.x*lift,y:a.y+dy*.28+normal.y*lift};
+					const c2={x:b.x-dx*.28+normal.x*lift,y:b.y-dy*.28+normal.y*lift};
+					const d=`M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`;
+					const echo=`M ${a.x+1.1} ${a.y+1.1} C ${c1.x+2.2} ${c1.y-1.4}, ${c2.x-1.8} ${c2.y+1.6}, ${b.x-1} ${b.y+1.2}`;
+					return{d,echo,c1,c2};
+				};
+
+				const drawHead=(point,tip,angle,fallbackColor)=>{
+					const head=point.dataset.head;
+					const color=sanitizeSGMLColor(point.dataset.col)||fallbackColor;
+					if(head==='dot'){
+						makePath('circle',{cx:tip.x,cy:tip.y,r:3.1,fill:color,opacity:.95});
+						return;
+					}
+					if(head!=='arrow')return;
+
+					const size=10;
+					const spread=.62;
+					const left={x:tip.x-Math.cos(angle-spread)*size,y:tip.y-Math.sin(angle-spread)*size};
+					const right={x:tip.x-Math.cos(angle+spread)*size,y:tip.y-Math.sin(angle+spread)*size};
+					const midLeft={x:(left.x+tip.x)/2-1.2,y:(left.y+tip.y)/2+1.1};
+					const midRight={x:(right.x+tip.x)/2+1.1,y:(right.y+tip.y)/2-1.0};
+					const d=`M ${left.x} ${left.y} Q ${midLeft.x} ${midLeft.y} ${tip.x} ${tip.y} Q ${midRight.x} ${midRight.y} ${right.x} ${right.y}`;
+					makePath('path',{d,fill:'none',stroke:color,'stroke-width':2.1,'stroke-linecap':'round','stroke-linejoin':'round'});
+					makePath('path',{d:`M ${left.x+1.2} ${left.y-.8} Q ${midLeft.x+.5} ${midLeft.y-.5} ${tip.x-.5} ${tip.y+.6} Q ${midRight.x-.3} ${midRight.y+.6} ${right.x-.8} ${right.y+1}`,'fill':'none',stroke:color,'stroke-width':.75,'stroke-linecap':'round',opacity:.32});
+				};
+
+				groups.forEach(group=>{
+					if(group.length<2)return;
+					let remaining=[...group];
+					let from=remaining.shift();
+
+					while(remaining.length){
+						const a=pointPosition(from);
+						let nearestIndex=0;
+						let nearestDistance=Infinity;
+						remaining.forEach((candidate,index)=>{
+							const b=pointPosition(candidate);
+							const distance=Math.hypot(b.x-a.x,b.y-a.y);
+							if(distance<nearestDistance){nearestDistance=distance;nearestIndex=index;}
+						});
+
+						const to=remaining.splice(nearestIndex,1)[0];
+						const b=pointPosition(to);
+						const color=sanitizeSGMLColor(from.dataset.col)||sanitizeSGMLColor(to.dataset.col)||'#555555';
+						const fromDir=from.dataset.dir===''?null:Number(from.dataset.dir);
+						const toDir=to.dataset.dir===''?null:Number(to.dataset.dir);
+						const curve=curveBetween(a,b,fromDir,toDir);
+
+						makePath('path',{d:curve.echo,fill:'none',stroke:color,'stroke-width':2.8,'stroke-linecap':'round',opacity:.2});
+						makePath('path',{d:curve.d,fill:'none',stroke:color,'stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round'});
+
+						const startAngle=fromDir===null?Math.atan2(a.y-curve.c1.y,a.x-curve.c1.x):(fromDir-90)*Math.PI/180;
+						const endAngle=toDir===null?Math.atan2(b.y-curve.c2.y,b.x-curve.c2.x):(toDir-90)*Math.PI/180;
+						// Each marker owns its head and optional direction, independently of its partner.
+						drawHead(from,a,startAngle,color);
+						drawHead(to,b,endAngle,color);
+						from=to;
+					}
+				});
+			};
+
+			requestAnimationFrame(draw);
+			window.addEventListener('resize',draw,{passive:true});
+			let observer=null;
+			if(typeof ResizeObserver!=='undefined'){
+				observer=new ResizeObserver(()=>requestAnimationFrame(draw));
+				observer.observe(output);
+				points.forEach(point=>observer.observe(point));
+			}
+			window.__sgmlArrowCleanup=()=>{
+				window.removeEventListener('resize',draw);
+				if(observer)observer.disconnect();
+				delete window.__sgmlArrowCleanup;
+			};
+			output.querySelectorAll('img').forEach(img=>{
+				if(!img.complete)img.addEventListener('load',()=>requestAnimationFrame(draw),{once:true});
+			});
 		}
 
 		function buildQuestionUI(q){
@@ -2427,6 +2670,7 @@ table{max-width:none}
 			const output=document.getElementById('sgml-output');
 			output.innerHTML=renderedDoc;
 
+			setupArrowConnections();
 			setupICB();
 			setupVisualComponents();
 			setupInfoPanels();

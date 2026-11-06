@@ -236,10 +236,11 @@ const Editor = (() => {
     let replaceEnd = caret;
 
     if (hasSelection()) return { candidates: [], replaceStart, replaceEnd };
-    if (insideStringOrComment(prefix)) return { candidates: [], replaceStart, replaceEnd };
 
     if (context.matched) {
       candidates = context.candidates;
+    } else if (insideStringOrComment(prefix)) {
+      return { candidates: [], replaceStart, replaceEnd };
     } else if (insideTag) {
       const afterOpen = prefix.slice(lastOpen);
       const partialTagName = /^<\s*\/?\s*([A-Za-z][\w:-]*)?$/.test(afterOpen);

@@ -8,6 +8,9 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "encircle", description: "Draw a hand-marked circle around text", insert: "encircle" },
     { name: "info", description: "Expandable information panel", insert: "info" },
     { name: "ref", description: "Link to a document reference", insert: "ref" },
+    { name: "arrow", description: "Connect the nearest matching target marker", insert: "arrow" },
+    { name: "badge", description: "Inline colored badge", insert: "badge" },
+    { name: "x", description: "Draw a pencil-style X over text", insert: "x" },
     { name: "spoiler", description: "Reveal hidden content", insert: "spoiler" },
     { name: "root", description: "Expandable tree root", insert: "root" },
     { name: "bh", description: "Tree branch", insert: "bh" },
@@ -74,10 +77,13 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "xmlns", description: "XML namespace", insert: "xmlns=" }
   ],
   tagAttributes: {
-    st: ["bg", "col"],
+    st: ["bg", "col", "display", "fontSize", "fontFamily"],
     encircle: ["col"],
     info: ["title", "bg", "col"],
     ref: ["id"],
+    arrow: ["target", "head", "dir", "col"],
+    badge: ["col", "bg"],
+    x: ["col"],
     spoiler: ["title"],
     node: ["title", "id"],
     root: ["title"],
@@ -116,6 +122,9 @@ window.SGML_EDITOR_LANGUAGE = {
     { trigger: "encircle", description: "Hand-drawn circle around text", insert: "<encircle col:#c62828>$0</encircle>" },
     { trigger: "info", description: "Information panel", insert: "<info title:\"$0\">\n  Information text.\n</info>" },
     { trigger: "ref", description: "Reference link", insert: "<ref id:\"$0\">Link text</ref>" },
+    { trigger: "arrow", description: "Matching arrow marker", insert: "<arrow target:\"$0\" head:\"arrow\" dir:\"0\" col:\"#2563eb\" />" },
+    { trigger: "badge", description: "Inline colored badge", insert: "<badge col:\"#1d4ed8\" bg:\"#dbeafe\">$0</badge>" },
+    { trigger: "x", description: "Pencil-style X over text", insert: "<x col:\"#c62828\">$0</x>" },
     { trigger: "spoiler", description: "Hidden content", insert: "<spoiler title:\"Reveal\">\n  $0\n</spoiler>" },
     { trigger: "Choices", description: "Multiple-choice question", insert: "<Choices:($0)[Option A, Option B, Option C, Option D]{[idx:0]}>" },
     { trigger: "Fillin", description: "Fill-in question", insert: "<Fillin:($0)[]{Answer|case:false}>" },
@@ -162,6 +171,17 @@ window.SGML_EDITOR_LANGUAGE = {
         { name: "true", insert: "true", description: "Enabled", kind: "value" },
         { name: "false", insert: "false", description: "Disabled", kind: "value" }
       ],
+      displayModes: [
+        { name: "inline-block", insert: "inline-block", description: "Keep the styled text together in one inline box", kind: "value" },
+        { name: "block", insert: "block", description: "Start a full-width block", kind: "value" },
+        { name: "inline", insert: "inline", description: "Keep normal inline text flow", kind: "value" }
+      ],
+      arrowDirections: [
+        { name: "0", insert: "0", description: "Up", kind: "value" },
+        { name: "90", insert: "90", description: "Right", kind: "value" },
+        { name: "180", insert: "180", description: "Down", kind: "value" },
+        { name: "270", insert: "270", description: "Left", kind: "value" }
+      ],
       enumerationTypes: [
         { name: "order", insert: "order", description: "Drag/reorder items and check their order", kind: "value" }
       ],
@@ -195,7 +215,9 @@ window.SGML_EDITOR_LANGUAGE = {
     { pattern: "<Enumeration\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*type\\s*:\\s*[A-Za-z]*$", items: "values.enumerationTypes", flags: "i" },
     { pattern: "<Enumeration\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*count\\s*:\\s*\\d*$", items: "values.counts", flags: "i" },
     { pattern: "<(?:Choices|connect)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\[\\s*[A-Za-z_]*$", items: "values.answerIndexField", flags: "i" },
-    { pattern: "<(?:Choices|connect)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\[\\s*idx\\s*:\\s*\\d*$", items: "values.answerIndexes", flags: "i" }
+    { pattern: "<(?:Choices|connect)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\[\\s*idx\\s*:\\s*\\d*$", items: "values.answerIndexes", flags: "i" },
+    { pattern: "<st\\b[^>]*\\bdisplay\\s*:\\s*[\"']?[-a-zA-Z]*$", items: "values.displayModes", flags: "i" },
+    { pattern: "<arrow\\b[^>]*\\bdir\\s*:\\s*[\"']?\\d*$", items: "values.arrowDirections", flags: "i" }
   ],
 
     voidTags: ["br", "hr", "img", "input", "meta", "link", "source", "path", "rect", "circle"]

@@ -100,3 +100,15 @@ The viewer displays a toast notification while it is working and reports the res
 - Documents are stored in this browser's local storage. They do not automatically sync between devices.
 - Query commands are intended for the viewer page URL. For `load`, encode a full URL so characters such as `&` do not become viewer query parameters.
 - For `gdrive`, pasting the file ID is the most reliable option. If you paste a full Google Drive URL containing additional query parameters, URL-encode it when building the viewer link if needed.
+
+
+## New inline syntax
+
+- `<badge col:"#1d4ed8" bg:"#dbeafe">Label</badge>` creates an inline colored badge.
+- `<x col:"#c62828">Text</x>` draws a hand-marked pencil X over the text, scaled to its content box.
+- `<arrow target:"topic" head:"arrow" dir:"0" col:"#2563eb" />` marks a connector point; matching targets are linked with curved, sketch-like strokes. Each point controls its own `head` (`arrow`, `dot`, or omitted) and optional compass-style `dir` (0° up, 90° right, 180° down, 270° left), which also offsets that endpoint away from the text.
+- `<ref>` links render their contents inline, preserving their own whitespace without adding paragraph wrappers.
+
+## Styled text display modes
+
+`<st bg:"#fff3cd" display:"inline-block">...</st>` keeps a styled phrase in the text flow as one connected background box. `display:"block"` starts a full-width block. Quoted style values can contain spaces.

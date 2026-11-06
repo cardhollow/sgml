@@ -1,7 +1,7 @@
 'use strict';
 
-const CACHE_NAME = 'sgml-viewer-cache-v15';
-const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v15-';
+const CACHE_NAME = 'sgml-viewer-cache-v18';
+const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v18-';
 const SHARE_CACHE_NAME = 'sgml-viewer-share-v1';
 const CONVERTER_CACHE_NAME = 'sgml-viewer-converters-v1';
 const CONVERTER_RESOURCES = [

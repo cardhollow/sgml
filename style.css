@@ -393,6 +393,7 @@
 		.sgml-info-body pre{max-width:100%;overflow:auto}
 		.sgml-info-body table{max-width:100%;border-collapse:collapse}
 		.sgml-info-body th,.sgml-info-body td{border:1px solid #d8dce2;padding:5px 8px}
+		.sgml-js-error{max-width:100%;overflow:auto;padding:10px 12px;border-left:3px solid #b91c1c;background:#fef2f2;color:#991b1b;white-space:pre-wrap}
 
 		.sgml-icb{
 			width:100%;max-width:100%;min-width:0;height:320px;min-height:160px;

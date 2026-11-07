@@ -41,6 +41,31 @@ Open **Edit Code** to use the mobile-friendly code editor. It fills nearly all a
 
 The editor engine is separate from the language definition. Add or adjust tags, attributes, tag-specific attributes, value suggestions, context-aware parameter completions, completion rules, void tags, and reusable snippets in `js/editor-language.js`. Questionnaire parameter suggestions and values are configuration-driven too, so extending the profile usually does not require replacing the editor engine. The editor reads this configuration at startup; adding a language item usually means editing the language profile rather than replacing the editor engine.
 
+The editor recognizes native HTML, SVG, and MathML tag names even when they are not part of the SGML completion list. Hyphenated custom-element names are recognized as HTML custom elements as well.
+
+## Executable JavaScript blocks
+
+`<js>...</js>` executes its contents as raw JavaScript inside a fresh immediately invoked function expression (IIFE). Before the document enters the SGML renderer, the entire block is replaced in the original source by the string form of its returned value. That replacement is not rendered separately or specially: it becomes ordinary source text at the same position and passes through every normal document-processing stage exactly once, including ICB extraction, unsafe-element processing, custom components, questionnaire parsing, Markdown, inline SGML, and HTML restoration. For example, returning `<Choices:...>` creates the same choice component as writing that syntax directly in the document. Use an explicit `return` for visible output. A `null` or `undefined` return inserts an empty string.
+
+For later, event-driven updates, use `renderSGMLInto(target, source)`. It runs the same SGML pipeline but replaces only the contents of the selected target element; the rest of the rendered document stays untouched. Use `{append:true}` as a third argument to append instead. Existing question IDs and shared component state are preserved across fragment renders. Prefer a block target such as `<div id="dynamic-question"></div>` when rendering block components.
+
+Example:
+
+```sgml
+<div id="dynamic-question"></div>
+<js>
+  window.renew = function(){
+    const number = Math.floor(Math.random() * 10);
+    renderSGMLInto('#dynamic-question',
+      `<Choices:(Solve this ${number})[Option A, Option B, Option C, Option D]{[idx:0]}>`
+    );
+  };
+  return '<button type="button" onclick="window.renew()">New question</button>';
+</js>
+```
+
+This is not a security sandbox. Code runs with the viewer page's browser privileges and can access the document and browser APIs. Only render documents containing JavaScript from trusted sources.
+
 ## URL commands
 
 Commands are processed once, then `load` / `gdrive` / `new` are removed from the address bar when successfully processed so a refresh does not create another document.

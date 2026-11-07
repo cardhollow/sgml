@@ -131,7 +131,7 @@ The viewer displays a toast notification while it is working and reports the res
 
 - `<badge col:"#1d4ed8" bg:"#dbeafe">Label</badge>` creates an inline colored badge.
 - `<x col:"#c62828">Text</x>` draws a hand-marked pencil X over the text, scaled to its content box.
-- `<arrow target:"topic" head:"arrow" dir:"0" col:"#2563eb" />` marks a connector point; matching targets are linked with curved, sketch-like strokes. Each point controls its own `head` (`arrow`, `dot`, or omitted) and optional compass-style `dir` (0° up, 90° right, 180° down, 270° left), which also offsets that endpoint away from the text.
+- `<arrow target:"topic" head:"arrow" dir:"0" col:"#2563eb" />` marks a connector point; matching targets are linked with curved, sketch-like strokes. Each point controls its own `head` (`arrow`, `dot`, or omitted) and optional compass-style `dir` (0° up, 90° right, 180° down, 270° left). The direction offsets the endpoint away from its text and controls the line's approach/departure, so a left-facing arrow is approached from the right; when the connected point is on the wrong side, the curve detours around the arrow.
 - `<ref>` links render their contents inline, preserving their own whitespace without adding paragraph wrappers.
 
 ## Styled text display modes

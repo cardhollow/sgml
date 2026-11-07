@@ -387,7 +387,7 @@
 			font-size:12px;
 			font-weight:600;
 		}
-		.sgml-info-body{padding:10px;color:var(--sgml-info-col,#111)}
+		.sgml-info-body{position:relative;padding:10px;color:var(--sgml-info-col,#111)}
 		.sgml-info-body p:last-child{margin-bottom:0}
 		.sgml-info-body img,.sgml-info-body svg,.sgml-info-body canvas,.sgml-info-body video{max-width:100%;height:auto}
 		.sgml-info-body pre{max-width:100%;overflow:auto}

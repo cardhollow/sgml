@@ -835,16 +835,18 @@ table{max-width:none}
 			return renderST(result);
 		}
 
-		function setupArrowConnections(){
-			const output=document.getElementById('sgml-output');
+		function setupArrowConnections(root){
+			const output=root instanceof Element?root:document.getElementById('sgml-output');
 			if(!output)return;
-			if(typeof window.__sgmlArrowCleanup==='function')window.__sgmlArrowCleanup();
+			if(typeof output.__sgmlArrowCleanup==='function')output.__sgmlArrowCleanup();
 
-			const oldLayer=output.querySelector('.sgml-arrow-layer');
+			const oldLayer=output.querySelector(':scope > .sgml-arrow-layer');
 			if(oldLayer)oldLayer.remove();
 
 			const points=[...output.querySelectorAll('.sgml-arrow-point[data-target]')];
 			if(points.length<2)return;
+
+			if(getComputedStyle(output).position==='static')output.style.position='relative';
 
 			const svgNS='http://www.w3.org/2000/svg';
 			const layer=document.createElementNS(svgNS,'svg');
@@ -901,28 +903,76 @@ table{max-width:none}
 					const dy=b.y-a.y;
 					const distance=Math.max(1,Math.hypot(dx,dy));
 					const chord={x:dx/distance,y:dy/distance};
-					const supplied=[fromDir,toDir].filter(value=>value!==null);
-					let preferred={x:0,y:-1};
 
-					if(supplied.length){
-						const vectors=supplied.map(directionVector);
-						const sum=vectors.reduce((value,vector)=>({x:value.x+vector.x,y:value.y+vector.y}),{x:0,y:0});
-						const length=Math.hypot(sum.x,sum.y);
-						if(length>.15)preferred={x:sum.x/length,y:sum.y/length};
-					}else if(Math.abs(dy)>54&&Math.abs(dy)>Math.abs(dx)*.42){
-						preferred={x:(a.x+b.x)/2<width/2?-1:1,y:0};
+					// dir describes where an arrowhead points, not where the connector
+					// should come from. Therefore the path leaves a start marker in the
+					// opposite direction and arrives at an end marker along its dir.
+					if(fromDir!==null||toDir!==null){
+						const fromVector=fromDir===null?null:directionVector(fromDir);
+						const toVector=toDir===null?null:directionVector(toDir);
+						const startTangent=fromVector?{x:-fromVector.x,y:-fromVector.y}:chord;
+						const endTangent=toVector||chord;
+						const dot=(u,v)=>u.x*v.x+u.y*v.y;
+						const startMismatch=!!fromVector&&dot(startTangent,chord)<.2;
+						const endMismatch=!!toVector&&dot(endTangent,chord)<.2;
+						const needsDetour=startMismatch||endMismatch;
+
+						let normal;
+						let availableSideSpace=Infinity;
+						if(needsDetour){
+							// When the other marker is on the side the head points toward,
+							// route around the marker instead of drawing through its head.
+							// Choose the side with more room in the containing render area.
+							const roomLeft=Math.min(a.x,b.x);
+							const roomRight=Math.max(0,width-Math.max(a.x,b.x));
+							let side=roomLeft===roomRight?((a.x+b.x)/2>width/2?-1:1):(roomLeft>roomRight?-1:1);
+							availableSideSpace=side<0?roomLeft:roomRight;
+							normal={x:side,y:0};
+						}else{
+							const supplied=[fromVector,toVector].filter(Boolean);
+							let preferred={x:0,y:-1};
+							if(supplied.length){
+								const sum=supplied.reduce((value,vector)=>({x:value.x+vector.x,y:value.y+vector.y}),{x:0,y:0});
+								const length=Math.hypot(sum.x,sum.y);
+								if(length>.15)preferred={x:sum.x/length,y:sum.y/length};
+							}
+							const projection=dot(preferred,chord);
+							normal={x:preferred.x-chord.x*projection,y:preferred.y-chord.y*projection};
+							const length=Math.hypot(normal.x,normal.y);
+							if(length<.18){
+								const side=(a.x+b.x)/2<width/2?-1:1;
+								normal=Math.abs(dx)>=Math.abs(dy)?{x:0,y:-1}:{x:side,y:0};
+							}else normal={x:normal.x/length,y:normal.y/length};
+						}
+
+						const requestedLift=Math.min(112,Math.max(48,distance*.24+28));
+						const lift=needsDetour
+							?Math.min(requestedLift,Math.max(18,availableSideSpace-10))
+							:Math.min(88,Math.max(24,distance*.17+18));
+						const middle={x:(a.x+b.x)/2+normal.x*lift,y:(a.y+b.y)/2+normal.y*lift};
+						const handle=Math.min(82,Math.max(22,distance*.22+14));
+						const middleHandle=Math.min(64,Math.max(18,distance*.16+12));
+						const c1={x:a.x+startTangent.x*handle,y:a.y+startTangent.y*handle};
+						const c2={x:middle.x-chord.x*middleHandle,y:middle.y-chord.y*middleHandle};
+						const c3={x:middle.x+chord.x*middleHandle,y:middle.y+chord.y*middleHandle};
+						const c4={x:b.x-endTangent.x*handle,y:b.y-endTangent.y*handle};
+						const format=(point,ox=0,oy=0)=>`${point.x+ox} ${point.y+oy}`;
+						const d=`M ${format(a)} C ${format(c1)}, ${format(c2)}, ${format(middle)} C ${format(c3)}, ${format(c4)}, ${format(b)}`;
+						const echo=`M ${format(a,1.1,1.1)} C ${format(c1,2.2,-1.4)}, ${format(c2,-1.8,1.6)}, ${format(middle,1.2,.8)} C ${format(c3,-1.1,1.5)}, ${format(c4,1.6,-1.2)}, ${format(b,-1,1.2)}`;
+						return{d,echo,c1,c2:c4};
 					}
 
-					// Bend the connector along the part of the requested direction that is
-					// perpendicular to the line between the two markers. If it points
-					// directly along that line, use a clean outside curve instead.
+					// Keep the original soft arch when neither endpoint specifies a
+					// direction. Direction-aware paths use constrained tangents above.
+					let preferred={x:0,y:-1};
+					if(Math.abs(dy)>54&&Math.abs(dy)>Math.abs(dx)*.42){
+						preferred={x:(a.x+b.x)/2<width/2?-1:1,y:0};
+					}
 					const projection=preferred.x*chord.x+preferred.y*chord.y;
 					let normal={x:preferred.x-chord.x*projection,y:preferred.y-chord.y*projection};
 					let normalLength=Math.hypot(normal.x,normal.y);
 					if(normalLength<.18){
-						normal=Math.abs(dx)>=Math.abs(dy)
-							?{x:0,y:-1}
-							:{x:(a.x+b.x)/2<width/2?-1:1,y:0};
+						normal=Math.abs(dx)>=Math.abs(dy)?{x:0,y:-1}:{x:(a.x+b.x)/2<width/2?-1:1,y:0};
 						normalLength=1;
 					}
 					normal={x:normal.x/normalLength,y:normal.y/normalLength};
@@ -982,7 +1032,6 @@ table{max-width:none}
 
 						const startAngle=fromDir===null?Math.atan2(a.y-curve.c1.y,a.x-curve.c1.x):(fromDir-90)*Math.PI/180;
 						const endAngle=toDir===null?Math.atan2(b.y-curve.c2.y,b.x-curve.c2.x):(toDir-90)*Math.PI/180;
-						// Each marker owns its head and optional direction, independently of its partner.
 						drawHead(from,a,startAngle,color);
 						drawHead(to,b,endAngle,color);
 						from=to;
@@ -998,11 +1047,15 @@ table{max-width:none}
 				observer.observe(output);
 				points.forEach(point=>observer.observe(point));
 			}
-			window.__sgmlArrowCleanup=()=>{
+			const cleanup=()=>{
 				window.removeEventListener('resize',draw);
 				if(observer)observer.disconnect();
-				delete window.__sgmlArrowCleanup;
+				if(layer.isConnected)layer.remove();
+				if(output.__sgmlArrowCleanup===cleanup)delete output.__sgmlArrowCleanup;
+				if(window.__sgmlArrowCleanup===cleanup)delete window.__sgmlArrowCleanup;
 			};
+			output.__sgmlArrowCleanup=cleanup;
+			if(output.id==='sgml-output')window.__sgmlArrowCleanup=cleanup;
 			output.querySelectorAll('img').forEach(img=>{
 				if(!img.complete)img.addEventListener('load',()=>requestAnimationFrame(draw),{once:true});
 			});
@@ -2014,6 +2067,7 @@ table{max-width:none}
 
 		window.__sgmlInfoStore={};
 		let sgmlInfoIdCounter=0;
+		let openInfoPanels=[];
 
 		function getInfoStore(){
 			if(!window.__sgmlInfoStore)window.__sgmlInfoStore={};
@@ -2055,19 +2109,19 @@ table{max-width:none}
 			return attrs;
 		}
 
-		function buildInfoHTML(component,allowNested=true){
+		function buildInfoHTML(component){
 			const id=`sgml-info-${sgmlInfoIdCounter++}`;
 			const attrs=parseComponentAttributes(component.open||'');
 			const title=attrs.title||'Information';
 			const bg=attrs.bg||'';
 			const col=attrs.col||'';
-			const rendered=renderEmbeddedSGML(
-				component.content||'',
-				{
-					allowInfo:allowNested,
-					allowRoot:true,
-					allowLine:true
-				}
+
+			// Render the contents through the same component pipeline used by the
+			// document itself. The resulting HTML is stored instead of inserted at
+			// the marker, keeping the content isolated until the panel is opened.
+			const rendered=renderICBPlaceholders(
+				renderTopLevelWithComponents(component.content||''),
+				window.__sgmlICBBlocks||[]
 			);
 
 			getInfoStore()[id]={
@@ -2088,16 +2142,29 @@ table{max-width:none}
 				</span>`;
 		}
 
-		function closeInfoPanel(){
-			if(!openInfoWrap)return;
+		function closeInfoPanel(wrap=null){
+			if(!openInfoPanels.length){
+				openInfoWrap=null;
+				return;
+			}
 
-			const button=openInfoWrap.querySelector('.sgml-info-trigger');
-			const panel=openInfoWrap._sgmlInfoPanel;
+			const startIndex=wrap
+				?openInfoPanels.findIndex(entry=>entry.wrap===wrap)
+				:0;
+			if(startIndex<0)return;
 
-			if(panel&&panel.parentNode)panel.parentNode.removeChild(panel);
-			if(button)button.setAttribute('aria-expanded','false');
+			const closing=openInfoPanels.splice(startIndex).reverse();
+			closing.forEach(entry=>{
+				const body=entry.panel&&entry.panel.querySelector('.sgml-info-body');
+				if(body&&typeof body.__sgmlArrowCleanup==='function')body.__sgmlArrowCleanup();
+				if(entry.panel&&entry.panel.parentNode)entry.panel.parentNode.removeChild(entry.panel);
+				const button=entry.wrap&&entry.wrap.querySelector('.sgml-info-trigger');
+				if(button)button.setAttribute('aria-expanded','false');
+			});
 
-			openInfoWrap=null;
+			openInfoWrap=openInfoPanels.length
+				?openInfoPanels[openInfoPanels.length-1].wrap
+				:null;
 		}
 
 		function positionInfoPanel(wrap,panel){
@@ -2147,12 +2214,18 @@ table{max-width:none}
 			const wrap=button.closest('.sgml-info-wrap');
 			if(!wrap)return;
 
-			if(openInfoWrap===wrap){
-				closeInfoPanel();
+			if(openInfoPanels.some(entry=>entry.wrap===wrap)){
+				closeInfoPanel(wrap);
 				return;
 			}
 
-			closeInfoPanel();
+			const parentPanel=wrap.closest('.sgml-info-panel');
+			if(parentPanel){
+				const parentIndex=openInfoPanels.findIndex(entry=>entry.panel===parentPanel);
+				if(parentIndex>=0&&openInfoPanels[parentIndex+1]){
+					closeInfoPanel(openInfoPanels[parentIndex+1].wrap);
+				}else if(parentIndex<0)closeInfoPanel();
+			}else closeInfoPanel();
 
 			const id=wrap.dataset.infoId;
 			const stored=getInfoStore()[id];
@@ -2185,16 +2258,11 @@ table{max-width:none}
 
 			wrap._sgmlInfoPanel=panel;
 			button.setAttribute('aria-expanded','true');
+			openInfoPanels.push({wrap,panel});
 			openInfoWrap=wrap;
 
 			positionInfoPanel(wrap,panel);
-
-			if(window.MathJax&&window.MathJax.typesetPromise){
-				window.MathJax.typesetClear&&window.MathJax.typesetClear([panel]);
-				window.MathJax.typesetPromise([panel]).catch(error=>{
-					console.error('Info panel LaTeX rendering failed:',error);
-				});
-			}
+			initializeSGMLTarget(body);
 		}
 
 		function setupInfoPanels(){
@@ -2211,75 +2279,29 @@ table{max-width:none}
 		}
 
 		document.addEventListener('click',event=>{
-			if(openInfoWrap&&event.target.closest('.sgml-info-wrap')===openInfoWrap)return;
-			if(openInfoWrap&&event.target.closest('.sgml-info-panel')===openInfoWrap._sgmlInfoPanel)return;
+			const clickedWrap=event.target.closest('.sgml-info-wrap');
+			if(clickedWrap&&openInfoPanels.some(entry=>entry.wrap===clickedWrap))return;
+
+			const clickedPanel=event.target.closest('.sgml-info-panel');
+			if(clickedPanel){
+				const index=openInfoPanels.findIndex(entry=>entry.panel===clickedPanel);
+				if(index>=0){
+					if(index<openInfoPanels.length-1)closeInfoPanel(openInfoPanels[index+1].wrap);
+					return;
+				}
+			}
+
 			closeInfoPanel();
 		});
 
 		document.addEventListener('keydown',event=>{
-			if(event.key==='Escape')closeInfoPanel();
+			if(event.key==='Escape'&&openInfoPanels.length){
+				closeInfoPanel(openInfoPanels[openInfoPanels.length-1].wrap);
+			}
 		});
 
-		function renderEmbeddedSGML(source,{allowInfo=true,allowRoot=true,allowLine=true,allowEncircle=true}={}){
-			let text=maskLiteralStrings(normalizeComponentSource(source));
-			const extracted=extractCustomComponents(text);
-			let rebuilt='';
-			let cursor=0;
-			const blockSlots=[];
-			const inlineSlots=[];
-
-			const allowedComponents=extracted.components.filter(component=>{
-				if(component.type==='info')return allowInfo;
-				if(component.type==='root')return allowRoot;
-				if(component.type==='line')return allowLine;
-				if(component.type==='encircle')return allowEncircle;
-				if(component.type==='spoiler')return true;
-				return false;
-			});
-
-			allowedComponents.forEach(component=>{
-				rebuilt+=text.slice(cursor,component.index);
-
-				const blockEncircle=component.type==='encircle'&&encircleNeedsBlockLayout(component.content||'');
-				if(component.type==='info'||component.type==='spoiler'||(component.type==='encircle'&&!blockEncircle)){
-					const id=inlineSlots.length;
-					inlineSlots.push(component);
-					rebuilt+=`\uE210SGMLINLINE${id}\uE211`;
-				}else{
-					const id=blockSlots.length;
-					blockSlots.push(component);
-					rebuilt+=`\n\n<div data-sgml-block-slot="${id}"></div>\n\n`;
-				}
-				cursor=component.end;
-			});
-
-			if(!allowedComponents.length)rebuilt=text;
-			else rebuilt+=text.slice(cursor);
-
-			const qResult=parseQuestionBlocks(rebuilt);
-			let result=renderMarkdown(qResult.processedText);
-
-			qResult.questions.forEach(q=>{
-				result=result.replace(`%%QBLOCKTOKEN${q.id}%%`,buildQuestionUI(q));
-			});
-
-			inlineSlots.forEach((component,index)=>{
-				let html='';
-				if(component.type==='info')html=buildInfoHTML(component,false);
-				else if(component.type==='spoiler')html=buildSpoilerHTML(component);
-				else if(component.type==='encircle')html=buildEncircleHTML(component);
-				result=result.replace(`\uE210SGMLINLINE${index}\uE211`,html);
-			});
-
-			blockSlots.forEach((component,index)=>{
-				let html='';
-				if(component.type==='root')html=buildTreeHTML({content:component.content});
-				else if(component.type==='line')html=buildLineHTML({content:component.content});
-				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
-				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
-			});
-
-			return result;
+		function renderEmbeddedSGML(source){
+			return renderTopLevelWithComponents(String(source||''));
 		}
 
 		function stripUnsafeSGML(str){
@@ -2798,9 +2820,12 @@ table{max-width:none}
 				candidates.sort((a,b)=>a.index-b.index);
 				const found=candidates[0];
 
+				// Component contents may contain another instance of the same
+				// component (notably <info> inside <info>). Match the real closing
+				// tag instead of prematurely ending at the first nested close.
 				const matched=found.tag==='js'
 					?findJSClosingTag(text,found.end)
-					:findMatchingTag(text,found.tag,found.end,false);
+					:findMatchingTag(text,found.tag,found.end,true);
 				if(!matched){
 					cursor=found.end;
 					continue;
@@ -2856,7 +2881,7 @@ table{max-width:none}
 
 			inline.forEach((component,index)=>{
 				let html='';
-				if(component.type==='info')html=buildInfoHTML(component,false);
+				if(component.type==='info')html=buildInfoHTML(component);
 				else if(component.type==='spoiler')html=buildSpoilerHTML(component);
 				else if(component.type==='encircle')html=buildEncircleHTML(component);
 				result=result.replace(`\uE210SGMLINLINE${index}\uE211`,html);
@@ -2905,7 +2930,9 @@ table{max-width:none}
                 sgmlSpoilerIdCounter=0;
                 infoCounter=0;
                 sgmlInfoIdCounter=0;
+                closeInfoPanel();
                 openInfoWrap=null;
+                openInfoPanels=[];
                 window.__sgmlInfoStore={};
                 window.__sgmlICBBlocks=[];
             }else{
@@ -2943,7 +2970,7 @@ table{max-width:none}
             // These initializers are safe to call after fragment insertion:
             // component listeners use data-bound guards and ICB slots replace
             // themselves once initialized.
-            setupArrowConnections();
+            setupArrowConnections(target);
             setupICB();
             setupVisualComponents();
             setupInfoPanels();
@@ -2976,9 +3003,8 @@ table{max-width:none}
                 // Remove only state owned by the fragment being replaced. This
                 // prevents Check All Answers from retaining detached questions
                 // while leaving questions elsewhere in the document intact.
-                if(openInfoWrap&&(openInfoWrap===element||element.contains(openInfoWrap))){
-                    closeInfoPanel();
-                }
+                const affectedInfo=openInfoPanels.find(entry=>entry.wrap===element||element.contains(entry.wrap));
+                if(affectedInfo)closeInfoPanel(affectedInfo.wrap);
 
                 const oldQuestionNodes=[
                     ...(element.matches('.sgml-qblock[id]')?[element]:[]),

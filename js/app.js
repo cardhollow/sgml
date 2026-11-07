@@ -32,12 +32,8 @@
 		);
 
 		window.addEventListener('resize',()=>{
-			if(openInfoWrap){
-				const panel=openInfoWrap.querySelector('.sgml-info-panel');
-
-				if(panel&&!panel.hidden){
-					placeInfoPanel(openInfoWrap,panel);
-				}
+			if(typeof openInfoPanels!=='undefined'){
+				openInfoPanels.forEach(entry=>positionInfoPanel(entry.wrap,entry.panel));
 			}
 
 			document.querySelectorAll('.sgml-tree').forEach(treeEl=>{

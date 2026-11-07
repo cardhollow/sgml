@@ -21,6 +21,27 @@ const Editor = (() => {
   const SNIPPETS = Array.isArray(LANG.snippets) ? LANG.snippets : [];
   const VOID_TAGS = new Set((LANG.voidTags || []).map(value => String(value).toLowerCase()));
   const TAG_MAP = new Map(TAGS.map(tag => [String(tag.name).toLowerCase(), tag]));
+  // Recognize native HTML, SVG, and MathML element names even when they are
+  // not part of the SGML completion vocabulary. Custom-element names are
+  // valid HTML too, so hyphenated names are accepted as recognized tags.
+  const HTML_TAG_NAMES = new Set((
+    "a abbr acronym address applet area article aside audio b base basefont bdi bdo bgsound big blink " +
+    "blockquote body br button canvas caption center cite code col colgroup command content data datalist dd del details " +
+    "dfn dialog dir div dl dt em embed fieldset figcaption figure font footer form frame frameset h1 h2 h3 " +
+    "h4 h5 h6 head header hgroup hr html i iframe img input ins isindex kbd label legend li link listing " +
+    "main map mark marquee menu menuitem meta meter nav nobr noembed noframes noscript object ol optgroup " +
+    "element fencedframe keygen option output p param picture plaintext portal pre progress q rb rp rt rtc ruby s samp script search section " +
+    "select slot small source span strike strong style sub summary sup table tbody td template textarea tfoot " +
+    "selectedcontent shadow spacer th thead time title tr track tt u ul var video wbr xmp " +
+    "animate animateMotion animateTransform circle clipPath defs desc discard ellipse feBlend feColorMatrix " +
+    "feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight " +
+    "feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode " +
+    "feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence filter foreignObject " +
+    "g image line linearGradient marker mask metadata mpath path pattern polygon polyline radialGradient rect " +
+    "set stop svg switch symbol text textPath tspan use view " +
+    "math maction maligngroup malignmark menclose merror mfenced mfrac mi mmultiscripts mn mo mover mpadded " +
+    "mphantom mprescripts mroot mrow ms msqrt mstyle msub msubsup msup mtable mtd mtext mtr munder munderover"
+  ).split(/\s+/).map(name => name.toLowerCase()));
   const ATTR_MAP = new Map(ATTRS.map(attr => [String(attr.name).toLowerCase(), attr]));
   const SNIPPET_MAP = new Map(SNIPPETS.map(item => [String(item.trigger).toLowerCase(), item]));
   const LH = 18, PL = 8, PC = 54;
@@ -73,7 +94,10 @@ const Editor = (() => {
       else if (raw[0] === "<") {
         const nameMatch = /<\s*\/?\s*([A-Za-z][\w:-]*)/.exec(raw);
         const name = nameMatch ? nameMatch[1] : "";
-        cls = TAG_MAP.has(name.toLowerCase()) ? "tagname" : "unknown-tag";
+        const normalizedName = name.toLowerCase();
+        cls = TAG_MAP.has(normalizedName) || HTML_TAG_NAMES.has(normalizedName) || normalizedName.includes("-")
+          ? "tagname"
+          : "unknown-tag";
       } else if (raw[0] === "#") cls = "value";
       else if (/^(?:true|false|null)$/i.test(raw)) cls = "num";
       else cls = "attr";

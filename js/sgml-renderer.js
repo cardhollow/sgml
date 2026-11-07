@@ -46,6 +46,20 @@
             for(let i=0;i<text.length;i++){
                 const c=text[i];
 
+                // JavaScript blocks are opaque to SGML's backtick-literal
+                // masking. Their quotes, template strings, comments, and
+                // markup must reach the JavaScript evaluator unchanged.
+                if(!inLiteral&&c==='<'&&/^<js\b[^>]*>/i.test(text.slice(i))){
+                    const opening=text.slice(i).match(/^<js\b[^>]*>/i);
+                    const bodyStart=i+opening[0].length;
+                    const closing=findJSClosingTag(text,bodyStart);
+                    if(closing){
+                        result+=text.slice(i,closing.end);
+                        i=closing.end-1;
+                        continue;
+                    }
+                }
+
                 if(inLiteral){
                     if(c==='\\'&&i+1<text.length&&isSGMLEscapable(text[i+1])){
                         literal+=c+text[i+1];
@@ -234,6 +248,189 @@
 			const match=re.exec(source);
 			return match?{index:match.index,end:re.lastIndex,open:match[0]}:null;
 		}
+
+        // Locate </js> only when it is JavaScript syntax rather than text
+        // inside a quoted string, template literal, or comment.
+        function findJSClosingTag(source,startIndex){
+            let quote='';
+            let escaped=false;
+            let lineComment=false;
+            let blockComment=false;
+            let canStartRegex=true;
+            const regexPrefixKeywords=new Set([
+                'await','case','delete','do','else','in','instanceof','of','return',
+                'throw','typeof','void','yield'
+            ]);
+
+            for(let i=startIndex;i<source.length;i++){
+                const c=source[i];
+                const next=source[i+1];
+
+                if(lineComment){
+                    if(c==='\n'||c==='\r')lineComment=false;
+                    continue;
+                }
+
+                if(blockComment){
+                    if(c==='*'&&next==='/'){
+                        blockComment=false;
+                        i++;
+                    }
+                    continue;
+                }
+
+                if(quote){
+                    if(escaped){
+                        escaped=false;
+                        continue;
+                    }
+                    if(c==='\\'){
+                        escaped=true;
+                        continue;
+                    }
+                    if(c===quote){
+                        quote='';
+                        canStartRegex=false;
+                    }
+                    continue;
+                }
+
+                if(c==='/'&&next==='/'){
+                    lineComment=true;
+                    i++;
+                    continue;
+                }
+                if(c==='/'&&next==='*'){
+                    blockComment=true;
+                    i++;
+                    continue;
+                }
+
+                // A slash starts a regular-expression literal where an
+                // expression may begin. Ignore quotes and tag-like text in
+                // the regex body, including character classes.
+                if(c==='/'&&canStartRegex){
+                    let inCharacterClass=false;
+                    let regexEscaped=false;
+                    let closed=false;
+                    for(let j=i+1;j<source.length;j++){
+                        const regexChar=source[j];
+                        if(regexEscaped){
+                            regexEscaped=false;
+                            continue;
+                        }
+                        if(regexChar==='\\'){
+                            regexEscaped=true;
+                            continue;
+                        }
+                        if(regexChar==='['&&!inCharacterClass){
+                            inCharacterClass=true;
+                            continue;
+                        }
+                        if(regexChar===']'&&inCharacterClass){
+                            inCharacterClass=false;
+                            continue;
+                        }
+                        if(regexChar==='/'&&!inCharacterClass){
+                            i=j;
+                            while(/[a-z]/i.test(source[i+1]||''))i++;
+                            closed=true;
+                            break;
+                        }
+                        if(regexChar==='\n'||regexChar==='\r')break;
+                    }
+                    if(closed){
+                        canStartRegex=false;
+                        continue;
+                    }
+                }
+
+                if(c==='"'||c==="'"||c==='`'){
+                    quote=c;
+                    continue;
+                }
+
+                if(c==='<'&&/^<\/js\s*>/i.test(source.slice(i))){
+                    const closing=source.slice(i).match(/^<\/js\s*>/i);
+                    return{index:i,end:i+closing[0].length};
+                }
+
+                if(/[a-z_$]/i.test(c)){
+                    const word=source.slice(i).match(/^[a-z_$][\w$]*/i)[0];
+                    i+=word.length-1;
+                    canStartRegex=regexPrefixKeywords.has(word.toLowerCase());
+                    continue;
+                }
+                if(/[0-9]/.test(c)){
+                    while(/[\w.]/.test(source[i+1]||''))i++;
+                    canStartRegex=false;
+                    continue;
+                }
+                if(/\s/.test(c))continue;
+
+                canStartRegex=!(c===')'||c===']'||c==='.'||c==='+'&&next==='+'||c==='-'&&next==='-');
+            }
+
+            return null;
+        }
+
+        function findICBFenceEnd(source,startIndex){
+            if(startIndex!==0&&source[startIndex-1]!=='\n')return null;
+
+            const opening=source.slice(startIndex).match(/^~~~([^\r\n~][^\r\n]*)\r?\n/);
+            if(!opening)return null;
+
+            const bodyStart=startIndex+opening[0].length;
+            const closingRegex=/^~~~[ \t]*(?=\r?$)/gm;
+            closingRegex.lastIndex=bodyStart;
+            const closing=closingRegex.exec(source);
+            return closing?closing.index+closing[0].length:null;
+        }
+
+        // Find a real JS block while respecting SGML backtick literals and
+        // ICB fences. ICB contents are extracted into their own iframe before
+        // normal SGML rendering, so JavaScript inside an ICB must stay there.
+        function findNextJSBlock(source,fromIndex=0){
+            let inLiteral=false;
+
+            for(let i=0;i<source.length;i++){
+                const c=source[i];
+
+                if(c==='\\'&&i+1<source.length&&isSGMLEscapable(source[i+1])){
+                    i++;
+                    continue;
+                }
+
+                if(!inLiteral&&c==='~'&&source.slice(i,i+3)==='~~~'){
+                    const fenceEnd=findICBFenceEnd(source,i);
+                    if(fenceEnd!==null){
+                        i=fenceEnd-1;
+                        continue;
+                    }
+                }
+
+                if(!inLiteral&&c==='<'&&/^<js\b[^>]*>/i.test(source.slice(i))){
+                    const opening=source.slice(i).match(/^<js\b[^>]*>/i);
+                    const closing=findJSClosingTag(source,i+opening[0].length);
+                    if(closing){
+                        if(i>=fromIndex){
+                            return{
+                                index:i,
+                                bodyStart:i+opening[0].length,
+                                closeIndex:closing.index,
+                                end:closing.end
+                            };
+                        }
+                        i=closing.end-1;
+                        continue;
+                    }
+                }
+
+                if(c==='`')inLiteral=!inLiteral;
+            }
+
+            return null;
+        }
 
 		function findMatchingTag(source,tag,startIndex,allowNested=true){
 			const tokenRegex=new RegExp(`</?${tag}\\b[^>]*>`,`gi`);
@@ -2094,6 +2291,52 @@ table{max-width:none}
 				.replace(/<\/(iframe|object|embed|portal|frame|frameset|applet)\s*>/gi,'');
 		}
 
+        // Execute <js> blocks as a source preprocessing step. The returned
+        // value replaces the entire block in the original SGML string BEFORE
+        // any SGML, ICB, Markdown, questionnaire, or HTML processing occurs.
+        // This makes the result indistinguishable from text authored directly
+        // at that location in the document.
+        function evaluateJSAsSourceText(source){
+            try{
+                const evaluate=new Function(
+                    '"use strict"; return (() => {\n'+String(source||'')+'\n})();'
+                );
+                const value=evaluate();
+                return value===undefined||value===null?'':String(value);
+            }catch(error){
+                console.error('SGML <js> execution failed:',error);
+                const message=error&&error.message?error.message:String(error);
+                return `JavaScript error: ${message}`;
+            }
+        }
+
+        function expandJSBlocks(source){
+            let expanded=String(source||'');
+            let cursor=0;
+            let executions=0;
+            const maxExecutions=1000;
+
+            while(true){
+                const block=findNextJSBlock(expanded,cursor);
+                if(!block)break;
+
+                if(++executions>maxExecutions){
+                    console.error(`SGML <js> expansion stopped after ${maxExecutions} executions.`);
+                    break;
+                }
+
+                const code=expanded.slice(block.bodyStart,block.closeIndex);
+                const replacement=evaluateJSAsSourceText(code);
+                expanded=expanded.slice(0,block.index)+replacement+expanded.slice(block.end);
+
+                // Start at the replacement position so any <js> source emitted
+                // by a block is handled in source order as well.
+                cursor=block.index;
+            }
+
+            return expanded;
+        }
+
 		function parseTreeNodeContent(content){
 			const extracted=extractChildren(content,'bh',true);
 			const ownContent=removeSpans(
@@ -2555,7 +2798,9 @@ table{max-width:none}
 				candidates.sort((a,b)=>a.index-b.index);
 				const found=candidates[0];
 
-				const matched=findMatchingTag(text,found.tag,found.end,false);
+				const matched=found.tag==='js'
+					?findJSClosingTag(text,found.end)
+					:findMatchingTag(text,found.tag,found.end,false);
 				if(!matched){
 					cursor=found.end;
 					continue;
@@ -2643,45 +2888,133 @@ table{max-width:none}
 			);
 		}
 
+
+		function prepareSGMLRender(sgmlContent,{resetState=false}={}){
+            // <js> is source substitution, including for dynamically rendered
+            // fragments. Its return value joins the ordinary SGML pipeline.
+            sgmlContent=expandJSBlocks(String(sgmlContent||''));
+
+            // Literal tokens are only needed while the current source is being
+            // parsed. Already-rendered DOM contains their restored values.
+            sgmlLiteralStore=[];
+            sgmlEscapedStore=[];
+
+            if(resetState){
+                parsedQuestions={};
+                questionCounter=0;
+                sgmlSpoilerIdCounter=0;
+                infoCounter=0;
+                sgmlInfoIdCounter=0;
+                openInfoWrap=null;
+                window.__sgmlInfoStore={};
+                window.__sgmlICBBlocks=[];
+            }else{
+                window.__sgmlICBBlocks=window.__sgmlICBBlocks||[];
+                window.__sgmlInfoStore=window.__sgmlInfoStore||{};
+            }
+
+            // Keep ICB indices unique when adding a rendered fragment to an
+            // existing document. Existing iframe blocks remain untouched.
+            const icbOffset=window.__sgmlICBBlocks.length;
+            const icbResult=extractICBBlocks(sgmlContent);
+            if(resetState){
+                window.__sgmlICBBlocks=icbResult.blocks;
+            }else if(icbResult.blocks.length){
+                window.__sgmlICBBlocks.push(...icbResult.blocks);
+            }
+
+            let sourceWithICB=icbResult.processedText;
+            if(!resetState&&icbOffset&&icbResult.blocks.length){
+                sourceWithICB=sourceWithICB.replace(
+                    /\uE100SGMLICB(\d+)\uE101/g,
+                    (_,index)=>`\uE100SGMLICB${Number(index)+icbOffset}\uE101`
+                );
+            }
+
+            const safeSGML=stripUnsafeSGML(sourceWithICB);
+            let renderedDoc=renderTopLevelWithComponents(safeSGML);
+            renderedDoc=renderICBPlaceholders(renderedDoc,window.__sgmlICBBlocks);
+            return renderedDoc;
+        }
+
+        function initializeSGMLTarget(target){
+            if(!target)return;
+
+            // These initializers are safe to call after fragment insertion:
+            // component listeners use data-bound guards and ICB slots replace
+            // themselves once initialized.
+            setupArrowConnections();
+            setupICB();
+            setupVisualComponents();
+            setupInfoPanels();
+            setupConnectComponents();
+
+            if(window.MathJax&&window.MathJax.typesetPromise){
+                window.MathJax.typesetPromise([target]).catch(error=>{
+                    console.error('LaTeX rendering failed:',error);
+                });
+            }
+        }
+
+        // Render SGML into one element without replacing the rest of the
+        // document. By default only the target's contents are replaced.
+        // Pass {append:true} to append instead. Question IDs and shared stores
+        // remain live across fragment renders.
+        function renderSGMLInto(target,sgmlContent,{append=false}={}){
+            const element=typeof target==='string'
+                ?document.querySelector(target)
+                :target;
+
+            if(!(element instanceof Element)){
+                throw new Error('renderSGMLInto: target element was not found.');
+            }
+
+            const rendered=prepareSGMLRender(sgmlContent,{resetState:false});
+            if(append){
+                element.insertAdjacentHTML('beforeend',rendered);
+            }else{
+                // Remove only state owned by the fragment being replaced. This
+                // prevents Check All Answers from retaining detached questions
+                // while leaving questions elsewhere in the document intact.
+                if(openInfoWrap&&(openInfoWrap===element||element.contains(openInfoWrap))){
+                    closeInfoPanel();
+                }
+
+                const oldQuestionNodes=[
+                    ...(element.matches('.sgml-qblock[id]')?[element]:[]),
+                    ...element.querySelectorAll('.sgml-qblock[id]')
+                ];
+                oldQuestionNodes.forEach(node=>delete parsedQuestions[node.id]);
+
+                const oldInfoNodes=[
+                    ...(element.matches('.sgml-info-wrap[data-info-id]')?[element]:[]),
+                    ...element.querySelectorAll('.sgml-info-wrap[data-info-id]')
+                ];
+                oldInfoNodes.forEach(node=>delete window.__sgmlInfoStore[node.dataset.infoId]);
+
+                if(window.MathJax&&window.MathJax.typesetClear){
+                    window.MathJax.typesetClear([element]);
+                }
+                element.innerHTML=rendered;
+            }
+
+            initializeSGMLTarget(element);
+            return element;
+        }
+
+        // Expose a stable API for event handlers and other runtime scripts.
+        window.renderSGMLInto=renderSGMLInto;
+
 		function renderSGML(sgmlContent){
-			parsedQuestions={};
-			sgmlLiteralStore=[];
-			sgmlEscapedStore=[];
-			sgmlLiteralCounter=0;
-			questionCounter=0;
-			sgmlSpoilerIdCounter=0;
-			infoCounter=0;
-			sgmlInfoIdCounter=0;
-			openInfoWrap=null;
-			window.__sgmlInfoStore={};
-			window.__sgmlICBBlocks=[];
+            const output=document.getElementById('sgml-output');
+            if(!output)return;
 
-			const icbResult=extractICBBlocks(sgmlContent);
-			window.__sgmlICBBlocks=icbResult.blocks;
-
-			const safeSGML=stripUnsafeSGML(icbResult.processedText);
-			let renderedDoc=renderTopLevelWithComponents(safeSGML);
-
-			renderedDoc=renderICBPlaceholders(
-				renderedDoc,
-				icbResult.blocks
-			);
-
-			const output=document.getElementById('sgml-output');
-			output.innerHTML=renderedDoc;
-
-			setupArrowConnections();
-			setupICB();
-			setupVisualComponents();
-			setupInfoPanels();
-			setupConnectComponents();
-
-			if(window.MathJax&&window.MathJax.typesetPromise){
-				window.MathJax.typesetClear&&window.MathJax.typesetClear([output]);
-				window.MathJax.typesetPromise([output]).catch(error=>{
-					console.error('LaTeX rendering failed:',error);
-				});
-			}
+            const renderedDoc=prepareSGMLRender(sgmlContent,{resetState:true});
+            if(window.MathJax&&window.MathJax.typesetClear){
+                window.MathJax.typesetClear([output]);
+            }
+            output.innerHTML=renderedDoc;
+            initializeSGMLTarget(output);
 		}
 
 		function checkChoicesAnswer(qId){

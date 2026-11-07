@@ -43,6 +43,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "th", description: "Table header cell", insert: "th" },
     { name: "td", description: "Table cell", insert: "td" },
     { name: "svg", description: "SVG graphic", insert: "svg" },
+    { name: "js", description: "Execute JavaScript and render its return value", insert: "js" },
     { name: "path", description: "SVG path", insert: "path" },
     { name: "rect", description: "SVG rectangle", insert: "rect" },
     { name: "circle", description: "SVG circle", insert: "circle" },
@@ -134,6 +135,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { trigger: "root", description: "Expandable tree", insert: "<root>\n  <bh>\n    <st bg:#e0f2fe>$0</st>\n    <bh>\n      Branch content.\n    </bh>\n  </bh>\n</root>" },
     { trigger: "line", description: "Timeline", insert: "<line>\n  <node title:\"Origin\">\n    $0\n  </node>\n  <node title:\"Development\">\n    Description.\n  </node>\n</line>" },
     { trigger: "node", description: "Timeline node", insert: "<node title:\"$0\">\n  Node content.\n</node>" },
+    { trigger: "js", description: "JavaScript IIFE; return HTML or text to render", insert: "<js>\n  return '<div>Hello from JavaScript</div>';\n</js>" },
     { trigger: "heading", description: "Markdown heading", insert: "## $0" },
     { trigger: "codeblock", description: "Fenced code block", insert: "```\n$0\n```" }
   ],

@@ -32,10 +32,10 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
   <h3>What it can contain</h3>
   <ul>
     <li>Study notes using Markdown headings, lists, links, tables, and code.</li>
-    <li>Styled text, hand-marked circles around important words, spoilers, reference links, and expandable information panels.</li>
+    <li>Styled text, badges, pencil-style X marks, hand-marked circles, spoilers, reference links, information panels, and directional arrow connectors.</li>
     <li>Multiple-choice, fill-in, enumeration, matching, and flashcard activities.</li>
     <li>Expandable tree graphs and step-by-step timelines.</li>
-    <li>HTML elements, SVG, and LaTeX math, subject to the viewer's handling of embedded content.</li>
+    <li>Markdown, HTML, SVG, LaTeX math, isolated HTML containers, and JavaScript-generated source.</li>
   </ul>
 </section>
 
@@ -86,6 +86,14 @@ This is **my study guide**.
 
 <section id="syntax">
   <h2>4. General syntax rules</h2>
+  <h3>Component attributes</h3>
+  <p>Most SGML components use a colon between an attribute name and its value. Values containing spaces should be wrapped in single or double quotes. For example, <code>title:"Extra information"</code> is one title value, while <code>col:#2563eb</code> is an unquoted color value. Separate attributes with spaces.</p>
+  <pre>&lt;info title:"Extra information" bg:#eef6ff col:#174a73&gt;
+  Panel content.
+&lt;/info&gt;
+
+&lt;arrow target:"diagram-a" head:"arrow" dir:"90" col:"#2563eb" /&gt;</pre>
+  <p>Ordinary HTML and SVG keep their normal HTML attribute syntax, such as <code>width="100%"</code>, <code>viewBox="0 0 100 100"</code>, and <code>style="..."</code>. The colon-based form belongs to the SGML components documented below.</p>
   <h3>Question-block structure</h3>
   <p>Most questionnaire blocks follow this general shape. The name changes based on the activity, but the question, list, and answer sections use matching delimiters.</p>
   <pre>&lt;Type:
@@ -185,12 +193,17 @@ A comma-containing value: `Washington, D.C.`</pre>
    |shuffle:true}
 &gt;</pre>
   <p>The parenthesized section is the deck title. Each nested bracket in the question list is one card prompt. The answers follow <code>answers:</code> inside the braces, in the same order as the prompts. Keep the number of questions equal to the number of answers.</p>
+  <p>For the question and answer lists, the parser accepts comma-separated values in one bracket pair, repeated bracket groups, or repeated groups inside an outer pair:</p>
+  <pre>&lt;flashcard(Review)[Question 1, Question 2]{answers:[Answer 1, Answer 2]}&gt;
+&lt;flashcard(Review)[[Question 1][Question 2]]{answers:[[Answer 1][Answer 2]]}&gt;</pre>
+  <p>A colon after <code>flashcard</code> is optional. Add <code>|shuffle:true</code> inside the answer braces to randomize the deck and show its shuffle control.</p>
   <h3>Question properties</h3>
   <table><thead><tr><th>Property</th><th>Values</th><th>Meaning</th></tr></thead><tbody>
     <tr><td><code>case</code></td><td><code>true</code> / <code>false</code></td><td>Whether answer checking is case-sensitive.</td></tr>
     <tr><td><code>count</code></td><td>Positive number</td><td>Number of written enumeration answers requested.</td></tr>
     <tr><td><code>inorder</code></td><td><code>true</code> / <code>false</code></td><td>Whether an enumeration answer list requires a particular entry order where applicable.</td></tr>
     <tr><td><code>type</code></td><td><code>order</code></td><td>Turns an enumeration into an ordering activity.</td></tr>
+    <tr><td><code>order</code></td><td><code>true</code></td><td>Legacy shorthand for <code>type:order</code> in an enumeration answer block.</td></tr>
     <tr><td><code>shuffle</code></td><td><code>true</code> / <code>false</code></td><td>Enables random ordering/shuffling in matching and flashcard activities.</td></tr>
     <tr><td><code>idx</code></td><td>Zero-based number</td><td>References an item by its position: <code>idx:0</code> is the first item.</td></tr>
   </tbody></table>
@@ -201,6 +214,9 @@ A comma-containing value: `Washington, D.C.`</pre>
   <h3>Styled text — <code>st</code></h3>
   <pre>&lt;st col:#ff0000 bg:#fff3cd&gt;Important text&lt;/st&gt;</pre>
   <p><code>col</code> sets the text color and <code>bg</code> sets the background. Color values can use a hexadecimal color beginning with <code>#</code>. You can nest styled text when you want a section to change color temporarily.</p>
+  <p>The component also accepts <code>fontSize</code> and <code>fontFamily</code>, which become the corresponding CSS properties. <code>display</code> can be set to <code>inline</code>, <code>inline-block</code>, or <code>block</code> to control how the styled span participates in the layout.</p>
+  <pre>&lt;st col:#1d4ed8 fontSize:20px fontFamily:monospace&gt;Larger blue text&lt;/st&gt;
+&lt;st bg:#fff3cd display:block&gt;A full-width highlighted line&lt;/st&gt;</pre>
   <pre>&lt;st col:#ff0000&gt;
   Red outer text
   &lt;st col:#008000&gt;Green inner text&lt;/st&gt;
@@ -215,19 +231,40 @@ This whole heading and paragraph range is encircled.
 $EMC$
 &lt;/encircle&gt;</pre>
   <p>Inline Markdown such as <code>**bold**</code> and <code>*italic*</code> is supported inside either kind of encircle.</p>
+  <h3>Badge — <code>badge</code></h3>
+  <pre>&lt;badge col:#1d4ed8 bg:#dbeafe&gt;Important&lt;/badge&gt;</pre>
+  <p><code>badge</code> displays a compact inline label. Use <code>col</code> for its text color and <code>bg</code> for its background color. Both attributes are optional.</p>
+  <h3>Pencil-style mark — <code>x</code></h3>
+  <pre>&lt;x col:#c62828&gt;Incorrect statement&lt;/x&gt;</pre>
+  <p><code>x</code> draws a hand-drawn pencil-style cross over its content. The <code>col</code> attribute changes the mark color; red is used when it is omitted.</p>
   <h3>Information panel — <code>info</code></h3>
   <pre>&lt;info title:"Extra information" bg:#eef6ff col:#174a73&gt;
   &lt;p&gt;Optional details appear in a panel when its information button is tapped.&lt;/p&gt;
 &lt;/info&gt;</pre>
-  <p>The viewer inserts an information button. Tapping it opens a panel. <code>title</code> sets the heading, while <code>bg</code> and <code>col</code> customize its background and text color.</p>
+  <p>The viewer inserts an information button. Tapping it opens a panel. <code>title</code> sets the panel heading, while <code>bg</code> and <code>col</code> customize its background and text color. Its content is rendered separately inside the panel, so it does not become ordinary text in the surrounding document.</p>
+  <p>The panel content supports Markdown and ordinary HTML, questionnaire blocks, and the embedded components handled by the panel renderer, including <code>root</code>, <code>line</code>, <code>encircle</code>, and <code>spoiler</code>. Inline components such as <code>st</code>, <code>badge</code>, <code>x</code>, <code>ref</code>, and <code>arrow</code> can also be used there. A nested <code>info</code> tag does not currently create a second information panel.</p>
   <h3>Spoiler — <code>spoiler</code></h3>
-  <pre>&lt;spoiler title:"Reveal answer"&gt;The answer is 42.&lt;/spoiler&gt;</pre>
-  <p>The content is hidden behind an overlay until the reader reveals it.</p>
+  <pre>&lt;spoiler&gt;The answer is 42.&lt;/spoiler&gt;</pre>
+  <p>The content is hidden behind an overlay until the reader reveals it. The component behaves inline, so text before and after it remains in the same sentence. The content can include supported inline formatting.</p>
   <h3>References — <code>ref</code></h3>
   <pre>&lt;ref id:"topic-a"&gt;Jump to the topic&lt;/ref&gt;
 
 &lt;ref id:"topic-a" /&gt;</pre>
   <p>The first form creates a link to the matching reference target; the self-closing form can mark a target location. Reuse the same identifier in the link and target.</p>
+  <h3>Directional connectors — <code>arrow</code></h3>
+  <pre>&lt;arrow target:"diagram-a" head:"arrow" dir:"90" col:"#2563eb" /&gt; Source note
+
+...content between the markers...
+
+&lt;arrow target:"diagram-a" head:"dot" dir:"270" col:"#2563eb" /&gt; Destination note</pre>
+  <p>An arrow marker is a self-closing inline tag. Markers with the same <code>target</code> value are grouped and connected. At least two markers with the same target are needed to draw a connector. When a group has more than two markers, the viewer links them in nearest-neighbor order.</p>
+  <table><thead><tr><th>Attribute</th><th>Purpose</th><th>Values</th></tr></thead><tbody>
+    <tr><td><code>target</code></td><td>Groups the markers that should be connected. Reuse the same value for the same connector group.</td><td>Any shared identifier, such as <code>diagram-a</code>.</td></tr>
+    <tr><td><code>head</code></td><td>Draws a marker at that endpoint.</td><td><code>arrow</code>, <code>dot</code>, or omit it for no head.</td></tr>
+    <tr><td><code>dir</code></td><td>Sets the endpoint direction and guides the connector's approach.</td><td>An angle in degrees. Common directions: <code>0</code> = up, <code>90</code> = right, <code>180</code> = down, <code>270</code> = left. Other numeric angles are accepted too.</td></tr>
+    <tr><td><code>col</code></td><td>Sets the connector and endpoint color.</td><td>A CSS color, commonly a hexadecimal color.</td></tr>
+  </tbody></table>
+  <p><code>dir</code> affects more than the arrowhead. The marker is offset in that direction, and the connector curves to approach the endpoint from the opposite side. If the direct path conflicts with the requested direction, the connector bends around the line instead of running through the arrowhead.</p>
 </section>
 
 <section id="visuals">
@@ -279,7 +316,7 @@ $EMC$
 <section id="html">
   <h2>8. Markdown, HTML, SVG, and LaTeX</h2>
   <h3>Markdown support</h3>
-  <p>Ordinary content is rendered through Markdown. Common forms include headings, emphasis, links, lists, tables, blockquotes, and fenced code.</p>
+  <p>Ordinary content is rendered through GitHub-flavored Markdown. Common forms include headings, emphasis, links, lists, tables, blockquotes, fenced code, strikethrough, task-list syntax, and automatic line breaks.</p>
   <pre># Main heading
 ## Section heading
 
@@ -298,6 +335,14 @@ $EMC$
   &lt;p&gt;A &lt;strong&gt;queue&lt;/strong&gt; follows FIFO order.&lt;/p&gt;
 &lt;/div&gt;</pre>
   <p>The viewer removes certain embedded browsing and plugin elements, including ordinary <code>iframe</code>, <code>object</code>, and <code>embed</code> tags. Do not put private information or untrusted code in a study guide.</p>
+  <h3>JavaScript source block — <code>js</code></h3>
+  <p>A <code>&lt;js&gt;</code> block executes JavaScript before the SGML document is parsed. The value returned by the block is converted to text and inserted at that position, then processed as ordinary SGML, Markdown, HTML, and questionnaire syntax.</p>
+  <pre>&lt;js&gt;
+  const label = "Generated by JavaScript";
+  return `&lt;badge col:#1d4ed8 bg:#dbeafe&gt;${label}&lt;/badge&gt;`;
+&lt;/js&gt;</pre>
+  <p>Use <code>return</code> to provide the content. Returning <code>undefined</code> or <code>null</code> inserts nothing. A returned string can contain other SGML markup, as in the example above. JavaScript blocks are expanded before the rest of the document is rendered.</p>
+  <div class="note warning"><strong>Trust warning:</strong> JavaScript in <code>&lt;js&gt;</code> executes in the viewer page context. Only render SGML files containing code from sources you trust. The block is not a sandbox for untrusted JavaScript.</div>
   <h3>Isolated HTML block (ICB)</h3>
   <p>A line beginning with three tildes followed by a name starts an isolated HTML container. A line containing only three tildes closes it. This is intended for standalone HTML/SVG examples that need their own scrollable, resizable area.</p>
   <pre>~~~Mini Example
@@ -306,7 +351,7 @@ $EMC$
   &lt;p&gt;This HTML is displayed in its own area.&lt;/p&gt;
 &lt;/div&gt;
 ~~~</pre>
-  <p>The content runs in a sandboxed iframe separated from the viewer page. Use ICB only when a separate HTML environment is needed; ordinary text and components do not need it.</p>
+  <p>The content runs in a sandboxed iframe separated from the viewer page. Scripts inside the ICB run in that iframe, not in the viewer page. The container starts at a fixed height and can be resized by dragging its bottom handle. Use ICB only when a separate HTML environment is needed; ordinary text and components do not need it.</p>
   <h3>LaTeX math</h3>
   <p>MathJax renders inline math with one dollar sign on each side, or display math with double dollar signs.</p>
   <pre>Inline: $a^2 + b^2 = c^2$
@@ -322,7 +367,8 @@ $$</pre>
   <p>The editor uses a real text area for editing. Native Android/mobile selection handles, long-press selection, Select All, copy, cut, and paste come from the browser. Syntax colors and line numbers are display overlays; they do not replace text selection.</p>
   <ul>
     <li>Type the beginning of a built-in syntax, such as <code>&lt;Choi</code>, to see the <strong>Choices</strong> suggestion. Tapping it inserts the full question structure and places the cursor at an editable location.</li>
-    <li>Typing <code>&lt;enci</code> suggests the full <code>encircle</code> template.</li>
+    <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, and question blocks.</li>
+    <li>For <code>st</code>, the editor can suggest <code>display</code> values such as <code>inline</code>, <code>inline-block</code>, and <code>block</code>. For <code>arrow</code>, it can suggest the common direction values <code>0</code>, <code>90</code>, <code>180</code>, and <code>270</code>.</li>
     <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested. Color suggestions use hexadecimal values.</li>
     <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
     <li>Use <strong>Find</strong>, <strong>Replace</strong>, <strong>Go to line</strong>, and <strong>Suggest</strong> for larger documents. The editor also supports indentation, bracket pairing, and syntax-aware templates.</li>
@@ -346,14 +392,18 @@ $$</pre>
     <tr><td><code>&lt;Enumeration: (...) [...] {...}&gt;</code></td><td>Written list or ordering task.</td></tr>
     <tr><td><code>&lt;connect: (...) [[...][...]] {...}&gt;</code></td><td>Match two columns.</td></tr>
     <tr><td><code>&lt;flashcard (...) [[...]] {answers:[...]}&gt;</code></td><td>Question/answer card deck.</td></tr>
-    <tr><td><code>&lt;st bg:#hex col:#hex&gt;...&lt;/st&gt;</code></td><td>Styled inline text.</td></tr>
+    <tr><td><code>&lt;st col:#hex bg:#hex display:block&gt;...&lt;/st&gt;</code></td><td>Styled text with optional color, background, font, and display settings.</td></tr>
+    <tr><td><code>&lt;badge col:#hex bg:#hex&gt;...&lt;/badge&gt;</code></td><td>Compact inline label.</td></tr>
+    <tr><td><code>&lt;x col:#hex&gt;...&lt;/x&gt;</code></td><td>Pencil-style cross mark over content.</td></tr>
     <tr><td><code>&lt;encircle col:#hex&gt;...&lt;/encircle&gt;</code></td><td>Draw a hand-marked loop around content.</td></tr>
-    <tr><td><code>&lt;info title:"..."&gt;...&lt;/info&gt;</code></td><td>Expandable information panel.</td></tr>
-    <tr><td><code>&lt;spoiler title:"..."&gt;...&lt;/spoiler&gt;</code></td><td>Hidden inline text revealed on tap.</td></tr>
-    <tr><td><code>&lt;ref id:"..."&gt;...&lt;/ref&gt;</code></td><td>Reference link.</td></tr>
+    <tr><td><code>&lt;info title:"..." bg:#hex col:#hex&gt;...&lt;/info&gt;</code></td><td>Expandable information panel.</td></tr>
+    <tr><td><code>&lt;spoiler&gt;...&lt;/spoiler&gt;</code></td><td>Hidden inline text revealed on tap.</td></tr>
+    <tr><td><code>&lt;ref id:"..."&gt;...&lt;/ref&gt;</code> / <code>&lt;ref id:"..." /&gt;</code></td><td>Reference link / matching reference target.</td></tr>
+    <tr><td><code>&lt;arrow target:"..." head:"arrow" dir:"90" /&gt;</code></td><td>Directional connector marker; matching target values are connected.</td></tr>
     <tr><td><code>&lt;root&gt;...&lt;bh&gt;...&lt;/bh&gt;&lt;/root&gt;</code></td><td>Expandable tree.</td></tr>
     <tr><td><code>&lt;line&gt;...&lt;node title:"..."&gt;...&lt;/node&gt;&lt;/line&gt;</code></td><td>Step-by-step timeline.</td></tr>
-    <tr><td><code>~~~Name ... ~~~</code></td><td>Isolated HTML container.</td></tr>
+    <tr><td><code>&lt;js&gt;...return value...&lt;/js&gt;</code></td><td>Execute JavaScript and insert its returned SGML/HTML/text.</td></tr>
+    <tr><td><code>~~~Name ... ~~~</code></td><td>Isolated HTML container (ICB).</td></tr>
     <tr><td><code>$...$</code> / <code>$$...$$</code></td><td>Inline / display math.</td></tr>
   </tbody></table>
 </section>

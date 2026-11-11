@@ -150,7 +150,7 @@ A comma-containing value: `Washington, D.C.`</pre>
   []
   {Central Processing Unit | case:false}
 &gt;</pre>
-  <p>The learner types an answer. The square brackets remain in the syntax even though they are empty. Multiple accepted answers can be written as a comma-separated list. Use <code>case:true</code> to require matching uppercase and lowercase letters.</p>
+  <p>The learner types an answer. The square brackets remain in the syntax even though they are empty. Multiple accepted answers can be written as a comma-separated list. Use <code>case:true</code> to require matching uppercase and lowercase letters. Use <code>ignoreWhitespace:true</code> to ignore all spaces, tabs, and line breaks while checking an answer; for example, <code>NewYork</code> matches <code>New York</code>. The default is <code>ignoreWhitespace:false</code>.</p>
   <pre>&lt;Fillin:
   (What is 2 + 2?)
   []
@@ -163,7 +163,7 @@ A comma-containing value: `Washington, D.C.`</pre>
   []
   {Red, Green, Blue | count:3 | case:false | inorder:false}
 &gt;</pre>
-  <p><code>count:3</code> asks for three entries. <code>case:false</code> makes answer checking case-insensitive. <code>inorder:false</code> allows the accepted answers in any order where the checker supports ordering behavior.</p>
+  <p><code>count:3</code> asks for three entries. <code>case:false</code> makes answer checking case-insensitive. <code>inorder:false</code> allows the accepted answers in any order where the checker supports ordering behavior. <code>ignoreWhitespace:true</code> also makes answer comparison independent of spaces, tabs, and line breaks.</p>
   <p>Enumeration can also be an item-ordering task:</p>
   <pre>&lt;Enumeration:
   (Arrange these values in ascending order.)

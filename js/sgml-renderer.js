@@ -1223,6 +1223,7 @@ table{max-width:none}
 			const result={
 				props:{
 					case:false,
+					ignoreWhitespace:false,
 					inorder:false,
 					count:null,
 					type:null
@@ -1240,6 +1241,7 @@ table{max-width:none}
 					const val=propMatch[2].trim().toLowerCase();
 
 					if(key==='case')result.props.case=val==='true';
+					else if(key==='ignorewhitespace')result.props.ignoreWhitespace=val==='true';
 					else if(key==='inorder')result.props.inorder=val==='true';
 					else if(key==='count')result.props.count=parseInt(val,10);
 					else if(key==='type')result.props.type=val;
@@ -1263,6 +1265,16 @@ table{max-width:none}
 			}
 
 			return result;
+		}
+
+		function questionAnswersMatch(userAnswer,correctAnswer,props={}){
+			const normalize=value=>{
+				let text=String(value===undefined||value===null?'':value);
+				if(props.ignoreWhitespace)text=text.replace(/\s+/g,'');
+				if(!props.case)text=text.toLowerCase();
+				return text;
+			};
+			return normalize(userAnswer)===normalize(correctAnswer);
 		}
 
 		function renderQuestionText(source){
@@ -3104,10 +3116,7 @@ table{max-width:none}
 
 			const isCorrect=q.correctAnswers.some(cRaw=>{
 				const cTrueText=extractTrueText(cRaw);
-
-				return q.props.case
-					?userTrueText===cTrueText
-					:userTrueText.toLowerCase()===cTrueText.toLowerCase();
+				return questionAnswersMatch(userTrueText,cTrueText,q.props);
 			});
 
 			setFeedback(fb,isCorrect);
@@ -3121,10 +3130,7 @@ table{max-width:none}
 
 			const isCorrect=q.correctAnswers.some(cRaw=>{
 				const cTrueText=extractTrueText(cRaw);
-
-				return q.props.case
-					?userTrueText===cTrueText
-					:userTrueText.toLowerCase()===cTrueText.toLowerCase();
+				return questionAnswersMatch(userTrueText,cTrueText,q.props);
 			});
 
 			setFeedback(fb,isCorrect);
@@ -3155,9 +3161,7 @@ table{max-width:none}
 					const u=userTrueList[i];
 					const c=correctTrueList[i];
 
-					const match=q.props.case
-						?u===c
-						:u.toLowerCase()===c.toLowerCase();
+					const match=questionAnswersMatch(u,c,q.props);
 
 					if(!match){
 						isCorrect=false;
@@ -3193,9 +3197,7 @@ table{max-width:none}
 					const u=userTrueTexts[i]||'';
 					const c=correctTrueTexts[i]||'';
 
-					const match=q.props.case
-						?u===c
-						:u.toLowerCase()===c.toLowerCase();
+					const match=questionAnswersMatch(u,c,q.props);
 
 					if(!match){
 						isCorrect=false;
@@ -3207,9 +3209,7 @@ table{max-width:none}
 
 				for(const u of userTrueTexts){
 					const matchIdx=availableCorrect.findIndex(
-						c=>q.props.case
-							?u===c
-							:u.toLowerCase()===c.toLowerCase()
+						c=>questionAnswersMatch(u,c,q.props)
 					);
 
 					if(matchIdx!==-1)availableCorrect.splice(matchIdx,1);

@@ -85,7 +85,107 @@ const Editor = (() => {
   };
   const closePop = () => { popOpen = false; lastSuggestionContext = ""; if (popupScrollTimer) clearTimeout(popupScrollTimer); popupScrollTimer = 0; pop.style.display = "none"; pop.innerHTML = ""; };
 
-  function tokenHtml(text) {
+  const JS_KEYWORDS = new Set((
+    "as async await break case catch class const continue debugger default delete do else export extends " +
+    "finally for from function get if import in instanceof let new of return set static super switch " +
+    "this throw try typeof var void while with yield enum implements interface package private " +
+    "protected public nullish"
+  ).split(/\s+/));
+  const JS_LITERALS = new Set(["true", "false", "null", "undefined", "NaN", "Infinity"]);
+  const JS_BUILTINS = new Set((
+    "Array ArrayBuffer BigInt Boolean Date Error EvalError Float32Array Float64Array Function " +
+    "Int8Array Int16Array Int32Array Map Math Number Object Promise Proxy RangeError ReferenceError " +
+    "RegExp Set String Symbol SyntaxError TypeError Uint8Array Uint16Array Uint32Array WeakMap " +
+    "WeakSet JSON Reflect Intl console window document globalThis undefined parseInt parseFloat " +
+    "isNaN isFinite alert confirm prompt setTimeout clearTimeout setInterval clearInterval " +
+    "fetch URL URLSearchParams Blob File FormData Headers Request Response TextEncoder TextDecoder " +
+    "performance navigator localStorage sessionStorage location history HTMLElement Node Event CustomEvent"
+  ).split(/\s+/));
+  const JS_TOKEN_LEXICAL = /\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|(?:\b0[xX][\da-fA-F]+\b|\b\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?n?|[$A-Z_a-z][$\w]*|===|!==|=>|==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|&&|\|\||\?\?|\?\.|\*\*|[{}()[\].,;:?~+\-*\/%<>=!&|^]/g;
+
+  function jsTokenHtml(text) {
+    const spans = [];
+    JS_TOKEN_LEXICAL.lastIndex = 0;
+    let match, pendingBinding = "", previousToken = "";
+    while ((match = JS_TOKEN_LEXICAL.exec(text))) {
+      const raw = match[0];
+      let cls = "js-punct";
+      if (raw.startsWith("//") || raw.startsWith("/*")) {
+        cls = "com";
+      } else if (raw[0] === "'" || raw[0] === '"' || raw[0] === '`') {
+        cls = "str";
+      } else if (/^(?:\d|\.\d)/.test(raw)) {
+        cls = "num";
+      } else if (/^[$A-Z_a-z][$\w]*$/.test(raw)) {
+        const next = text.slice(JS_TOKEN_LEXICAL.lastIndex).match(/^\s*(.)/);
+        const nextChar = next ? next[1] : "";
+        if (JS_KEYWORDS.has(raw)) {
+          cls = "js-keyword";
+          if (raw === "const" || raw === "let" || raw === "var") pendingBinding = "js-variable-decl";
+          else if (raw === "function") pendingBinding = "js-function";
+          else if (raw === "class") pendingBinding = "js-class";
+        } else if (JS_LITERALS.has(raw)) {
+          cls = "js-literal";
+        } else if (pendingBinding) {
+          cls = pendingBinding;
+          pendingBinding = "";
+        } else if (nextChar === ":") {
+          cls = "js-key";
+        } else if (nextChar === "(") {
+          cls = "js-function";
+        } else if (previousToken === "." || previousToken === "?.") {
+          cls = "js-property";
+        } else if (JS_BUILTINS.has(raw)) {
+          cls = "js-builtin";
+        } else {
+          cls = "js-variable";
+        }
+      } else if (/^(?:===|!==|=>|==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|&&|\|\||\?\?|\?\.|\*\*|[+\-*\/%<>=!&|^])$/.test(raw)) {
+        cls = "js-operator";
+      }
+      spans.push({ start: match.index, end: match.index + raw.length, raw, cls });
+      if (!/^\s+$/.test(raw)) previousToken = raw;
+    }
+
+    let out = "", offset = 0;
+    for (const span of spans) {
+      if (span.start < offset) continue;
+      out += esc(text.slice(offset, span.start));
+      out += '<span class="' + span.cls + '">' + esc(span.raw) + '</span>';
+      offset = span.end;
+    }
+    return out + esc(text.slice(offset));
+  }
+
+  // Find </js> without mistaking the same text inside a JavaScript string or
+  // comment for the SGML closing tag. Template strings are treated as strings.
+  function findJsClose(text, start) {
+    let quote = "", escaped = false, lineComment = false, blockComment = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i], next = text[i + 1] || "";
+      if (lineComment) {
+        if (ch === "\n") lineComment = false;
+        continue;
+      }
+      if (blockComment) {
+        if (ch === "*" && next === "/") { blockComment = false; i++; }
+        continue;
+      }
+      if (quote) {
+        if (escaped) { escaped = false; continue; }
+        if (ch === "\\") { escaped = true; continue; }
+        if (ch === quote) quote = "";
+        continue;
+      }
+      if (ch === "/" && next === "/") { lineComment = true; i++; continue; }
+      if (ch === "/" && next === "*") { blockComment = true; i++; continue; }
+      if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
+      if (ch === "<" && /^<\/js\s*>/i.test(text.slice(i))) return i;
+    }
+    return -1;
+  }
+
+  function sgmlTokenHtml(text) {
     const spans = [];
     TOKEN_LEXICAL.lastIndex = 0;
     let match;
@@ -93,7 +193,7 @@ const Editor = (() => {
       const raw = match[0];
       let cls = "";
       if (raw.startsWith("<!--") || raw.startsWith("```") || raw.startsWith("~~~")) cls = "com";
-      else if (raw[0] === '"' || raw[0] === "'" || raw[0] === "`") cls = "str";
+      else if (raw[0] === '"' || raw[0] === "'" || raw[0] === '`') cls = "str";
       else if (raw[0] === "<") {
         const nameMatch = /<\s*\/?\s*([A-Za-z][\w:-]*)/.exec(raw);
         const name = nameMatch ? nameMatch[1] : "";
@@ -119,8 +219,30 @@ const Editor = (() => {
       }
       offset = span.end;
     }
-    out += esc(text.slice(offset));
-    return out;
+    return out + esc(text.slice(offset));
+  }
+
+  function tokenHtml(text) {
+    const openTag = /<js\s*>/ig;
+    let out = "", cursor = 0, opening;
+    while ((opening = openTag.exec(text))) {
+      out += sgmlTokenHtml(text.slice(cursor, opening.index));
+      const bodyStart = openTag.lastIndex;
+      out += sgmlTokenHtml(text.slice(opening.index, bodyStart));
+      const closeStart = findJsClose(text, bodyStart);
+      if (closeStart < 0) {
+        out += jsTokenHtml(text.slice(bodyStart));
+        cursor = text.length;
+        break;
+      }
+      out += jsTokenHtml(text.slice(bodyStart, closeStart));
+      const closeEndMatch = /^<\/js\s*>/i.exec(text.slice(closeStart));
+      const closeEnd = closeStart + (closeEndMatch ? closeEndMatch[0].length : 0);
+      out += sgmlTokenHtml(text.slice(closeStart, closeEnd));
+      cursor = closeEnd;
+      openTag.lastIndex = closeEnd;
+    }
+    return out + (cursor < text.length ? sgmlTokenHtml(text.slice(cursor)) : "");
   }
 
   function renderView() {

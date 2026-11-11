@@ -102,9 +102,9 @@ window.SGML_EDITOR_LANGUAGE = {
     spoiler: ["title"],
     node: ["title", "id"],
     root: ["title"],
-    Choices: ["count", "shuffle"],
-    Fillin: ["case"],
-    Enumeration: ["count", "case", "inorder", "type"],
+    Choices: ["count", "shuffle", "case", "ignoreWhitespace"],
+    Fillin: ["case", "ignoreWhitespace"],
+    Enumeration: ["count", "case", "inorder", "type", "ignoreWhitespace"],
     connect: ["shuffle"],
     flashcard: ["title", "shuffle"],
     svg: ["width", "height", "viewBox", "xmlns", "role", "aria-labelledby"],
@@ -162,16 +162,19 @@ window.SGML_EDITOR_LANGUAGE = {
   contextSuggestionSets: {
     questionParams: {
       choices: [
-        { name: "case", insert: "case:", description: "Case-sensitive answer comparison", kind: "param" }
+        { name: "case", insert: "case:", description: "Case-sensitive answer comparison", kind: "param" },
+        { name: "ignoreWhitespace", insert: "ignoreWhitespace:", description: "Ignore spaces, tabs, and line breaks when checking answers", kind: "param" }
       ],
       fillin: [
-        { name: "case", insert: "case:", description: "Case-sensitive answer comparison", kind: "param" }
+        { name: "case", insert: "case:", description: "Case-sensitive answer comparison", kind: "param" },
+        { name: "ignoreWhitespace", insert: "ignoreWhitespace:", description: "Ignore spaces, tabs, and line breaks when checking answers", kind: "param" }
       ],
       enumeration: [
         { name: "count", insert: "count:", description: "Number of answers required", kind: "param" },
         { name: "case", insert: "case:", description: "Case-sensitive answer comparison", kind: "param" },
         { name: "inorder", insert: "inorder:", description: "Require answers in the listed order", kind: "param" },
-        { name: "type", insert: "type:", description: "Enumeration mode; use order for ordering tasks", kind: "param" }
+        { name: "type", insert: "type:", description: "Enumeration mode; use order for ordering tasks", kind: "param" },
+        { name: "ignoreWhitespace", insert: "ignoreWhitespace:", description: "Ignore spaces, tabs, and line breaks when checking answers", kind: "param" }
       ],
       connect: [
         { name: "shuffle", insert: "shuffle:", description: "Shuffle both matching columns", kind: "param" }
@@ -239,6 +242,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { pattern: "<connect\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*[A-Za-z_]*$", items: "questionParams.connect", flags: "i" },
     { pattern: "<flashcard\\s*:?\\s*(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*[A-Za-z_]*$", items: "questionParams.flashcard", flags: "i" },
     { pattern: "<(?:Choices|Fillin|Enumeration)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*case\\s*:\\s*[A-Za-z]*$", items: "values.booleans", flags: "i" },
+    { pattern: "<(?:Choices|Fillin|Enumeration)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*ignoreWhitespace\\s*:\\s*[A-Za-z]*$", items: "values.booleans", flags: "i" },
     { pattern: "<Enumeration\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*inorder\\s*:\\s*[A-Za-z]*$", items: "values.booleans", flags: "i" },
     { pattern: "<(?:connect|flashcard)\\s*:?[\\s]*(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*shuffle\\s*:\\s*[A-Za-z]*$", items: "values.booleans", flags: "i" },
     { pattern: "<Enumeration\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\|\\s*type\\s*:\\s*[A-Za-z]*$", items: "values.enumerationTypes", flags: "i" },

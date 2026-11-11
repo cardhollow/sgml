@@ -221,6 +221,12 @@ Multiple accepted answers can be separated by commas.
 
 <Fillin:(What is 2 + 2?)[]{4,Four}>
 
+Whitespace can be ignored during answer checking by adding \`ignoreWhitespace:true\`:
+
+<Fillin:(Enter the city name without worrying about spaces)[]{New York|case:false|ignoreWhitespace:true}>
+
+Both \`NewYork\` and \`New York\` are accepted.
+
 Both \`4\` and \`Four\` are accepted.
 
 A value containing a comma can be wrapped:

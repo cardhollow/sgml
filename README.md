@@ -70,6 +70,19 @@ and editor completions are available after the app has been cached for offline
 use. To add an icon, add its SVG body to `js/sgml-icons.js`; it is registered
 with default styles and an editor completion automatically.
 
+## Questionnaire answer whitespace matching
+
+`Choices`, `Fillin`, and written or ordering `Enumeration` questions accept
+`ignoreWhitespace:true` in the answer-properties section. When enabled, answer
+checking removes all whitespace characters (including spaces, tabs, and line
+breaks) before comparing text. For example, `NewYork` matches `New York`. The
+default is `ignoreWhitespace:false`, which preserves the existing comparison
+behavior. The existing `case` option still controls whether letter case matters:
+
+```sgml
+<Fillin:(Enter the city name)[]{New York|case:false|ignoreWhitespace:true}>
+```
+
 ## Executable JavaScript blocks
 
 `<js>...</js>` executes its contents as raw JavaScript inside a fresh immediately invoked function expression (IIFE). Before the document enters the SGML renderer, the entire block is replaced in the original source by the string form of its returned value. That replacement is not rendered separately or specially: it becomes ordinary source text at the same position and passes through every normal document-processing stage exactly once, including ICB extraction, unsafe-element processing, custom components, questionnaire parsing, Markdown, inline SGML, and HTML restoration. For example, returning `<Choices:...>` creates the same choice component as writing that syntax directly in the document. Use an explicit `return` for visible output. A `null` or `undefined` return inserts an empty string.
@@ -164,3 +177,8 @@ The viewer displays a toast notification while it is working and reports the res
 ## Styled text display modes
 
 `<st bg:"#fff3cd" display:"inline-block">...</st>` keeps a styled phrase in the text flow as one connected background box. `display:"block"` starts a full-width block. Quoted style values can contain spaces.
+
+
+### JavaScript syntax coloring in the editor
+
+Code inside `<js>...</js>` is highlighted with JavaScript-aware colors for keywords, declared variables, identifiers, function names and calls, object keys, properties, built-ins, literals, operators, strings, numbers, and comments. SGML outside `<js>` blocks continues using the normal SGML highlighter.

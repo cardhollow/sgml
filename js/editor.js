@@ -421,7 +421,14 @@ const Editor = (() => {
       } else if (!/["'`][^"'`]*$/.test(afterOpen.slice(tagNameMatch ? tagNameMatch[0].length : 0))) {
         const allowed = (LANG.tagAttributes || {})[tagName] || (LANG.tagAttributes || {})[String(tagName).toLowerCase()];
         const attrDefs = allowed ? allowed.map(name => ATTR_MAP.get(String(name).toLowerCase())).filter(Boolean) : ATTRS;
-        candidates = attrDefs.map(attr => asCandidate(attr, { k: "attr" }));
+        const xmlAttributeTags = new Set((LANG.xmlAttributeTags || []).map(name => String(name).toLowerCase()));
+        candidates = attrDefs.map(attr => {
+          const candidate = asCandidate(attr, { k: "attr" });
+          if (xmlAttributeTags.has(String(tagName).toLowerCase())) {
+            candidate.insert = String(attr.name) + "=";
+          }
+          return candidate;
+        });
         const emptyParameter = /(?:^|\s)([A-Za-z_][\w-]*)\s*:\s*$/.exec(linePrefix);
         if (emptyParameter && ["case", "shuffle", "inorder", "controls", "autoplay", "loop", "muted", "required", "disabled"].includes(emptyParameter[1].toLowerCase())) {
           const booleans = (LANG.values || {}).booleans || [];

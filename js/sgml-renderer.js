@@ -1922,6 +1922,144 @@ table{max-width:none}
 					<div class="sgml-flashcard-summary" style="display:none"></div>\
 				</div>`;
 		}
+		// XML-style attributes are used by the newer notebook components. The
+		// parser also accepts the project's older name:"value" attribute style.
+		function parseNotebookTagAttributes(openTag){
+			const attrs={};
+			const source=String(openTag||'');
+			const attributePattern=/([a-z][a-z0-9_-]*)\s*(?:=|:)\s*(?:"([^"]*)"|'([^']*)'|\[([^\]]*)\]|([^\s/>]+))/gi;
+			let match;
+			while((match=attributePattern.exec(source))!==null){
+				const key=match[1].toLowerCase();
+				let value=match[2]??match[3]??(match[4]!==undefined?match[4].split(',').map(item=>item.trim()):match[5])??'';
+				if(typeof value==='string'&&/^true$/i.test(value))value=true;
+				else if(typeof value==='string'&&/^false$/i.test(value))value=false;
+				attrs[key]=value;
+			}
+			return attrs;
+		}
+
+		function findNotebookChildContent(source,tag){
+			const found=findTagStart(String(source||''),tag,0);
+			if(!found)return null;
+			const matched=findMatchingTag(source,tag,found.end,true);
+			return matched?matched.content:null;
+		}
+
+		function buildStructuredFlashcardsHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const cards=extractChildren(component.content,'card',true).children;
+			if(!cards.length){
+				return '<div class="sgml-notebook-error"><strong>Flashcard deck is empty.</strong> Add one or more &lt;card&gt; elements.</div>';
+			}
+			const questions=[];
+			const answers=[];
+			const invalid=[];
+			cards.forEach((card,index)=>{
+				const cardAttrs=parseNotebookTagAttributes(card.open);
+				const front=findNotebookChildContent(card.content,'front');
+				const back=findNotebookChildContent(card.content,'back');
+				const frontValue=front===null?cardAttrs.front:front;
+				const backValue=back===null?cardAttrs.back:back;
+				if(frontValue===undefined||backValue===undefined){
+					invalid.push(index+1);
+					return;
+				}
+				questions.push({text:String(frontValue),index});
+				answers.push({text:String(backValue),index});
+			});
+			if(invalid.length){
+				return `<div class="sgml-notebook-error"><strong>Flashcard deck could not be rendered.</strong> Card ${invalid.join(', ')} needs both &lt;front&gt; and &lt;back&gt; content.</div>`;
+			}
+			const shuffle=attrs.shuffle===true||String(attrs.shuffle||'').toLowerCase()==='true';
+			return buildFlashcardHTML({
+				id:'sgmlq'+questionCounter++,
+				title:attrs.title||'Flashcards',
+				questions,
+				answers,
+				attrs:{shuffle}
+			});
+		}
+
+		function buildNotebookBoxHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const presets={
+				note:{label:'NOTE',icon:'note',color:'#475569',bg:'#f8fafc'},
+				definition:{label:'DEFINITION',icon:'book-open',color:'#2563eb',bg:'#eff6ff'},
+				key:{label:'KEY IDEA',icon:'key',color:'#2563eb',bg:'#eff6ff'},
+				idea:{label:'IDEA',icon:'idea',color:'#7c3aed',bg:'#f5f3ff'},
+				example:{label:'EXAMPLE',icon:'check-circle',color:'#15803d',bg:'#f0fdf4'},
+				warning:{label:'WARNING',icon:'warning',color:'#b45309',bg:'#fffbeb'},
+				remember:{label:'REMEMBER',icon:'bookmark',color:'#a21caf',bg:'#fdf4ff'},
+				formula:{label:'FORMULA',icon:'calculator',color:'#c2410c',bg:'#fff7ed'}
+			};
+			const requested=String(attrs.type||attrs.kind||'note').toLowerCase();
+			const kind=Object.prototype.hasOwnProperty.call(presets,requested)?requested:'note';
+			const preset=presets[kind];
+			const accent=sanitizeSGMLColor(attrs.color||attrs.col)||preset.color;
+			const background=sanitizeSGMLColor(attrs.bg)||preset.bg;
+			const title=attrs.title||preset.label;
+			const requestedIcon=String(attrs.icon||preset.icon).toLowerCase();
+			const iconName=window.SGMLICON&&window.SGMLICON[requestedIcon]?requestedIcon:preset.icon;
+			const icon=typeof window.renderSGMLIcon==='function'
+				?window.renderSGMLIcon(iconName,`scale:[20] color:"${accent}"`)
+				:'';
+			const content=renderEmbeddedSGML(component.content||'');
+			return `<aside class="sgml-notebox sgml-notebox-${kind}" style="--sgml-notebox-accent:${escapeHTMLAttribute(accent)};--sgml-notebox-bg:${escapeHTMLAttribute(background)}">`+
+				`<div class="sgml-notebox-heading">${icon?`<span class="sgml-notebox-icon">${icon}</span>`:''}<span>${renderMarkdown(String(title),{inline:true})}</span></div>`+
+				`<div class="sgml-notebox-content">${content}</div></aside>`;
+		}
+
+		function buildNotebookChecklistHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const items=extractChildren(component.content,'item',true).children;
+			const title=attrs.title||'Checklist';
+			const list=items.map((item,index)=>{
+				const itemAttrs=parseNotebookTagAttributes(item.open);
+				const checked=itemAttrs.checked===true||String(itemAttrs.checked||'').toLowerCase()==='true';
+				const id=`sgml-notebook-check-${questionCounter++}`;
+				const content=renderEmbeddedSGML(item.content||'').replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/i,'$1');
+				return `<label class="sgml-notebook-check-item" for="${id}"><input id="${id}" type="checkbox"${checked?' checked':''}><div class="sgml-notebook-check-text">${content||`Task ${index+1}`}</div></label>`;
+			}).join('');
+			return `<section class="sgml-notebook-checklist"><h3>${renderMarkdown(String(title),{inline:true})}</h3><div class="sgml-notebook-checklist-items">${list||'<p class="sgml-notebook-empty">Add &lt;item&gt; entries to create checklist tasks.</p>'}</div></section>`;
+		}
+
+		function buildNotebookGlossaryHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const terms=extractChildren(component.content,'term',true).children;
+			const title=attrs.title||'Key Terms';
+			const rows=terms.map((term,index)=>{
+				const termAttrs=parseNotebookTagAttributes(term.open);
+				const name=termAttrs.name||termAttrs.title||`Term ${index+1}`;
+				const definition=renderEmbeddedSGML(term.content||'');
+				return `<div class="sgml-notebook-glossary-entry"><dt>${renderMarkdown(String(name),{inline:true})}</dt><dd>${definition}</dd></div>`;
+			}).join('');
+			return `<section class="sgml-notebook-glossary"><h3>${renderMarkdown(String(title),{inline:true})}</h3><dl>${rows||'<div class="sgml-notebook-empty">Add &lt;term name="..."&gt; entries to build the glossary.</div>'}</dl></section>`;
+		}
+
+		function buildQuickReviewHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const facts=extractChildren(component.content,'fact',true).children;
+			const title=attrs.title||'Quick Review';
+			const cards=facts.map((fact,index)=>{
+				const factAttrs=parseNotebookTagAttributes(fact.open);
+				const label=factAttrs.label||factAttrs.title||`Review ${index+1}`;
+				return `<div class="sgml-quickreview-fact"><div class="sgml-quickreview-label">${renderMarkdown(String(label),{inline:true})}</div><div class="sgml-quickreview-content">${renderEmbeddedSGML(fact.content||'')}</div></div>`;
+			}).join('');
+			return `<section class="sgml-quickreview"><h3>${renderMarkdown(String(title),{inline:true})}</h3><div class="sgml-quickreview-grid">${cards||renderEmbeddedSGML(component.content||'')}</div></section>`;
+		}
+
+		function buildCornellNotesHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const cue=findNotebookChildContent(component.content,'cue');
+			const notes=findNotebookChildContent(component.content,'notes');
+			const summary=findNotebookChildContent(component.content,'summary');
+			const title=attrs.title||'Cornell Notes';
+			const cueHTML=cue===null?'':renderEmbeddedSGML(cue);
+			const notesHTML=notes===null?'':renderEmbeddedSGML(notes);
+			const summaryHTML=summary===null?'':renderEmbeddedSGML(summary);
+			return `<section class="sgml-cornell-notes"><h3>${renderMarkdown(String(title),{inline:true})}</h3><div class="sgml-cornell-grid"><div class="sgml-cornell-cue"><div class="sgml-cornell-label">${escapeHTMLText(attrs.cuelabel||'Cues')}</div>${cueHTML}</div><div class="sgml-cornell-main"><div class="sgml-cornell-label">${escapeHTMLText(attrs.noteslabel||'Notes')}</div>${notesHTML}</div></div>${summary===null?'':`<div class="sgml-cornell-summary"><div class="sgml-cornell-label">${escapeHTMLText(attrs.summarylabel||'Summary')}</div>${summaryHTML}</div>`}</section>`;
+		}
 
 		function buildSpoilerHTML(component){
 			const id=`sgml-spoiler-${sgmlSpoilerIdCounter++}`;
@@ -2865,7 +3003,10 @@ table{max-width:none}
 			while(cursor<text.length){
 				const candidates=[];
 
-				['info','root','line','spoiler','encircle'].forEach(tag=>{
+				[
+					'info','root','line','spoiler','encircle',
+					'flashcards','notebox','checklist','glossary','quickreview','cornell'
+				].forEach(tag=>{
 					const found=findTagStart(text,tag,cursor);
 					if(found)candidates.push({...found,tag});
 				});
@@ -2900,7 +3041,32 @@ table{max-width:none}
 			return{components,spans};
 		}
 
+		function extractImportedDocxWrapper(source){
+			const text=String(source||'');
+			const opening=text.match(/^\s*(<div\b(?=[^>]*\bclass\s*=\s*["'][^"']*\bsgml-imported-document\b[^"']*\bsgml-imported-docx\b[^"']*["'])[^>]*>)/i);
+			if(!opening)return null;
+			const closeIndex=text.toLowerCase().lastIndexOf('</div>');
+			if(closeIndex<opening[0].length||text.slice(closeIndex+6).trim())return null;
+			let content=text.slice(opening[0].length,closeIndex);
+			let styleBlock='';
+			content=content.replace(/<style\b[^>]*data-sgml-docx-styles[^>]*>[\s\S]*?<\/style\s*>/i,style=>{
+				styleBlock=style;
+				return'';
+			});
+			return{openTag:opening[1],content,styleBlock};
+		}
+
 		function renderTopLevelWithComponents(text){
+			// Imported DOCX content arrives in an HTML wrapper. Passing that outer
+			// <div> straight to Marked makes the entire document an opaque HTML block,
+			// so Markdown and SGML tags inside it never reach the normal renderer.
+			// Peel the trusted converter wrapper off, render its content normally,
+			// then restore the wrapper and Word style sheet around the rendered DOM.
+			const importedDocx=extractImportedDocxWrapper(text);
+			if(importedDocx){
+				const renderedContent=renderTopLevelWithComponents(importedDocx.content);
+				return importedDocx.styleBlock+importedDocx.openTag+renderedContent+'</div>';
+			}
 			text=maskLiteralStrings(text);
 			const extracted=extractCustomComponents(text);
 			let rebuilt='';
@@ -2945,6 +3111,12 @@ table{max-width:none}
 				let html='';
 				if(component.type==='root')html=buildTreeHTML({content:component.content});
 				else if(component.type==='line')html=buildLineHTML({content:component.content});
+				else if(component.type==='flashcards')html=buildStructuredFlashcardsHTML(component);
+				else if(component.type==='notebox')html=buildNotebookBoxHTML(component);
+				else if(component.type==='checklist')html=buildNotebookChecklistHTML(component);
+				else if(component.type==='glossary')html=buildNotebookGlossaryHTML(component);
+				else if(component.type==='quickreview')html=buildQuickReviewHTML(component);
+				else if(component.type==='cornell')html=buildCornellNotesHTML(component);
 				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
 				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});

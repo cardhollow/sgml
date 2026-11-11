@@ -73,6 +73,50 @@ Flashcards have no correct-answer validation. Reveal each card, study the answer
 
 <flashcard(Science Review)[[What is H2O?][What gas do plants use in photosynthesis?][What is the center of an atom called?]]{answers:[Water,Carbon dioxide,Nucleus]|shuffle:true}>
 
+### Structured Flashcards (XML-style)
+
+The XML-style deck is an additional way to write flashcards. The earlier compact syntax remains available.
+
+<flashcards title="Programming Basics" shuffle="false">
+  <card>
+    <front>What does **CPU** stand for?</front>
+    <back>Central Processing Unit <icocpu/></back>
+  </card>
+  <card>
+    <front>What is RAM?</front>
+    <back>Random Access Memory.</back>
+  </card>
+</flashcards>
+
+### Notebook Components
+
+<notebox type="definition" title="Algorithm">
+  A finite sequence of clear steps for solving a problem.
+</notebox>
+
+<quickreview title="Quick Revision">
+  <fact label="KEYWORD">Algorithm</fact>
+  <fact label="FORMULA">E = mc^2</fact>
+  <fact label="REMEMBER">Understand before memorizing.</fact>
+</quickreview>
+
+<checklist title="Study Checklist">
+  <item checked="true">Read the topic</item>
+  <item>Review the key terms</item>
+  <item>Practice the examples</item>
+</checklist>
+
+<glossary title="Programming Terms">
+  <term name="Variable">A named place used to store a value.</term>
+  <term name="Algorithm">A sequence of steps used to solve a problem.</term>
+</glossary>
+
+<cornell title="Cornell Notes Example">
+  <cue>What is a variable?</cue>
+  <notes>A variable is a named storage location used by a program.</notes>
+  <summary>Variables hold values that a program can read or update.</summary>
+</cornell>
+
 ### Spoiler
 
 The \`<spoiler>...</spoiler>\` element places a plain overlay directly over its rendered content. It behaves as an inline element like \`<st>\` or ordinary text, so it does not insert paragraph breaks or generated newlines around the content. The overlay automatically follows the rendered width and height of the content. Clicking the overlay reveals the content.

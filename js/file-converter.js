@@ -313,15 +313,87 @@
 			if(!parent)return;
 			const classes=String(paragraph.getAttribute('class')||'').trim();
 			const keepBlock=!!(classes||paragraph.hasAttribute('style')||paragraph.hasAttribute('align')||paragraph.hasAttribute('dir')||paragraph.hasAttribute('id'));
-			const replacement=parsed.createElement(keepBlock?'div':'docx-line');
+			// Keep Word paragraph styling without leaving a block-level HTML tag
+			// around SGML/Markdown source. Marked deliberately treats <div>/<p>
+			// as opaque HTML blocks, which prevents **bold**, # headings, lists,
+			// and SGML icons inside imported paragraphs from reaching the normal
+			// top-level renderer. A block-styled <span> preserves the Word styles
+			// while allowing inline Markdown and SGML syntax to be parsed.
+			const replacement=parsed.createElement(keepBlock?'span':'docx-line');
 			if(classes)replacement.setAttribute('class',classes);
 			for(const name of ['id','dir','align','style','title']){
 				if(paragraph.hasAttribute(name))replacement.setAttribute(name,paragraph.getAttribute(name));
 			}
+			if(keepBlock&&replacement.style.display!=='block')replacement.style.display='block';
 			while(paragraph.firstChild)replacement.appendChild(paragraph.firstChild);
 			parent.replaceChild(replacement,paragraph);
 		});
-		return formatHTMLForEditing(parsed.body.innerHTML).replace(/<docx-line>([\s\S]*?)<\/docx-line>/gi,'$1');
+
+		// Native Word lists become Markdown lists. That lets the shared SGML
+		// renderer apply inline Markdown and icon syntax within list items rather
+		// than leaving the text trapped inside a raw HTML <ul>/<ol> block.
+		let inlineHTMLPrefix='\uE300SGMLDOCXINLINE';
+		while(String(html||'').includes(inlineHTMLPrefix))inlineHTMLPrefix+='_X';
+		const inlineHTMLTokens=[];
+		function keepInlineHTML(markup){
+			const index=inlineHTMLTokens.push(String(markup||''))-1;
+			return inlineHTMLPrefix+index+'\uE301';
+		}
+		function inlineMarkdown(node){
+			if(node.nodeType===Node.TEXT_NODE)return node.nodeValue||'';
+			if(node.nodeType!==Node.ELEMENT_NODE)return'';
+			const tag=String(node.tagName||'').toLowerCase();
+			const children=()=>Array.from(node.childNodes||[]).map(inlineMarkdown).join('');
+			if(tag==='br')return'  \n';
+			if(tag==='strong'||tag==='b')return'**'+children()+'**';
+			if(tag==='em'||tag==='i')return'*'+children()+'*';
+			if(tag==='code')return'`'+String(node.textContent||'').replace(/`/g,'\\`')+'`';
+			if(tag==='a'){
+				const href=String(node.getAttribute('href')||'').replace(/\)/g,'%29');
+				return href?'['+children()+']('+href+')':children();
+			}
+			if(tag==='img'){
+				const src=String(node.getAttribute('src')||'').replace(/\)/g,'%29');
+				const alt=String(node.getAttribute('alt')||'').replace(/\]/g,'\\]');
+				return src?'!['+alt+']('+src+')':'';
+			}
+			if(['span','u','sub','sup','s','del','mark','small','kbd'].includes(tag)){
+				const opening='<'+tag+serializeAttributes(node)+'>';
+				return keepInlineHTML(opening+children()+'</'+tag+'>');
+			}
+			if(tag==='svg')return keepInlineHTML(serializeCompactNode(node));
+			return children();
+		}
+		function listToMarkdown(list,depth=0){
+			const ordered=list.tagName.toLowerCase()==='ol';
+			const start=Math.max(1,Number(list.getAttribute('start'))||1);
+			const items=Array.from(list.children).filter(child=>child.tagName&&child.tagName.toLowerCase()==='li');
+			return items.map((item,index)=>{
+				const nested=Array.from(item.children).filter(child=>['ul','ol'].includes(child.tagName.toLowerCase()));
+				const body=Array.from(item.childNodes).filter(child=>!nested.includes(child)).map(inlineMarkdown).join('').trim();
+				const marker=ordered?(start+index)+'.':'-';
+				let line='  '.repeat(depth)+marker+(body?' '+body:'');
+				nested.forEach(child=>{
+					const nestedSource=listToMarkdown(child,depth+1);
+					if(nestedSource)line+='\n'+nestedSource;
+				});
+				return line;
+			}).join('\n');
+		}
+		Array.from(parsed.body.querySelectorAll('ul,ol')).filter(list=>!list.parentElement.closest('ul,ol')).reverse().forEach(list=>{
+			if(!list.parentNode)return;
+			const markdown=listToMarkdown(list);
+			list.parentNode.replaceChild(parsed.createTextNode('\n'+markdown+'\n\n'),list);
+		});
+
+		let flattened=formatHTMLForEditing(parsed.body.innerHTML).replace(/<docx-line>([\s\S]*?)<\/docx-line>/gi,'$1');
+		// Restore in reverse order because nested inline spans are stored after
+		// their children; restoring the parent first exposes child tokens.
+		for(let index=inlineHTMLTokens.length-1;index>=0;index--){
+			const token=inlineHTMLPrefix+index+'\uE301';
+			flattened=flattened.split(token).join(inlineHTMLTokens[index]||'');
+		}
+		return flattened;
 	}
 
 	function isInsideCodeOrPre(source,index){

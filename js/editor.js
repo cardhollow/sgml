@@ -42,6 +42,8 @@ const Editor = (() => {
     "math maction maligngroup malignmark menclose merror mfenced mfrac mi mmultiscripts mn mo mover mpadded " +
     "mphantom mprescripts mroot mrow ms msqrt mstyle msub msubsup msup mtable mtd mtext mtr munder munderover"
   ).split(/\s+/).map(name => name.toLowerCase()));
+  // The document root is an ordinary, valid HTML element, not an unknown SGML tag.
+  HTML_TAG_NAMES.add("html");
   const ATTR_MAP = new Map(ATTRS.map(attr => [String(attr.name).toLowerCase(), attr]));
   const SNIPPET_MAP = new Map(SNIPPETS.map(item => [String(item.trigger).toLowerCase(), item]));
   const LH = 18, PL = 8, PC = 54;
@@ -50,6 +52,7 @@ const Editor = (() => {
   let onRun = () => {}, onChange = () => {};
   let suggestions = [], selectedSuggestion = 0, popOpen = false, replaceTokenStart = 0, replaceTokenEnd = 0;
   let suppressSuggestions = false, findMatches = [], activeFind = -1, renderFrame = 0, renderTimer = 0;
+  let lastSuggestionContext = "", popupScrollTimer = 0, lockPopupScrollSelection = false;
   let renderedLineCount = -1, currentLineCount = 1;
 
   function measureCharWidth() {
@@ -80,7 +83,7 @@ const Editor = (() => {
     const end = value().indexOf("\n", offset);
     return value().slice(info.lineStart, end < 0 ? value().length : end);
   };
-  const closePop = () => { popOpen = false; pop.style.display = "none"; pop.innerHTML = ""; };
+  const closePop = () => { popOpen = false; lastSuggestionContext = ""; if (popupScrollTimer) clearTimeout(popupScrollTimer); popupScrollTimer = 0; pop.style.display = "none"; pop.innerHTML = ""; };
 
   function tokenHtml(text) {
     const spans = [];
@@ -95,7 +98,7 @@ const Editor = (() => {
         const nameMatch = /<\s*\/?\s*([A-Za-z][\w:-]*)/.exec(raw);
         const name = nameMatch ? nameMatch[1] : "";
         const normalizedName = name.toLowerCase();
-        cls = TAG_MAP.has(normalizedName) || HTML_TAG_NAMES.has(normalizedName) || normalizedName.includes("-")
+        cls = normalizedName === "html" || TAG_MAP.has(normalizedName) || HTML_TAG_NAMES.has(normalizedName) || normalizedName.includes("-")
           ? "tagname"
           : "unknown-tag";
       } else if (raw[0] === "#") cls = "value";
@@ -273,15 +276,19 @@ const Editor = (() => {
       const isClosing = /^<\s*\//.test(afterOpen);
       const snippet = tagName ? SNIPPET_MAP.get(tagName.toLowerCase()) : null;
       if (partialTagName) {
-        candidates = TAGS.map(tag => {
+        candidates = TAGS.filter(tag => !(isClosing && tag.isIcon)).map(tag => {
           const matchingSnippet = SNIPPET_MAP.get(String(tag.name).toLowerCase());
+          const iconSuggestion = tag.isIcon && typeof window.getSGMLIconSuggestion === "function"
+            ? window.getSGMLIconSuggestion(tag.name)
+            : null;
+          const insertion = iconSuggestion ? iconSuggestion.insert : matchingSnippet ? matchingSnippet.insert : (tag.insert || tag.name);
           return {
             m: String(tag.name),
-            insert: matchingSnippet ? matchingSnippet.insert : (tag.insert || tag.name),
+            insert: insertion,
             d: matchingSnippet ? (matchingSnippet.description || tag.description || "SGML syntax") : (tag.description || "SGML tag"),
-            k: matchingSnippet ? "syntax" : "tag",
-            preview: matchingSnippet ? templatePreview(matchingSnippet) : "<" + (tag.insert || tag.name) + ">",
-            replaceStart: matchingSnippet && !isClosing ? lastOpen : startWord,
+            k: iconSuggestion ? "icon" : matchingSnippet ? "syntax" : "tag",
+            preview: iconSuggestion ? insertion.replace(/\$0/g, "") : matchingSnippet ? templatePreview(matchingSnippet) : "<" + (tag.insert || tag.name) + ">",
+            replaceStart: (iconSuggestion || matchingSnippet) && !isClosing ? lastOpen : startWord,
             replaceEnd: caret
           };
         });
@@ -293,7 +300,8 @@ const Editor = (() => {
         const allowed = (LANG.tagAttributes || {})[tagName] || (LANG.tagAttributes || {})[String(tagName).toLowerCase()];
         const attrDefs = allowed ? allowed.map(name => ATTR_MAP.get(String(name).toLowerCase())).filter(Boolean) : ATTRS;
         candidates = attrDefs.map(attr => asCandidate(attr, { k: "attr" }));
-        if (/(?:^|\s)[A-Za-z_][\w-]*\s*:\s*$/.test(linePrefix)) {
+        const emptyParameter = /(?:^|\s)([A-Za-z_][\w-]*)\s*:\s*$/.exec(linePrefix);
+        if (emptyParameter && ["case", "shuffle", "inorder", "controls", "autoplay", "loop", "muted", "required", "disabled"].includes(emptyParameter[1].toLowerCase())) {
           const booleans = (LANG.values || {}).booleans || [];
           candidates = booleans.map(item => asCandidate(item, { k: "value" }));
         }
@@ -344,7 +352,7 @@ const Editor = (() => {
       const bs = word && bm.startsWith(lower) ? 0 : 1;
       return as - bs || String(a.m).length - String(b.m).length || String(a.m).localeCompare(String(b.m));
     });
-    return { candidates: output.slice(0, 40), replaceStart, replaceEnd };
+    return { candidates: output.slice(0, 200), replaceStart, replaceEnd };
   }
   function positionPopup() {
     if (!popOpen || !suggestions.length) return;
@@ -358,6 +366,24 @@ const Editor = (() => {
     const below = relY + popupHeight <= ed.clientHeight;
     pop.style.top = clamp(below ? relY : relY - popupHeight - LH, 4, Math.max(4, ed.clientHeight - popupHeight - 4)) + "px";
   }
+  function setSelectedSuggestion(index, scroll = true) {
+    if (!suggestions.length) return;
+    selectedSuggestion = clamp(Number(index) || 0, 0, suggestions.length - 1);
+    const rows = pop.querySelectorAll(".it");
+    rows.forEach((row, rowIndex) => {
+      const active = rowIndex === selectedSuggestion;
+      row.classList.toggle("sel", active);
+      row.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (scroll) {
+      const active = rows[selectedSuggestion];
+      if (active) {
+        lockPopupScrollSelection = true;
+        active.scrollIntoView({ block: "nearest" });
+        setTimeout(() => { lockPopupScrollSelection = false; }, 90);
+      }
+    }
+  }
   function drawSuggestions() {
     pop.innerHTML = suggestions.map((item, index) => {
       const label = esc(item.m);
@@ -367,7 +393,11 @@ const Editor = (() => {
     pop.style.display = "block";
     popOpen = true;
     const active = pop.querySelector(".it.sel");
-    if (active) active.scrollIntoView({ block: "nearest" });
+    if (active) {
+      lockPopupScrollSelection = true;
+      active.scrollIntoView({ block: "nearest" });
+      setTimeout(() => { lockPopupScrollSelection = false; }, 90);
+    }
     positionPopup();
   }
   function suggest(force = false) {
@@ -375,11 +405,38 @@ const Editor = (() => {
     if (hasSelection()) return closePop();
     const result = getCandidates(force);
     if (!result.candidates.length) return closePop();
+    const text = value();
+    const contextKey = text.slice(0, ta.selectionStart) + "\u0000" + ta.selectionStart + "\u0000" + result.replaceStart + "\u0000" + result.replaceEnd;
+    const previous = suggestions[selectedSuggestion];
+    if (contextKey !== lastSuggestionContext) {
+      selectedSuggestion = 0;
+    } else if (previous) {
+      const previousKey = String(previous.m) + "|" + String(previous.k) + "|" + String(previous.insert);
+      const sameIndex = result.candidates.findIndex(item => String(item.m) + "|" + String(item.k) + "|" + String(item.insert) === previousKey);
+      selectedSuggestion = sameIndex >= 0 ? sameIndex : clamp(selectedSuggestion, 0, result.candidates.length - 1);
+    } else {
+      selectedSuggestion = clamp(selectedSuggestion, 0, result.candidates.length - 1);
+    }
+    lastSuggestionContext = contextKey;
     suggestions = result.candidates;
     replaceTokenStart = result.replaceStart;
     replaceTokenEnd = result.replaceEnd;
-    selectedSuggestion = 0;
     drawSuggestions();
+  }
+
+  function selectVisibleSuggestion() {
+    if (!popOpen || lockPopupScrollSelection || !suggestions.length) return;
+    if (popupScrollTimer) clearTimeout(popupScrollTimer);
+    popupScrollTimer = setTimeout(() => {
+      popupScrollTimer = 0;
+      if (!popOpen || lockPopupScrollSelection) return;
+      const popupRect = pop.getBoundingClientRect();
+      const rows = [...pop.querySelectorAll(".it")];
+      const visible = rows.map((row, index) => ({ row, index, rect: row.getBoundingClientRect() }))
+        .filter(item => item.rect.bottom > popupRect.top + 1 && item.rect.top < popupRect.bottom - 1)
+        .sort((a, b) => Math.abs(a.rect.top - popupRect.top) - Math.abs(b.rect.top - popupRect.top));
+      if (visible.length) setSelectedSuggestion(visible[0].index, false);
+    }, 65);
   }
   function acceptSuggestion(index = selectedSuggestion) {
     const item = suggestions[index];
@@ -404,6 +461,11 @@ const Editor = (() => {
     // until the user types another character or asks for suggestions manually.
     closePop();
   }
+  pop.addEventListener("pointermove", event => {
+    if (event.pointerType === "touch") return;
+    const row = event.target.closest(".it");
+    if (row && pop.contains(row)) setSelectedSuggestion(Number(row.dataset.index), false);
+  });
   pop.addEventListener("pointerdown", event => {
     const row = event.target.closest(".it");
     if (!row) return;
@@ -412,6 +474,8 @@ const Editor = (() => {
     acceptSuggestion(Number(row.dataset.index));
   });
   pop.addEventListener("wheel", event => event.stopPropagation(), { passive: true });
+  pop.addEventListener("scroll", selectVisibleSuggestion, { passive: true });
+  pop.addEventListener("touchstart", () => { lockPopupScrollSelection = false; }, { passive: true });
 
   function insertText(text, start = ta.selectionStart, end = ta.selectionEnd, caretOffset = null) {
     const insertion = normalize(text);
@@ -679,7 +743,11 @@ const Editor = (() => {
   ta.addEventListener("keydown", handleKeydown);
   ta.addEventListener("keyup", event => {
     updatePosition();
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) suggest(false);
+    // ArrowUp/ArrowDown navigate the open list on keydown. Re-running suggest
+    // here used to reset the active row to zero immediately after every move.
+    if (["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(event.key) ||
+        (["ArrowUp", "ArrowDown"].includes(event.key) && !popOpen)) suggest(false);
+    else if (popOpen) positionPopup();
   });
   ta.addEventListener("click", () => { updatePosition(); suggest(false); });
   ta.addEventListener("select", updatePosition);

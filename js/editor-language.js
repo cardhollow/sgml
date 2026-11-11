@@ -2,8 +2,16 @@
  * SGML editor language profile.
  * Add or adjust syntax by editing this data file; the editor engine stays generic.
  */
+const SGML_ICON_STYLE_ATTRIBUTES = ["scale", "color", "fill", "strokeWidth", "border", "opacity", "rotate"];
+const SGML_ICON_TAGS = Object.keys(window.SGMLICON || {}).map(name => ({
+  name: "ico" + name,
+  description: "Inline SVG icon: " + name,
+  insert: "ico" + name,
+  isIcon: true
+}));
 window.SGML_EDITOR_LANGUAGE = {
   tags: [
+    ...SGML_ICON_TAGS,
     { name: "st", description: "Styled text", insert: "st" },
     { name: "encircle", description: "Draw a hand-marked circle around text", insert: "encircle" },
     { name: "info", description: "Expandable information panel", insert: "info" },
@@ -75,7 +83,13 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "x", description: "Horizontal coordinate", insert: "x=" },
     { name: "y", description: "Vertical coordinate", insert: "y=" },
     { name: "viewBox", description: "SVG coordinate viewBox", insert: "viewBox=" },
-    { name: "xmlns", description: "XML namespace", insert: "xmlns=" }
+    { name: "xmlns", description: "XML namespace", insert: "xmlns=" },
+    { name: "scale", description: "Icon size multiplier or [width,height] in pixels", insert: "scale:" },
+    { name: "color", description: "Icon color", insert: "color:" },
+    { name: "strokeWidth", description: "Icon line thickness", insert: "strokeWidth:" },
+    { name: "opacity", description: "Icon opacity from 0 to 1", insert: "opacity:" },
+    { name: "rotate", description: "Icon rotation in degrees", insert: "rotate:" },
+    { name: "fill", description: "SVG fill color", insert: "fill:" }
   ],
   tagAttributes: {
     st: ["bg", "col", "display", "fontSize", "fontFamily"],
@@ -98,7 +112,8 @@ window.SGML_EDITOR_LANGUAGE = {
     path: ["d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
     img: ["src", "alt", "width", "height"],
     video: ["src", "width", "height", "controls"],
-    audio: ["src", "controls"]
+    audio: ["src", "controls"],
+    ...Object.fromEntries(SGML_ICON_TAGS.map(tag => [tag.name, SGML_ICON_STYLE_ATTRIBUTES]))
   },
   values: {
     colors: [
@@ -200,7 +215,19 @@ window.SGML_EDITOR_LANGUAGE = {
       ],
       answerIndexes: Array.from({ length: 10 }, (_, index) => ({
         name: String(index), insert: String(index), description: "Zero-based index " + index, kind: "value"
-      }))
+      })),
+      iconScales: [
+        { name: "[1]", insert: "[1]", description: "Default 24-pixel size", kind: "value" },
+        { name: "[1.5]", insert: "[1.5]", description: "One-and-a-half times the default size", kind: "value" },
+        { name: "[2]", insert: "[2]", description: "Double the default size", kind: "value" },
+        { name: "[24,24]", insert: "[24,24]", description: "24-pixel square", kind: "value" },
+        { name: "[32,48]", insert: "[32,48]", description: "32-pixel width and 48-pixel height", kind: "value" }
+      ],
+      iconBorders: [
+        { name: "none", insert: "none", description: "No border", kind: "value" },
+        { name: "1px #94a3b8", insert: '"1px #94a3b8"', description: "Thin slate border", kind: "value" },
+        { name: "2px #f59e0b", insert: '"2px #f59e0b"', description: "Amber border", kind: "value" }
+      ]
     }
   },
   contextRules: [
@@ -219,6 +246,8 @@ window.SGML_EDITOR_LANGUAGE = {
     { pattern: "<(?:Choices|connect)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\[\\s*[A-Za-z_]*$", items: "values.answerIndexField", flags: "i" },
     { pattern: "<(?:Choices|connect)\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{[^{}]*\\[\\s*idx\\s*:\\s*\\d*$", items: "values.answerIndexes", flags: "i" },
     { pattern: "<st\\b[^>]*\\bdisplay\\s*:\\s*[\"']?[-a-zA-Z]*$", items: "values.displayModes", flags: "i" },
+    { pattern: "<ico[a-z0-9-]*\\b[^>]*\\bscale\\s*:\\s*\\[?\\s*[\\d.,]*$", items: "values.iconScales", flags: "i" },
+    { pattern: "<ico[a-z0-9-]*\\b[^>]*\\bborder\\s*:\\s*[\"']?[-#a-z0-9.]*$", items: "values.iconBorders", flags: "i" },
     { pattern: "<arrow\\b[^>]*\\bdir\\s*:\\s*[\"']?\\d*$", items: "values.arrowDirections", flags: "i" }
   ],
 

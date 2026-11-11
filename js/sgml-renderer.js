@@ -759,12 +759,52 @@ table{max-width:none}
 			return{source:result+source.slice(cursor),components};
 		}
 
+		function maskSGMLIconTags(source,savedIcons){
+			const comments=[];
+			let text=String(source||'').replace(/<!--[\s\S]*?-->/g,comment=>{
+				const index=comments.push(comment)-1;
+				return `\uE099SGMLICONCOMMENT${index}\uE09A`;
+			});
+
+			let inFence=false;
+			let fenceCharacter='';
+			let fenceLength=0;
+			text=text.split('\n').map(line=>{
+				const marker=/^\s*(`{3,}|~{3,})/.exec(line);
+				if(inFence){
+					if(marker&&marker[1][0]===fenceCharacter&&marker[1].length>=fenceLength){
+						inFence=false;
+						fenceCharacter='';
+						fenceLength=0;
+					}
+					return line;
+				}
+				if(marker){
+					inFence=true;
+					fenceCharacter=marker[1][0];
+					fenceLength=marker[1].length;
+					return line;
+				}
+				return line.replace(/<ico([a-z][a-z0-9-]*)\b([^<>]*?)\s*\/\s*>/gi,(match,name,attributes)=>{
+					if(typeof window.renderSGMLIcon!=='function')return match;
+					const svg=window.renderSGMLIcon(name,attributes);
+					if(!svg)return match;
+					const index=savedIcons.push(svg)-1;
+					return `\uE000SGMLICON${index}\uE001`;
+				});
+			}).join('\n');
+			return {source:text,comments};
+		}
+
 		function renderMarkdown(mdText,{inline=false}={}){
 			if(mdText===undefined||mdText===null)return'';
 
 			const savedST=[];
 			const savedArrows=[];
+			const savedIcons=[];
 			let source=maskLiteralStrings(String(mdText));
+			const iconResult=maskSGMLIconTags(source,savedIcons);
+			source=iconResult.source;
 
 			const inlineResult=extractInlineSGMLComponents(source);
 			source=inlineResult.source;
@@ -830,6 +870,8 @@ table{max-width:none}
 				return`<span class="sgml-arrow-point" data-target="${escapeHTMLAttribute(arrow.target)}" data-head="${escapeHTMLAttribute(arrow.head)}" data-col="${escapeHTMLAttribute(arrow.color)}" data-dir="${arrow.dir===null?'':arrow.dir}" aria-hidden="true"></span>`;
 			});
 
+			result=result.replace(/\uE000SGMLICON(\d+)\uE001/g,(_,i)=>savedIcons[Number(i)]||'');
+			result=result.replace(/\uE099SGMLICONCOMMENT(\d+)\uE09A/g,(_,i)=>iconResult.comments[Number(i)]||'');
 			result=restoreLiteralHTML(result);
 			result=restoreEscapedHTML(result);
 			return renderST(result);

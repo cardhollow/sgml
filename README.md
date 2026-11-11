@@ -122,7 +122,7 @@ This creates a new local document and opens the editor.
 
 ### Import a text, DOCX, or PDF file
 
-Upload File accepts `.sgml`, `.txt`, `.md`, `.docx`, and `.pdf` files. DOCX is converted to safe HTML with Mammoth.js; explicitly underlined Word text is preserved as HTML `<u>` elements. PDF.js extracts selectable PDF text and converts it to HTML organized by page. The resulting HTML is sent through the existing SGML renderer, so the normal SGML parsing for recognizable built-in constructs remains available.
+Upload File accepts `.sgml`, `.txt`, `.md`, `.docx`, and `.pdf` files. DOCX is converted to safe HTML with Mammoth.js; explicitly underlined Word text is preserved as HTML `<u>` elements. The imported DOCX wrapper is removed before top-level Markdown/SGML parsing and restored afterward so Markdown headings, emphasis, lists, and inline SGML icons in the document are rendered by the same pipeline as hand-written SGML. Styled Word paragraphs retain their style classes while allowing Markdown inside the paragraph. PDF.js extracts selectable PDF text and converts it to HTML organized by page.
 
 PDF conversion does not include OCR. A scanned PDF made only of images will report that it has no extractable text. Complex PDF layouts may be approximated rather than reproduced exactly.
 
@@ -182,3 +182,55 @@ The viewer displays a toast notification while it is working and reports the res
 ### JavaScript syntax coloring in the editor
 
 Code inside `<js>...</js>` is highlighted with JavaScript-aware colors for keywords, declared variables, identifiers, function names and calls, object keys, properties, built-ins, literals, operators, strings, numbers, and comments. SGML outside `<js>` blocks continues using the normal SGML highlighter.
+
+
+## Study-notebook components
+
+The notebook elements below are additive. Existing compact `<flashcard(...) [...] {answers:[...]}>` decks continue to work.
+
+### XML-style flashcards
+
+```sgml
+<flashcards title="Computer Basics" shuffle="true">
+  <card>
+    <front>What does CPU mean?</front>
+    <back>Central Processing Unit</back>
+  </card>
+  <card>
+    <front>What does RAM mean?</front>
+    <back>Random Access Memory</back>
+  </card>
+</flashcards>
+```
+
+The deck uses the existing flashcard interaction and scoring controls. Markdown and embedded SGML, including inline icons, are supported on both sides.
+
+### Notebook layouts
+
+```sgml
+<notebox type="definition" title="Algorithm">
+  A finite sequence of clear steps for solving a problem.
+</notebox>
+
+<checklist title="Chapter review">
+  <item checked="true">Read the chapter</item>
+  <item>Review the definitions</item>
+</checklist>
+
+<glossary title="Key terms">
+  <term name="Variable">A named place used to store a value.</term>
+</glossary>
+
+<quickreview title="Exam review">
+  <fact label="FORMULA">E = mc^2</fact>
+  <fact label="KEYWORD">Energy and mass</fact>
+</quickreview>
+
+<cornell title="Cell Structure">
+  <cue>What does the nucleus do?</cue>
+  <notes>The nucleus stores the cell's genetic material.</notes>
+  <summary>The nucleus helps control cell activities.</summary>
+</cornell>
+```
+
+`notebox` supports `note`, `definition`, `key`, `idea`, `example`, `warning`, `remember`, and `formula` types, with optional `color`, `bg`, and `icon` attributes. Checklist items are interactive in the rendered page. Glossary entries and quick-review cards support Markdown and embedded components. Cornell notes use cue, notes, and summary regions that stack on narrow screens.

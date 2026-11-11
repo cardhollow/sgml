@@ -28,6 +28,7 @@ sgml-main/
     ├── default-document.js # Sample and local library initialization
     ├── document-library.js # Import/export, document operations, editor controls
     ├── file-converter.js   # DOCX/PDF-to-HTML import pipeline
+    ├── sgml-icons.js       # Built-in inline SVG icon registry and icon renderer
     ├── editor-language.js  # SGML syntax and suggestion configuration
     ├── editor.js           # Native textarea editor and completion engine
     └── sgml-renderer.js    # SGML parsing and rendering
@@ -42,6 +43,32 @@ Open **Edit Code** to use the mobile-friendly code editor. It fills nearly all a
 The editor engine is separate from the language definition. Add or adjust tags, attributes, tag-specific attributes, value suggestions, context-aware parameter completions, completion rules, void tags, and reusable snippets in `js/editor-language.js`. Questionnaire parameter suggestions and values are configuration-driven too, so extending the profile usually does not require replacing the editor engine. The editor reads this configuration at startup; adding a language item usually means editing the language profile rather than replacing the editor engine.
 
 The editor recognizes native HTML, SVG, and MathML tag names even when they are not part of the SGML completion list. Hyphenated custom-element names are recognized as HTML custom elements as well.
+
+## Inline SVG icons
+
+The bundled `js/sgml-icons.js` registry provides inline icons without external
+fonts, image requests, or network dependencies. Icons use self-closing SGML
+syntax: `<icowarning/>`, `<icosuccess/>`, `<icoinfo/>`, `<icoidea/>`, and
+`<icobook/>`. The registry also includes navigation, files, devices, finance,
+status, media, and common interface icons.
+
+Icon options are written as `name:value` parameters. `scale:[1.5]` multiplies
+the default 24-pixel size, `scale:[32px]` sets a square size, and
+`scale:[32,48]` sets explicit width and height. Supported style parameters
+include `color`, `fill`, `strokeWidth`, `border`, `opacity`, and `rotate`.
+The optional border accepts a width and color in either order, such as
+`border:"2px #f59e0b"` or `border:"#f59e0b 2px"`; a single width or color is
+also accepted, while `border:none` disables it. For example:
+
+```sgml
+<icowarning scale:[1.4] color:"#d97706" border:"2px #f59e0b"/>
+<icobook scale:[24,32] color:"#2563eb" strokeWidth:1.8/>
+```
+
+The icon registry is included in the service-worker app shell, so its icons
+and editor completions are available after the app has been cached for offline
+use. To add an icon, add its SVG body to `js/sgml-icons.js`; it is registered
+with default styles and an editor completion automatically.
 
 ## Executable JavaScript blocks
 

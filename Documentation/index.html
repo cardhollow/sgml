@@ -222,6 +222,13 @@ A comma-containing value: `Washington, D.C.`</pre>
   &lt;st col:#008000&gt;Green inner text&lt;/st&gt;
   Back to red outer text
 &lt;/st&gt;</pre>
+  <h3>Inline SVG icons — <code>ico</code></h3>
+  <pre>&lt;icowarning/&gt;  &lt;icosuccess/&gt;  &lt;icoinfo/&gt;  &lt;icoidea/&gt;  &lt;icobook/&gt;
+&lt;icowarning scale:[1.5] color:"#d97706" border:"2px #f59e0b"/&gt;
+&lt;icobook scale:[32,48] color:"#2563eb" strokeWidth:1.8/&gt;</pre>
+  <p>Inline icons render as bundled SVG, so they do not need external images, icon fonts, or an internet connection. The registry includes status, education, navigation, file, device, finance, media, and common interface symbols. Type <code>&lt;ico</code> in the editor to browse the icon suggestions.</p>
+  <p><code>scale:[1.5]</code> applies a uniform multiplier to the default 24-pixel icon size; a value such as <code>scale:[32px]</code> sets an explicit square size. Two values such as <code>scale:[32,48]</code> set width and height independently. Available style parameters are <code>color</code>, <code>fill</code>, <code>strokeWidth</code>, <code>border</code>, <code>opacity</code>, and <code>rotate</code>.</p>
+  <p><code>border</code> accepts a width and color in either order, for example <code>border:"2px #f59e0b"</code> or <code>border:"#f59e0b 2px"</code>. A single width or color is also accepted; use <code>border:none</code> to disable the border.</p>
   <h3>Hand-marked circle — <code>encircle</code></h3>
   <pre>&lt;encircle col:#c62828&gt;Remember this term&lt;/encircle&gt;</pre>
   <p><code>encircle</code> draws a hand-marked outline around exactly the content between its opening and closing tags. Inline phrases stay in the text flow. When the range contains block Markdown such as a heading, list, quote, separated paragraphs, or display math, SGML places one outline around the complete rendered block range. Text before the opening tag and after the closing tag stays outside. The <code>col</code> attribute chooses the stroke color; when omitted, the viewer uses red.</p>
@@ -242,7 +249,7 @@ $EMC$
   &lt;p&gt;Optional details appear in a panel when its information button is tapped.&lt;/p&gt;
 &lt;/info&gt;</pre>
   <p>The viewer inserts an information button. Tapping it opens a panel. <code>title</code> sets the panel heading, while <code>bg</code> and <code>col</code> customize its background and text color. Its content is rendered separately inside the panel, so it does not become ordinary text in the surrounding document.</p>
-  <p>The panel content supports Markdown and ordinary HTML, questionnaire blocks, and the embedded components handled by the panel renderer, including <code>root</code>, <code>line</code>, <code>encircle</code>, and <code>spoiler</code>. Inline components such as <code>st</code>, <code>badge</code>, <code>x</code>, <code>ref</code>, and <code>arrow</code> can also be used there. A nested <code>info</code> tag does not currently create a second information panel.</p>
+  <p>The panel content supports Markdown and ordinary HTML, questionnaire blocks, and the embedded components handled by the panel renderer, including <code>root</code>, <code>line</code>, <code>encircle</code>, and <code>spoiler</code>. Inline components such as <code>st</code>, <code>badge</code>, <code>x</code>, <code>ref</code>, <code>arrow</code>, and <code>ico</code> icons can also be used there. A nested <code>info</code> tag does not currently create a second information panel.</p>
   <h3>Spoiler — <code>spoiler</code></h3>
   <pre>&lt;spoiler&gt;The answer is 42.&lt;/spoiler&gt;</pre>
   <p>The content is hidden behind an overlay until the reader reveals it. The component behaves inline, so text before and after it remains in the same sentence. The content can include supported inline formatting.</p>
@@ -367,7 +374,7 @@ $$</pre>
   <p>The editor uses a real text area for editing. Native Android/mobile selection handles, long-press selection, Select All, copy, cut, and paste come from the browser. Syntax colors and line numbers are display overlays; they do not replace text selection.</p>
   <ul>
     <li>Type the beginning of a built-in syntax, such as <code>&lt;Choi</code>, to see the <strong>Choices</strong> suggestion. Tapping it inserts the full question structure and places the cursor at an editable location.</li>
-    <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, and question blocks.</li>
+    <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, question blocks, and the complete <code>ico</code> icon registry.</li>
     <li>For <code>st</code>, the editor can suggest <code>display</code> values such as <code>inline</code>, <code>inline-block</code>, and <code>block</code>. For <code>arrow</code>, it can suggest the common direction values <code>0</code>, <code>90</code>, <code>180</code>, and <code>270</code>.</li>
     <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested. Color suggestions use hexadecimal values.</li>
     <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
@@ -380,7 +387,7 @@ $$</pre>
 <section id="offline">
   <h2>10. Automatic resource caching and offline use</h2>
   <p>There is no manual offline-mode switch. When the network is available, the viewer fetches updated app resources and caches successful responses. If the network is unavailable or a request fails, the service worker serves the last successfully cached app resources when available.</p>
-  <p>The cache includes the app shell, JavaScript, CSS, local libraries, and this documentation page. Open the viewer once while online before relying on offline access, so the browser has a version to use later.</p>
+  <p>The cache includes the app shell, JavaScript (including the complete inline SVG icon registry), CSS, local libraries, and this documentation page. Open the viewer once while online before relying on offline access, so the browser has a version to use later.</p>
   <div class="note good"><strong>Remember:</strong> the viewer, editor, and documentation can load from cache after a successful first visit. Fetching a brand-new remote resource still needs a network connection. Documents already saved in this browser are stored locally.</div>
 </section>
 
@@ -394,6 +401,7 @@ $$</pre>
     <tr><td><code>&lt;flashcard (...) [[...]] {answers:[...]}&gt;</code></td><td>Question/answer card deck.</td></tr>
     <tr><td><code>&lt;st col:#hex bg:#hex display:block&gt;...&lt;/st&gt;</code></td><td>Styled text with optional color, background, font, and display settings.</td></tr>
     <tr><td><code>&lt;badge col:#hex bg:#hex&gt;...&lt;/badge&gt;</code></td><td>Compact inline label.</td></tr>
+    <tr><td><code>&lt;icowarning scale:[1.5] color:"#hex" border:"2px #hex"/&gt;</code></td><td>Inline SVG icon with optional size and styles.</td></tr>
     <tr><td><code>&lt;x col:#hex&gt;...&lt;/x&gt;</code></td><td>Pencil-style cross mark over content.</td></tr>
     <tr><td><code>&lt;encircle col:#hex&gt;...&lt;/encircle&gt;</code></td><td>Draw a hand-marked loop around content.</td></tr>
     <tr><td><code>&lt;info title:"..." bg:#hex col:#hex&gt;...&lt;/info&gt;</code></td><td>Expandable information panel.</td></tr>

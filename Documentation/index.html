@@ -21,7 +21,7 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
   <a class="back" href="../index.html">← Back to SGML Viewer</a>
 </header>
 <nav aria-label="Documentation sections">
-  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
+  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#notebook">Notebook components</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
 </nav>
 <main>
 <section id="overview">
@@ -35,6 +35,7 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
     <li>Styled text, badges, pencil-style X marks, hand-marked circles, spoilers, reference links, information panels, and directional arrow connectors.</li>
     <li>Multiple-choice, fill-in, enumeration, matching, and flashcard activities.</li>
     <li>Expandable tree graphs and step-by-step timelines.</li>
+    <li>Study-notebook layouts including structured flashcards, callout boxes, checklists, glossaries, revision grids, and Cornell notes.</li>
     <li>Markdown, HTML, SVG, LaTeX math, isolated HTML containers, and JavaScript-generated source.</li>
   </ul>
 </section>
@@ -66,10 +67,10 @@ This is **my study guide**.
 
 <section id="import-files">
   <h2>3. Import DOCX and PDF files</h2>
-  <p>The viewer accepts normal SGML/text sources as well as Word <code>.docx</code> and PDF <code>.pdf</code> files. DOCX files are converted to safe HTML using Mammoth.js. PDFs are processed with PDF.js and their selectable text is arranged into HTML paragraphs, with a section for each page.</p>
+  <p>The viewer accepts normal SGML/text sources as well as Word <code>.docx</code> and PDF <code>.pdf</code> files. DOCX files are converted to safe HTML using Mammoth.js, then their import wrapper is temporarily removed so the document content passes through the same top-level SGML and Markdown renderer as a hand-written SGML file. The wrapper and Word styles are restored after rendering. Markdown headings, emphasis, lists, and inline SGML icons are supported in imported DOCX paragraphs, including styled Word paragraphs. PDFs are processed with PDF.js and their selectable text is arranged into HTML paragraphs, with a section for each page.</p>
   <h3>What gets preserved?</h3>
   <ul>
-    <li>DOCX: paragraphs, headings, emphasis, lists, tables, links, and supported embedded images can be kept as HTML.</li>
+    <li>DOCX: paragraphs, headings, emphasis, lists, tables, links, and supported embedded images can be kept. Markdown and inline SGML icons in imported document text are passed through the normal top-level renderer.</li>
     <li>PDF: selectable text and an approximate reading order are preserved; pages remain separated. Complex columns, exact positioning, diagrams, and page artwork may not match the original layout.</li>
     <li>Built-in SGML syntax such as questionnaire blocks is passed to the existing SGML parser when it appears as recognizable markup in the imported text.</li>
   </ul>
@@ -320,8 +321,69 @@ $EMC$
   <p>Both tree and timeline components have a resize handle along their bottom edge. Drag it to make the visual area taller or shorter.</p>
 </section>
 
+<section id="notebook">
+  <h2>8. Study-notebook components</h2>
+  <p>These components add layouts that are awkward to build with ordinary Markdown. They are additive: the original compact <code>&lt;flashcard(...) [...] {answers:[...]}&gt;</code> syntax remains supported.</p>
+
+  <h3>Structured flashcard deck — <code>flashcards</code>, <code>card</code>, <code>front</code>, and <code>back</code></h3>
+  <pre>&lt;flashcards title="Computer Basics" shuffle="true"&gt;
+  &lt;card&gt;
+    &lt;front&gt;What does CPU mean?&lt;/front&gt;
+    &lt;back&gt;Central Processing Unit&lt;/back&gt;
+  &lt;/card&gt;
+  &lt;card&gt;
+    &lt;front&gt;What does RAM mean?&lt;/front&gt;
+    &lt;back&gt;Random Access Memory&lt;/back&gt;
+  &lt;/card&gt;
+&lt;/flashcards&gt;</pre>
+  <p>Each <code>&lt;card&gt;</code> contains one <code>&lt;front&gt;</code> question and one <code>&lt;back&gt;</code> answer. Both sides support Markdown and supported embedded SGML such as icons. Set <code>shuffle="true"</code> to enable the existing shuffle control. This new format uses the same flashcard viewer, progress, scoring, and review controls as the legacy syntax.</p>
+
+  <h3>Notebook callout — <code>notebox</code></h3>
+  <pre>&lt;notebox type="definition" title="Algorithm"&gt;
+  A finite sequence of clear steps for solving a problem.
+&lt;/notebox&gt;
+
+&lt;notebox type="warning" title="Common mistake"&gt;
+  Do not confuse a variable with its stored value.
+&lt;/notebox&gt;</pre>
+  <p>Available types include <code>note</code>, <code>definition</code>, <code>key</code>, <code>idea</code>, <code>example</code>, <code>warning</code>, <code>remember</code>, and <code>formula</code>. The optional <code>color</code>, <code>bg</code>, and <code>icon</code> attributes customize the accent, background, and icon. Content supports Markdown, LaTeX, and embedded SGML.</p>
+
+  <h3>Interactive checklist — <code>checklist</code> and <code>item</code></h3>
+  <pre>&lt;checklist title="Chapter 1 Review"&gt;
+  &lt;item checked="true"&gt;Read the chapter&lt;/item&gt;
+  &lt;item&gt;Review the definitions&lt;/item&gt;
+  &lt;item&gt;Practice the examples&lt;/item&gt;
+&lt;/checklist&gt;</pre>
+  <p>Each item is a clickable checkbox. Use <code>checked="true"</code> to mark a task as completed when the page first renders.</p>
+
+  <h3>Glossary — <code>glossary</code> and <code>term</code></h3>
+  <pre>&lt;glossary title="Important Vocabulary"&gt;
+  &lt;term name="Algorithm"&gt;A step-by-step procedure for solving a problem.&lt;/term&gt;
+  &lt;term name="Variable"&gt;A named place used to store a value.&lt;/term&gt;
+&lt;/glossary&gt;</pre>
+  <p>Each term becomes a clearly separated entry. Definitions support Markdown and embedded components.</p>
+
+  <h3>Quick revision grid — <code>quickreview</code> and <code>fact</code></h3>
+  <pre>&lt;quickreview title="Before the exam"&gt;
+  &lt;fact label="FORMULA"&gt;E = mc^2&lt;/fact&gt;
+  &lt;fact label="DEFINITION"&gt;A short, clear meaning.&lt;/fact&gt;
+  &lt;fact label="KEYWORDS"&gt;Energy, mass, speed of light.&lt;/fact&gt;
+&lt;/quickreview&gt;</pre>
+  <p>Each <code>&lt;fact&gt;</code> becomes a responsive mini-card. Use it for formulas, dates, definitions, keywords, and memory tricks.</p>
+
+  <h3>Cornell notes layout — <code>cornell</code></h3>
+  <pre>&lt;cornell title="Cell Structure"&gt;
+  &lt;cue&gt;Nucleus?
+  Mitochondria?&lt;/cue&gt;
+  &lt;notes&gt;The nucleus stores DNA. Mitochondria release usable energy from food.&lt;/notes&gt;
+  &lt;summary&gt;Cells contain structures that perform specialized jobs.&lt;/summary&gt;
+&lt;/cornell&gt;</pre>
+  <p>The <code>cue</code> column is for keywords and questions, <code>notes</code> is the main writing area, and <code>summary</code> adds a full-width recap. The columns stack on narrow screens.</p>
+  <div class="note good"><strong>Notebook tip:</strong> mix these components with ordinary headings, paragraphs, tree graphs, timelines, tables, and diagrams. Using a callout for every paragraph makes the page harder to scan.</div>
+</section>
+
 <section id="html">
-  <h2>8. Markdown, HTML, SVG, and LaTeX</h2>
+  <h2>9. Markdown, HTML, SVG, and LaTeX</h2>
   <h3>Markdown support</h3>
   <p>Ordinary content is rendered through GitHub-flavored Markdown. Common forms include headings, emphasis, links, lists, tables, blockquotes, fenced code, strikethrough, task-list syntax, and automatic line breaks.</p>
   <pre># Main heading
@@ -370,13 +432,13 @@ $$</pre>
 </section>
 
 <section id="editor">
-  <h2>9. Mobile editor and smart suggestions</h2>
+  <h2>10. Mobile editor and smart suggestions</h2>
   <p>The editor uses a real text area for editing. Native Android/mobile selection handles, long-press selection, Select All, copy, cut, and paste come from the browser. Syntax colors and line numbers are display overlays; they do not replace text selection.</p>
   <ul>
     <li>Type the beginning of a built-in syntax, such as <code>&lt;Choi</code>, to see the <strong>Choices</strong> suggestion. Tapping it inserts the full question structure and places the cursor at an editable location.</li>
-    <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, question blocks, and the complete <code>ico</code> icon registry.</li>
+    <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, question blocks, structured flashcards, notebook callouts, checklists, glossaries, quick-review grids, Cornell notes, and the complete <code>ico</code> icon registry.</li>
     <li>For <code>st</code>, the editor can suggest <code>display</code> values such as <code>inline</code>, <code>inline-block</code>, and <code>block</code>. For <code>arrow</code>, it can suggest the common direction values <code>0</code>, <code>90</code>, <code>180</code>, and <code>270</code>.</li>
-    <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested. Color suggestions use hexadecimal values.</li>
+    <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested for compact SGML components. The XML-style notebook components suggest equals-sign attributes such as <code>title="..."</code> and <code>shuffle="true"</code>. Color suggestions use hexadecimal values.</li>
     <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
     <li>Use <strong>Find</strong>, <strong>Replace</strong>, <strong>Go to line</strong>, and <strong>Suggest</strong> for larger documents. The editor also supports indentation, bracket pairing, and syntax-aware templates.</li>
   </ul>
@@ -385,20 +447,26 @@ $$</pre>
 </section>
 
 <section id="offline">
-  <h2>10. Automatic resource caching and offline use</h2>
+  <h2>11. Automatic resource caching and offline use</h2>
   <p>There is no manual offline-mode switch. When the network is available, the viewer fetches updated app resources and caches successful responses. If the network is unavailable or a request fails, the service worker serves the last successfully cached app resources when available.</p>
   <p>The cache includes the app shell, JavaScript (including the complete inline SVG icon registry), CSS, local libraries, and this documentation page. Open the viewer once while online before relying on offline access, so the browser has a version to use later.</p>
   <div class="note good"><strong>Remember:</strong> the viewer, editor, and documentation can load from cache after a successful first visit. Fetching a brand-new remote resource still needs a network connection. Documents already saved in this browser are stored locally.</div>
 </section>
 
 <section id="quick-reference">
-  <h2>11. Quick reference</h2>
+  <h2>12. Quick reference</h2>
   <table><thead><tr><th>Syntax</th><th>Purpose</th></tr></thead><tbody>
     <tr><td><code>&lt;Choices: (...) [...] {...}&gt;</code></td><td>Multiple-choice question.</td></tr>
     <tr><td><code>&lt;Fillin: (...) [] {...}&gt;</code></td><td>Typed answer question.</td></tr>
     <tr><td><code>&lt;Enumeration: (...) [...] {...}&gt;</code></td><td>Written list or ordering task.</td></tr>
     <tr><td><code>&lt;connect: (...) [[...][...]] {...}&gt;</code></td><td>Match two columns.</td></tr>
     <tr><td><code>&lt;flashcard (...) [[...]] {answers:[...]}&gt;</code></td><td>Question/answer card deck.</td></tr>
+    <tr><td><code>&lt;flashcards title="..."&gt;&lt;card&gt;&lt;front&gt;...&lt;/front&gt;&lt;back&gt;...&lt;/back&gt;&lt;/card&gt;&lt;/flashcards&gt;</code></td><td>Structured XML-style flashcard deck; keeps the existing flashcard viewer.</td></tr>
+    <tr><td><code>&lt;notebox type="definition" title="..."&gt;...&lt;/notebox&gt;</code></td><td>Styled notebook callout.</td></tr>
+    <tr><td><code>&lt;checklist title="..."&gt;&lt;item&gt;...&lt;/item&gt;&lt;/checklist&gt;</code></td><td>Interactive study checklist.</td></tr>
+    <tr><td><code>&lt;glossary&gt;&lt;term name="..."&gt;...&lt;/term&gt;&lt;/glossary&gt;</code></td><td>Term and definition collection.</td></tr>
+    <tr><td><code>&lt;quickreview&gt;&lt;fact label="..."&gt;...&lt;/fact&gt;&lt;/quickreview&gt;</code></td><td>Responsive revision cards.</td></tr>
+    <tr><td><code>&lt;cornell&gt;&lt;cue&gt;...&lt;/cue&gt;&lt;notes&gt;...&lt;/notes&gt;&lt;summary&gt;...&lt;/summary&gt;&lt;/cornell&gt;</code></td><td>Cornell notes page layout.</td></tr>
     <tr><td><code>&lt;st col:#hex bg:#hex display:block&gt;...&lt;/st&gt;</code></td><td>Styled text with optional color, background, font, and display settings.</td></tr>
     <tr><td><code>&lt;badge col:#hex bg:#hex&gt;...&lt;/badge&gt;</code></td><td>Compact inline label.</td></tr>
     <tr><td><code>&lt;icowarning scale:[1.5] color:"#hex" border:"2px #hex"/&gt;</code></td><td>Inline SVG icon with optional size and styles.</td></tr>

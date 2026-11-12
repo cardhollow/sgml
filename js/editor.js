@@ -19,7 +19,7 @@ const Editor = (() => {
   const TAGS = Array.isArray(LANG.tags) ? LANG.tags : [];
   const ATTRS = Array.isArray(LANG.attributes) ? LANG.attributes : [];
   const SNIPPETS = Array.isArray(LANG.snippets) ? LANG.snippets : [];
-  const VOID_TAGS = new Set((LANG.voidTags || []).map(value => String(value).toLowerCase()));
+  const VOID_TAGS = new Set([...(LANG.voidTags || []), "area", "base", "col", "embed", "param", "track", "wbr"].map(value => String(value).toLowerCase()));
   const TAG_MAP = new Map(TAGS.map(tag => [String(tag.name).toLowerCase(), tag]));
   // Recognize native HTML, SVG, and MathML element names even when they are
   // not part of the SGML completion vocabulary. Custom-element names are
@@ -46,14 +46,39 @@ const Editor = (() => {
   HTML_TAG_NAMES.add("html");
   const ATTR_MAP = new Map(ATTRS.map(attr => [String(attr.name).toLowerCase(), attr]));
   const SNIPPET_MAP = new Map(SNIPPETS.map(item => [String(item.trigger).toLowerCase(), item]));
-  const LH = 18, PL = 8, PC = 54;
+  const LH = 18, PL = 8, PC = 72;
   const TOKEN_LEXICAL = /<!--[\s\S]*?(?:-->|$)|```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|<\s*\/?\s*[A-Za-z][\w:-]*|#[\da-fA-F]{3,8}\b|\b(?:true|false|null)\b|\b[A-Za-z_][\w:-]*(?=\s*[:=])/g;
   let CHAR_W = measureCharWidth();
   let onRun = () => {}, onChange = () => {};
   let suggestions = [], selectedSuggestion = 0, popOpen = false, replaceTokenStart = 0, replaceTokenEnd = 0;
-  let suppressSuggestions = false, findMatches = [], activeFind = -1, renderFrame = 0, renderTimer = 0;
+  let suppressSuggestions = false, findMatches = [], activeFind = -1, renderFrame = 0, renderTimer = 0, suggestTimer = 0;
   let lastSuggestionContext = "", popupScrollTimer = 0, lockPopupScrollSelection = false;
   let renderedLineCount = -1, currentLineCount = 1;
+  // Source offsets for fast O(log n) line/column lookup. These are updated
+  // from each edit rather than rebuilding a line index on every cursor move.
+  let sourceLineStarts = [0];
+  let displayLineText = null, displayLineStarts = [0];
+  let lineIndexDirty = false;
+  let candidatesDirty = true, gutterDirty = true;
+  // sourceText always contains the complete document. The textarea contains a
+  // visual projection of it while folds are closed, so native caret geometry
+  // stays aligned with the lines that are actually visible.
+  let sourceText = "";
+  let projectionState = { text: "", segments: [], candidates: [], visibleFolds: [] };
+  let foldedRanges = [];
+  let gutterFoldActions = [];
+
+  // The browser's native undo stack is reset whenever a projected value is
+  // assigned to the textarea. Keep our own edit history so folds, mobile input,
+  // and programmatic edits all share one predictable undo/redo path.
+  const undoStack = [], redoStack = [];
+  const MAX_UNDO_ENTRIES = 120;
+  let historyBaseline = null;
+  let pendingHistoryState = null;
+  let pendingInputType = '';
+  let pendingProgrammaticState = null;
+  let ignoreNextNativeHistoryInput = '';
+  const FOLD_STORAGE_PREFIX = 'sgml_editor_fold_state_v1:';
 
   function measureCharWidth() {
     const canvas = document.createElement("canvas");
@@ -67,21 +92,65 @@ const Editor = (() => {
   const value = () => ta.value;
   const clamp = (num, min, max) => Math.max(min, Math.min(max, num));
   const hasSelection = () => ta.selectionStart !== ta.selectionEnd;
-  const currentLineInfo = (offset = ta.selectionEnd) => {
-    const text = value();
-    offset = clamp(offset, 0, text.length);
-    const previousNewline = text.lastIndexOf("\n", offset - 1);
-    let line = 0;
-    for (let cursor = 0; cursor < offset; cursor++) {
-      if (text.charCodeAt(cursor) === 10) line++;
+  function lowerBound(array, value) {
+    let low = 0, high = array.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (array[middle] < value) low = middle + 1;
+      else high = middle;
     }
-    const column = offset - (previousNewline + 1);
-    return { line, column, lineStart: previousNewline + 1, offset };
-  };
-  const currentLineText = (offset = ta.selectionEnd) => {
-    const info = currentLineInfo(offset);
-    const end = value().indexOf("\n", offset);
-    return value().slice(info.lineStart, end < 0 ? value().length : end);
+    return low;
+  }
+  function upperBound(array, value) {
+    let low = 0, high = array.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (array[middle] <= value) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+  function rebuildLineIndex(text) {
+    sourceLineStarts = [0];
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) === 10) sourceLineStarts.push(i + 1);
+    }
+    lineIndexDirty = false;
+    currentLineCount = sourceLineStarts.length;
+  }
+  function updateLineIndexForEdit(start, end, insertion) {
+    if (lineIndexDirty) rebuildLineIndex(sourceText);
+    const delta = insertion.length - (end - start);
+    const prefixEnd = upperBound(sourceLineStarts, start);
+    // A line-start at `end` is caused by the newline immediately before it.
+    // If that newline is part of the removed range, discard that old boundary;
+    // any replacement newline boundaries are added from `insertion` below.
+    const removedEndingNewline = end > start && sourceText.charCodeAt(end - 1) === 10;
+    const suffixStart = end === start
+      ? upperBound(sourceLineStarts, start)
+      : lowerBound(sourceLineStarts, end + (removedEndingNewline ? 1 : 0));
+    const next = sourceLineStarts.slice(0, prefixEnd);
+    for (let i = 0; i < insertion.length; i++) {
+      if (insertion.charCodeAt(i) === 10) next.push(start + i + 1);
+    }
+    for (let i = suffixStart; i < sourceLineStarts.length; i++) {
+      const shifted = sourceLineStarts[i] + delta;
+      if (shifted > next[next.length - 1]) next.push(shifted);
+    }
+    sourceLineStarts = next.length ? next : [0];
+    currentLineCount = sourceLineStarts.length;
+  }
+  function currentLineInfo(displayOffset = ta.selectionEnd) {
+    const offset = displayToSource(displayOffset, "left");
+    const safeOffset = clamp(offset, 0, sourceText.length);
+    const line = Math.max(0, upperBound(sourceLineStarts, safeOffset) - 1);
+    const lineStart = sourceLineStarts[line] || 0;
+    return { line, column: safeOffset - lineStart, lineStart, offset: safeOffset };
+  }
+  const currentLineText = (displayOffset = ta.selectionEnd) => {
+    const info = currentLineInfo(displayOffset);
+    const end = sourceText.indexOf("\n", info.offset);
+    return sourceText.slice(info.lineStart, end < 0 ? sourceText.length : end);
   };
   const closePop = () => { popOpen = false; lastSuggestionContext = ""; if (popupScrollTimer) clearTimeout(popupScrollTimer); popupScrollTimer = 0; pop.style.display = "none"; pop.innerHTML = ""; };
 
@@ -245,18 +314,764 @@ const Editor = (() => {
     return out + (cursor < text.length ? sgmlTokenHtml(text.slice(cursor)) : "");
   }
 
-  function renderView() {
-    const text = value();
-    const lines = text.split("\n");
-    currentLineCount = lines.length;
-    // Rebuilding all line numbers for every character typed was needlessly
-    // expensive. The gutter only changes when the actual number of lines does.
-    if (lines.length !== renderedLineCount) {
-      gutter.textContent = lines.map((_, index) => String(index + 1)).join("\n");
-      renderedLineCount = lines.length;
+  // ---------------------------------------------------------------------------
+  // Source folding. Folded content is never deleted: it is represented by a
+  // single placeholder in the textarea projection and restored before editing.
+  // ---------------------------------------------------------------------------
+  function mergeRanges(ranges) {
+    const sorted = ranges.filter(range => range && range.end > range.start)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged = [];
+    for (const range of sorted) {
+      const last = merged[merged.length - 1];
+      if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+      else merged.push({ start: range.start, end: range.end });
     }
-    // Wrapping the source in a span avoids <pre>'s special leading-newline
-    // parsing rule, while the textarea itself remains the source of truth.
+    return merged;
+  }
+
+  function makeLineFold(text, start, openEnd, closeStart, end, kind, label) {
+    const firstNewline = text.indexOf("\n", openEnd);
+    if (firstNewline < 0 || firstNewline >= closeStart) return null;
+    const innerStart = firstNewline + 1;
+    const closeLineStart = text.lastIndexOf("\n", Math.max(0, closeStart - 1)) + 1;
+    if (closeLineStart < innerStart) return null;
+    return {
+      kind,
+      label: label || kind,
+      start,
+      end: Math.max(end, closeStart),
+      innerStart,
+      innerEnd: closeLineStart
+    };
+  }
+
+  function scanTagEnd(text, start) {
+    let quote = "";
+    for (let i = start + 1; i < text.length; i++) {
+      const ch = text[i];
+      if (quote) {
+        if (ch === quote) quote = "";
+        else if (ch === "\\" && quote !== "`" && i + 1 < text.length) i++;
+        continue;
+      }
+      if (ch === "'" || ch === '"') quote = ch;
+      else if (ch === ">") return i + 1;
+    }
+    return -1;
+  }
+
+  function lineBounds(text, offset) {
+    const start = text.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
+    const newline = text.indexOf("\n", offset);
+    return { start, end: newline < 0 ? text.length : newline };
+  }
+
+  function collectJsRanges(text) {
+    const ranges = [];
+    const opening = /<js\s*>/ig;
+    let match;
+    while ((match = opening.exec(text))) {
+      const bodyStart = opening.lastIndex;
+      const closeStart = findJsClose(text, bodyStart);
+      const end = closeStart < 0 ? text.length : closeStart;
+      ranges.push({ start: match.index, bodyStart, end, closeStart });
+      if (closeStart < 0) break;
+      const close = /^<\/js\s*>/i.exec(text.slice(closeStart));
+      opening.lastIndex = closeStart + (close ? close[0].length : 1);
+    }
+    return ranges;
+  }
+
+  function findFencedRanges(text, jsRanges) {
+    const folds = [], skipped = [];
+    let offset = 0;
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineStart = offset;
+      const lineEnd = lineStart + line.length;
+      offset = lineEnd + (i < lines.length - 1 ? 1 : 0);
+      if (jsRanges.some(range => lineStart >= range.bodyStart && lineStart < range.end)) continue;
+      const opening = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line);
+      if (!opening) continue;
+      const marker = opening[1];
+      const markerChar = marker[0];
+      const markerLength = marker.length;
+      let closeIndex = -1, closeStart = -1, closeEnd = -1;
+      let scanOffset = offset;
+      for (let j = i + 1; j < lines.length; j++) {
+        const candidate = lines[j];
+        const closePattern = new RegExp("^[ \t]*" + (markerChar === "`" ? "`" : "~") + "{" + markerLength + ",}[ \t]*$");
+        if (closePattern.test(candidate)) {
+          closeIndex = j;
+          closeStart = scanOffset;
+          closeEnd = scanOffset + candidate.length;
+          break;
+        }
+        scanOffset += candidate.length + (j < lines.length - 1 ? 1 : 0);
+      }
+      if (closeIndex < 0) continue;
+      const fold = makeLineFold(text, lineStart, lineEnd, closeStart, closeEnd, "fence-" + (markerChar === "`" ? "backtick" : "tilde"), "code fence");
+      if (fold) {
+        folds.push(fold);
+        skipped.push({ start: lineStart, end: closeEnd + (closeIndex < lines.length - 1 ? 1 : 0) });
+      }
+      i = closeIndex;
+      offset = closeEnd + (closeIndex < lines.length - 1 ? 1 : 0);
+    }
+    return { folds, skipped };
+  }
+
+  function collectXmlComments(text, excludedRanges) {
+    const folds = [], skipped = [];
+    let i = 0;
+    while (i < text.length) {
+      const excluded = excludedRanges.find(range => i >= range.start && i < range.end);
+      if (excluded) { i = excluded.end; continue; }
+      if (text.startsWith("<!--", i)) {
+        const close = text.indexOf("-->", i + 4);
+        if (close < 0) break;
+        const end = close + 3;
+        const fold = makeLineFold(text, i, i + 4, close, end, "xml-comment", "comment");
+        if (fold) folds.push(fold);
+        skipped.push({ start: i, end });
+        i = end;
+        continue;
+      }
+      i++;
+    }
+    return { folds, skipped };
+  }
+
+  function collectXmlTagFolds(text, excludedRanges) {
+    const folds = [];
+    const stack = [];
+    let i = 0, rangeIndex = 0;
+    const excluded = excludedRanges.slice().sort((a, b) => a.start - b.start);
+    while (i < text.length) {
+      while (rangeIndex < excluded.length && excluded[rangeIndex].end <= i) rangeIndex++;
+      const range = excluded[rangeIndex];
+      if (range && i >= range.start && i < range.end) { i = range.end; continue; }
+      if (text[i] !== "<") { i++; continue; }
+      if (text.startsWith("<!--", i) || text.startsWith("<![CDATA[", i) || text.startsWith("<?", i) || text.startsWith("<!", i)) {
+        const close = text.startsWith("<!--", i) ? text.indexOf("-->", i + 4) :
+          text.startsWith("<![CDATA[", i) ? text.indexOf("]]>", i + 9) : text.indexOf(">", i + 2);
+        if (close < 0) break;
+        i = text.startsWith("<!--", i) || text.startsWith("<![CDATA[", i) ? close + 3 : close + 1;
+        continue;
+      }
+      const tagEnd = scanTagEnd(text, i);
+      if (tagEnd < 0) break;
+      const raw = text.slice(i, tagEnd);
+      const parsed = /^<\s*(\/?)\s*([A-Za-z][\w:-]*)\b([\s\S]*?)>$/.exec(raw);
+      if (!parsed) { i = tagEnd; continue; }
+      const closing = parsed[1] === "/";
+      const name = parsed[2].toLowerCase();
+      const selfClosing = /\/\s*>$/.test(raw);
+      if (closing) {
+        let matchIndex = -1;
+        for (let j = stack.length - 1; j >= 0; j--) {
+          if (stack[j].name === name) { matchIndex = j; break; }
+        }
+        if (matchIndex >= 0) {
+          const open = stack[matchIndex];
+          stack.length = matchIndex;
+          const fold = makeLineFold(text, open.start, open.end, i, tagEnd, name === "js" ? "js-tag" : "xml-tag:" + name, "<" + name + ">");
+          if (fold) folds.push(fold);
+        }
+      } else if (!selfClosing && !VOID_TAGS.has(name)) {
+        stack.push({ name, start: i, end: tagEnd });
+      }
+      i = tagEnd;
+    }
+    return folds;
+  }
+
+  function collectJsFolds(text, jsRanges) {
+    const folds = [];
+    const pairs = { "(": ")", "[": "]", "{": "}" };
+    for (const range of jsRanges) {
+      const stack = [];
+      let i = range.bodyStart;
+      while (i < range.end) {
+        const ch = text[i], next = text[i + 1] || "";
+        if (ch === "/" && next === "/") {
+          const first = lineBounds(text, i);
+          let last = first;
+          let cursor = first.end;
+          let count = 1;
+          while (cursor < range.end && text[cursor] === "\n") {
+            const nextLine = lineBounds(text, cursor + 1);
+            const nextContent = text.slice(nextLine.start, nextLine.end);
+            if (!/^[ \t]*\/\//.test(nextContent)) break;
+            last = nextLine;
+            count++;
+            cursor = nextLine.end;
+          }
+          if (count >= 3) {
+            const fold = makeLineFold(text, first.start, first.end, last.start, last.end, "js-line-comment", "line comments");
+            if (fold) folds.push(fold);
+          }
+          i = first.end;
+          continue;
+        }
+        if (ch === "/" && next === "*") {
+          const close = text.indexOf("*/", i + 2);
+          const closeStart = close < 0 || close >= range.end ? range.end : close;
+          const closeEnd = closeStart < range.end ? closeStart + 2 : range.end;
+          const fold = closeStart < range.end ? makeLineFold(text, i, i + 2, closeStart, closeEnd, "js-block-comment", "block comment") : null;
+          if (fold) folds.push(fold);
+          i = closeEnd;
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          const quote = ch;
+          i++;
+          let escaped = false;
+          while (i < range.end) {
+            const current = text[i++];
+            if (escaped) { escaped = false; continue; }
+            if (current === "\\") { escaped = true; continue; }
+            if (current === quote) break;
+          }
+          continue;
+        }
+        if (pairs[ch]) {
+          stack.push({ char: ch, start: i });
+          i++;
+          continue;
+        }
+        if (ch === ")" || ch === "]" || ch === "}") {
+          const top = stack[stack.length - 1];
+          if (top && pairs[top.char] === ch) {
+            stack.pop();
+            let kind = "js-bracket-" + top.char;
+            if (top.char === "{") {
+              const prefixStart = Math.max(range.bodyStart, text.lastIndexOf(";", top.start - 1) + 1, text.lastIndexOf("}", top.start - 1) + 1);
+              const prefix = text.slice(prefixStart, top.start);
+              if (/\bfunction(?:\s+[$\w]+)?\s*\([\s\S]*\)\s*$/.test(prefix) || /(?:\([^)]*\)|[$\w]+)\s*=>\s*$/.test(prefix)) {
+                kind = "js-function";
+              } else {
+                kind = "js-brace";
+              }
+            }
+            const foldLabel = kind === "js-function" ? "function" :
+              top.char === "{" ? "curly brace block" : top.char === "[" ? "square bracket block" : "parentheses block";
+            const fold = makeLineFold(text, top.start, top.start + 1, i, i + 1, kind, foldLabel);
+            if (fold) folds.push(fold);
+          }
+          i++;
+          continue;
+        }
+        i++;
+      }
+    }
+    return folds;
+  }
+
+  function collectFoldCandidates(text) {
+    if (!text) return [];
+    const jsRanges = collectJsRanges(text);
+    const fenceResult = findFencedRanges(text, jsRanges);
+    const commentResult = collectXmlComments(text, mergeRanges(jsRanges.map(range => ({ start: range.bodyStart, end: range.end })).concat(fenceResult.skipped)));
+    const nonTagRanges = mergeRanges(
+      jsRanges.map(range => ({ start: range.bodyStart, end: range.end }))
+        .concat(fenceResult.skipped, commentResult.skipped)
+    );
+    const folds = [
+      ...fenceResult.folds,
+      ...commentResult.folds,
+      ...collectXmlTagFolds(text, nonTagRanges),
+      ...collectJsFolds(text, jsRanges)
+    ];
+    const unique = new Map();
+    for (const fold of folds) {
+      if (!fold || fold.innerStart > fold.innerEnd) continue;
+      const key = fold.kind + "@" + fold.start;
+      if (!unique.has(key)) unique.set(key, fold);
+    }
+    return [...unique.values()].sort((a, b) => a.start - b.start || b.end - a.end);
+  }
+
+  function sourceLineAt(text, offset) {
+    if (text !== sourceText || lineIndexDirty) {
+      let line = 0;
+      for (let i = 0; i < Math.min(offset, text.length); i++) if (text.charCodeAt(i) === 10) line++;
+      return line;
+    }
+    return Math.max(0, upperBound(sourceLineStarts, clamp(offset, 0, text.length)) - 1);
+  }
+
+  function displayToSource(offset, bias = "left", state = projectionState) {
+    offset = clamp(offset, 0, state.text.length);
+    for (const segment of state.segments) {
+      if (segment.type === "text") {
+        if (offset >= segment.displayStart && offset <= segment.displayEnd) {
+          return segment.sourceStart + (offset - segment.displayStart);
+        }
+      } else {
+        if (offset <= segment.displayStart) return segment.sourceStart;
+        if (offset >= segment.displayEnd) continue;
+        return bias === "right" ? segment.sourceEnd : segment.sourceStart;
+      }
+    }
+    return sourceText.length;
+  }
+
+  function sourceToDisplay(offset, bias = "left", state = projectionState) {
+    offset = clamp(offset, 0, sourceText.length);
+    for (const segment of state.segments) {
+      if (segment.type === "text") {
+        if (offset >= segment.sourceStart && offset <= segment.sourceEnd) {
+          return segment.displayStart + (offset - segment.sourceStart);
+        }
+      } else {
+        if (offset <= segment.sourceStart) return segment.displayStart;
+        if (offset >= segment.sourceEnd) continue;
+        return bias === "right" ? segment.displayEnd : segment.displayStart;
+      }
+    }
+    return state.text.length;
+  }
+
+  function buildProjection(text, suppliedCandidates = null) {
+    const candidates = suppliedCandidates || collectFoldCandidates(text);
+    const foldedKeys = new Set(foldedRanges.map(item => item.kind + "@" + item.start));
+    const collapsed = candidates.filter(item => foldedKeys.has(item.kind + "@" + item.start))
+      .sort((a, b) => a.innerStart - b.innerStart || b.innerEnd - a.innerEnd);
+    const visibleCollapsed = [];
+    for (const item of collapsed) {
+      if (visibleCollapsed.some(parent => item.start >= parent.innerStart && item.start < parent.innerEnd)) continue;
+      visibleCollapsed.push(item);
+    }
+
+    const segments = [];
+    let display = "", sourceCursor = 0;
+    const addText = (start, end) => {
+      if (end <= start) return;
+      const piece = text.slice(start, end);
+      segments.push({ type: "text", sourceStart: start, sourceEnd: end, displayStart: display.length, displayEnd: display.length + piece.length });
+      display += piece;
+    };
+    for (const fold of visibleCollapsed) {
+      if (fold.innerStart < sourceCursor) continue;
+      addText(sourceCursor, fold.innerStart);
+      const firstLineEnd = text.indexOf("\n", fold.innerStart);
+      const firstLine = text.slice(fold.innerStart, firstLineEnd < 0 ? fold.innerEnd : firstLineEnd);
+      const indent = /^[ \t]*/.exec(firstLine)[0];
+      const marker = indent + "...\n";
+      segments.push({
+        type: "fold",
+        sourceStart: fold.innerStart,
+        sourceEnd: fold.innerEnd,
+        displayStart: display.length,
+        displayEnd: display.length + marker.length,
+        fold
+      });
+      display += marker;
+      sourceCursor = fold.innerEnd;
+    }
+    addText(sourceCursor, text.length);
+
+    return { text: display, segments, candidates, visibleFolds: visibleCollapsed };
+  }
+
+  function foldIsHidden(candidate, state = projectionState) {
+    return state.visibleFolds.some(parent => candidate.start >= parent.innerStart && candidate.start < parent.innerEnd);
+  }
+
+  function getFoldStorageKey() {
+    let documentId = '';
+    try { documentId = localStorage.getItem('sgml_viewer_current_id') || ''; } catch (_) {}
+    return FOLD_STORAGE_PREFIX + (documentId || 'unassigned');
+  }
+  function persistFoldState() {
+    try {
+      localStorage.setItem(getFoldStorageKey(), JSON.stringify({
+        version: 1,
+        folds: foldedRanges.map(item => ({ kind: item.kind, start: item.start, end: item.end }))
+      }));
+    } catch (error) {
+      console.warn('Could not save editor fold state:', error);
+    }
+  }
+  function restoreFoldState(text, candidates) {
+    foldedRanges = [];
+    try {
+      const raw = localStorage.getItem(getFoldStorageKey());
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved || saved.version !== 1 || !Array.isArray(saved.folds)) return;
+      const candidateMap = new Map(candidates.map(item => [item.kind + '@' + item.start, item]));
+      const seen = new Set();
+      for (const item of saved.folds) {
+        if (!item || typeof item.kind !== 'string' || !Number.isFinite(item.start)) continue;
+        const key = item.kind + '@' + item.start;
+        const match = candidateMap.get(key);
+        if (!match || seen.has(key)) continue;
+        foldedRanges.push({ kind: match.kind, start: match.start, end: match.end });
+        seen.add(key);
+      }
+      if (foldedRanges.length !== saved.folds.length) persistFoldState();
+    } catch (error) {
+      console.warn('Could not restore editor fold state:', error);
+      foldedRanges = [];
+    }
+  }
+  function cloneFoldRanges(ranges = foldedRanges) {
+    return ranges.map(item => ({ kind: item.kind, start: item.start, end: item.end }));
+  }
+  function captureHistoryState() {
+    const start = displayToSource(ta.selectionStart, 'left');
+    const end = ta.selectionStart === ta.selectionEnd ? start : displayToSource(ta.selectionEnd, 'right');
+    return { text: sourceText, folds: cloneFoldRanges(), selectionStart: start, selectionEnd: end };
+  }
+  function beginProgrammaticEdit() {
+    if (!pendingProgrammaticState) pendingProgrammaticState = captureHistoryState();
+  }
+  function makeHistoryEntry(before, after, inputType) {
+    if (!before || !after || before.text === after.text) return null;
+    let start = 0;
+    const limit = Math.min(before.text.length, after.text.length);
+    while (start < limit && before.text[start] === after.text[start]) start++;
+    let suffix = 0;
+    while (suffix < before.text.length - start && suffix < after.text.length - start &&
+      before.text[before.text.length - suffix - 1] === after.text[after.text.length - suffix - 1]) suffix++;
+    return {
+      start,
+      removed: before.text.slice(start, before.text.length - suffix),
+      inserted: after.text.slice(start, after.text.length - suffix),
+      beforeSelectionStart: before.selectionStart,
+      beforeSelectionEnd: before.selectionEnd,
+      afterSelectionStart: after.selectionStart,
+      afterSelectionEnd: after.selectionEnd,
+      beforeFolds: cloneFoldRanges(before.folds),
+      afterFolds: cloneFoldRanges(after.folds),
+      inputType: inputType || '',
+      time: Date.now()
+    };
+  }
+  function pushHistory(before, after, inputType) {
+    const entry = makeHistoryEntry(before, after, inputType);
+    if (!entry) return;
+    const previous = undoStack[undoStack.length - 1];
+    const canMerge = previous && entry.time - previous.time < 750 &&
+      previous.inputType === entry.inputType && entry.inputType === 'insertText' &&
+      !previous.removed && !entry.removed && !previous.inserted.includes('\n') &&
+      !entry.inserted.includes('\n') && entry.start === previous.start + previous.inserted.length;
+    if (canMerge) {
+      previous.inserted += entry.inserted;
+      previous.afterSelectionStart = entry.afterSelectionStart;
+      previous.afterSelectionEnd = entry.afterSelectionEnd;
+      previous.afterFolds = entry.afterFolds;
+      previous.time = entry.time;
+    } else {
+      undoStack.push(entry);
+      if (undoStack.length > MAX_UNDO_ENTRIES) undoStack.shift();
+    }
+    redoStack.length = 0;
+  }
+  function restoreHistoryEntry(entry, undo) {
+    const expected = undo ? entry.inserted : entry.removed;
+    const replacement = undo ? entry.removed : entry.inserted;
+    const end = entry.start + expected.length;
+    // A mismatch means something outside the editor changed the source. Never
+    // apply a stale patch that could insert unrelated text into the document.
+    if (sourceText.slice(entry.start, end) !== expected) {
+      console.warn('Editor history entry no longer matches the current source; refusing stale undo/redo.');
+      return false;
+    }
+    const scrollTop = ta.scrollTop, scrollLeft = ta.scrollLeft;
+    updateLineIndexForEdit(entry.start, end, replacement);
+    sourceText = sourceText.slice(0, entry.start) + replacement + sourceText.slice(end);
+    foldedRanges = cloneFoldRanges(undo ? entry.beforeFolds : entry.afterFolds);
+    projectionState = buildProjection(sourceText);
+    candidatesDirty = false;
+    gutterDirty = true;
+    const display = projectionState.text;
+    if (ta.value !== display) ta.value = display;
+    const sourceStart = undo ? entry.beforeSelectionStart : entry.afterSelectionStart;
+    const sourceEnd = undo ? entry.beforeSelectionEnd : entry.afterSelectionEnd;
+    const displayStart = sourceToDisplay(clamp(sourceStart, 0, sourceText.length), 'left');
+    const displayEnd = sourceStart === sourceEnd ? displayStart : sourceToDisplay(clamp(sourceEnd, 0, sourceText.length), 'right');
+    ta.setSelectionRange(displayStart, displayEnd);
+    ta.scrollTop = scrollTop;
+    ta.scrollLeft = scrollLeft;
+    persistFoldState();
+    refreshView(true);
+    historyBaseline = captureHistoryState();
+    pendingHistoryState = null;
+    pendingInputType = '';
+    pendingProgrammaticState = null;
+    onChange();
+    return true;
+  }
+  function undo() {
+    const entry = undoStack[undoStack.length - 1];
+    if (!entry || !restoreHistoryEntry(entry, true)) return;
+    undoStack.pop();
+    redoStack.push(entry);
+  }
+  function redo() {
+    const entry = redoStack[redoStack.length - 1];
+    if (!entry || !restoreHistoryEntry(entry, false)) return;
+    redoStack.pop();
+    undoStack.push(entry);
+  }
+
+  function applyProjection(selectionStartSource = null, selectionEndSource = null) {
+    const displaySelectionCollapsed = ta.selectionStart === ta.selectionEnd;
+    const oldStart = selectionStartSource == null ? displayToSource(ta.selectionStart, "left") : selectionStartSource;
+    const oldEnd = selectionEndSource == null
+      ? (displaySelectionCollapsed ? oldStart : displayToSource(ta.selectionEnd, "right"))
+      : selectionEndSource;
+    projectionState = buildProjection(sourceText);
+    candidatesDirty = false;
+    gutterDirty = true;
+    if (ta.value !== projectionState.text) ta.value = projectionState.text;
+    const displayStart = sourceToDisplay(oldStart, "left");
+    const displayEnd = oldStart === oldEnd ? displayStart : sourceToDisplay(oldEnd, "right");
+    ta.setSelectionRange(displayStart, displayEnd);
+    refreshView(true);
+  }
+
+  function toggleFold(actionIndex) {
+    const fold = gutterFoldActions[actionIndex];
+    if (!fold) return;
+    const selectionStart = displayToSource(ta.selectionStart, "left");
+    const selectionEnd = ta.selectionStart === ta.selectionEnd
+      ? selectionStart : displayToSource(ta.selectionEnd, "right");
+    const key = fold.kind + "@" + fold.start;
+    const exists = foldedRanges.some(item => item.kind + "@" + item.start === key);
+    if (exists) foldedRanges = foldedRanges.filter(item => item.kind + "@" + item.start !== key);
+    else foldedRanges.push({ kind: fold.kind, start: fold.start, end: fold.end });
+    applyProjection(selectionStart, selectionEnd);
+    persistFoldState();
+    historyBaseline = captureHistoryState();
+  }
+
+  function revealFoldAtSelection(includeBoundaries = true) {
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const marker = projectionState.segments.find(segment => {
+      if (segment.type !== "fold") return false;
+      if (start === end) return includeBoundaries
+        ? start >= segment.displayStart && start <= segment.displayEnd
+        : start > segment.displayStart && start < segment.displayEnd;
+      return start < segment.displayEnd && end > segment.displayStart;
+    });
+    if (!marker) return false;
+    const rawStart = displayToSource(start, "left");
+    const rawEnd = start === end ? rawStart : displayToSource(end, "right");
+    const fold = marker.fold;
+    foldedRanges = foldedRanges.filter(item => !(item.kind === fold.kind && item.start === fold.start));
+    applyProjection(rawStart, rawEnd);
+    persistFoldState();
+    if (!pendingHistoryState && !pendingProgrammaticState) historyBaseline = captureHistoryState();
+    return true;
+  }
+
+  function prepareEditableRange(start, end) {
+    ta.setSelectionRange(start, end);
+    revealFoldAtSelection(false);
+    return { start: ta.selectionStart, end: ta.selectionEnd };
+  }
+
+  function shiftFoldStates(rawStart, rawEnd, delta) {
+    const next = [];
+    for (const item of foldedRanges) {
+      if (rawEnd <= item.start) next.push({ kind: item.kind, start: item.start + delta, end: item.end + delta });
+      else if (rawStart >= item.end) next.push(item);
+      // An edit touching a fold's delimiters or hidden body unfolds that block.
+    }
+    foldedRanges = next;
+  }
+
+  function editNeedsFoldRescan(removed, inserted) {
+    return /[<>\[\]{}()\/\*\!\"'`~]/.test(String(removed || '') + String(inserted || ''));
+  }
+
+  function shiftCandidateDescriptors(candidates, rawStart, rawEnd, insertionLength, delta) {
+    const shifted = [];
+    const mapPoint = position => {
+      if (position <= rawStart) return position;
+      if (position >= rawEnd) return position + delta;
+      return rawStart + insertionLength;
+    };
+    for (const item of candidates || []) {
+      if (rawEnd <= item.start) {
+        shifted.push({
+          ...item,
+          start: item.start + delta,
+          end: item.end + delta,
+          innerStart: item.innerStart + delta,
+          innerEnd: item.innerEnd + delta
+        });
+      } else if (rawStart >= item.end) {
+        shifted.push(item);
+      } else if (item.start < rawStart && rawEnd < item.end) {
+        // The edit is inside this candidate, not in its opening/closing tag.
+        // Keep an approximate descriptor for the immediate projection; the
+        // debounced render reparses the complete source and validates it.
+        shifted.push({
+          ...item,
+          end: mapPoint(item.end),
+          innerStart: mapPoint(item.innerStart),
+          innerEnd: mapPoint(item.innerEnd)
+        });
+      }
+    }
+    return shifted;
+  }
+
+  function commitProjectedEdit() {
+    const nextDisplay = normalize(ta.value);
+    const oldDisplay = projectionState.text;
+    if (nextDisplay === oldDisplay) return false;
+
+    let prefix = 0;
+    const maxPrefix = Math.min(oldDisplay.length, nextDisplay.length);
+    while (prefix < maxPrefix && oldDisplay[prefix] === nextDisplay[prefix]) prefix++;
+    let suffix = 0;
+    while (suffix < oldDisplay.length - prefix && suffix < nextDisplay.length - prefix &&
+      oldDisplay[oldDisplay.length - 1 - suffix] === nextDisplay[nextDisplay.length - 1 - suffix]) suffix++;
+
+    const oldEndDisplay = oldDisplay.length - suffix;
+    const newEndDisplay = nextDisplay.length - suffix;
+    const rawStart = displayToSource(prefix, 'left', projectionState);
+    const rawEnd = displayToSource(oldEndDisplay, 'right', projectionState);
+    const insertion = nextDisplay.slice(prefix, newEndDisplay);
+    const oldSource = sourceText;
+    const newSource = oldSource.slice(0, rawStart) + insertion + oldSource.slice(rawEnd);
+    const deltaDisplay = insertion.length - (oldEndDisplay - prefix);
+    const deltaSource = insertion.length - (rawEnd - rawStart);
+    const newSuffixStart = prefix + insertion.length;
+    const oldSelectionStart = ta.selectionStart;
+    const oldSelectionEnd = ta.selectionEnd;
+
+    const mapAfterEdit = (position, bias) => {
+      if (position <= prefix) return displayToSource(position, bias, projectionState);
+      if (position >= newSuffixStart) {
+        return displayToSource(position - deltaDisplay, bias, projectionState) + deltaSource;
+      }
+      return rawStart + (position - prefix);
+    };
+    const rawSelectionStart = clamp(mapAfterEdit(oldSelectionStart, 'left'), 0, newSource.length);
+    const rawSelectionEnd = clamp(mapAfterEdit(oldSelectionEnd, 'right'), 0, newSource.length);
+
+    const removed = oldSource.slice(rawStart, rawEnd);
+    const needsFoldRescan = candidatesDirty || editNeedsFoldRescan(removed, insertion);
+    updateLineIndexForEdit(rawStart, rawEnd, insertion);
+    const fastCandidates = shiftCandidateDescriptors(projectionState.candidates, rawStart, rawEnd, insertion.length, deltaSource);
+    shiftFoldStates(rawStart, rawEnd, deltaSource);
+    sourceText = newSource;
+    // Re-project from cached fold descriptors now; a full syntax/fold scan is
+    // deferred to the throttled render pass and only requested for structural
+    // characters, rather than on every ordinary text insertion.
+    projectionState = buildProjection(sourceText, fastCandidates);
+    candidatesDirty = needsFoldRescan;
+    gutterDirty = gutterDirty || needsFoldRescan || removed.includes('\n') || insertion.includes('\n');
+    // Do not reassign the textarea if the browser's just-edited projection is
+    // already correct. Reassigning .value destroys the browser undo stack.
+    if (ta.value !== projectionState.text) ta.value = projectionState.text;
+    const displayStart = sourceToDisplay(rawSelectionStart, 'left');
+    const displayEnd = rawSelectionStart === rawSelectionEnd ? displayStart : sourceToDisplay(rawSelectionEnd, 'right');
+    ta.setSelectionRange(displayStart, displayEnd);
+    return true;
+  }
+
+  function findDisplayLine(text, offset) {
+    if (displayLineText !== text) {
+      displayLineText = text;
+      displayLineStarts = [0];
+      for (let i = 0; i < text.length; i++) {
+        if (text.charCodeAt(i) === 10) displayLineStarts.push(i + 1);
+      }
+    }
+    return Math.max(0, upperBound(displayLineStarts, clamp(offset, 0, text.length)) - 1);
+  }
+
+  function renderGutter() {
+    const lines = projectionState.text.split("\n");
+    const lineActions = new Map();
+    gutterFoldActions = [];
+    for (const candidate of projectionState.candidates) {
+      if (foldIsHidden(candidate)) continue;
+      const displayOffset = sourceToDisplay(candidate.start, "left");
+      const line = findDisplayLine(projectionState.text, displayOffset);
+      const collapsed = foldedRanges.some(item => item.kind === candidate.kind && item.start === candidate.start);
+      const actionIndex = gutterFoldActions.push(candidate) - 1;
+      if (!lineActions.has(line)) lineActions.set(line, []);
+      lineActions.get(line).push({ actionIndex, collapsed, label: candidate.label });
+    }
+
+    const rows = [];
+    let displayOffset = 0;
+    for (let line = 0; line < lines.length; line++) {
+      const rawOffset = displayToSource(displayOffset, "left");
+      const sourceLine = sourceLineAt(sourceText, rawOffset) + 1;
+      const actions = lineActions.get(line) || [];
+      const control = actions.length
+        ? '<span class="gutter-fold-controls">' + actions.map(action => {
+          const verb = action.collapsed ? "Expand" : "Collapse";
+          return '<button type="button" class="gutter-fold-btn" data-fold-index="' + action.actionIndex + '" aria-expanded="' + (!action.collapsed) + '" aria-label="' + verb + ' ' + esc(action.label) + '" title="' + verb + ' ' + esc(action.label) + '">' + (action.collapsed ? "▸" : "▾") + '</button>';
+        }).join("") + '</span>'
+        : '<span class="gutter-fold-controls"><span class="gutter-fold-spacer"></span></span>';
+      rows.push('<div class="gutter-row">' + control + '<span class="gutter-line-number">' + sourceLine + '</span></div>');
+      displayOffset += lines[line].length + 1;
+    }
+    gutter.innerHTML = rows.join("");
+  }
+
+  gutter.addEventListener("pointerdown", event => {
+    const button = event.target.closest(".gutter-fold-btn");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  gutter.addEventListener("click", event => {
+    const button = event.target.closest(".gutter-fold-btn");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggleFold(Number(button.dataset.foldIndex));
+    ta.focus({ preventScroll: true });
+  });
+
+  function renderView() {
+    if (candidatesDirty) {
+      const candidates = collectFoldCandidates(sourceText);
+      if (foldedRanges.length) {
+        const oldProjection = projectionState;
+        const sourceStart = displayToSource(ta.selectionStart, 'left', oldProjection);
+        const sourceEnd = ta.selectionStart === ta.selectionEnd
+          ? sourceStart : displayToSource(ta.selectionEnd, 'right', oldProjection);
+        projectionState = buildProjection(sourceText, candidates);
+        if (ta.value !== projectionState.text) {
+          ta.value = projectionState.text;
+          const start = sourceToDisplay(sourceStart, 'left');
+          const end = sourceStart === sourceEnd ? start : sourceToDisplay(sourceEnd, 'right');
+          ta.setSelectionRange(start, end);
+        }
+      } else {
+        projectionState = {
+          text: sourceText,
+          segments: sourceText.length ? [{ type: 'text', sourceStart: 0, sourceEnd: sourceText.length, displayStart: 0, displayEnd: sourceText.length }] : [],
+          candidates,
+          visibleFolds: []
+        };
+      }
+      candidatesDirty = false;
+      gutterDirty = true;
+    }
+    const text = value();
+    currentLineCount = sourceLineStarts.length;
+    // Gutter controls only need rebuilding after a source or fold change.
+    if (gutterDirty) {
+      renderGutter();
+      gutterDirty = false;
+    }
+    renderedLineCount = text.split('\n').length;
     highlight.innerHTML = '<span class="mirror-content">' + tokenHtml(text) + '</span>';
     syncScroll();
     updatePosition();
@@ -272,9 +1087,9 @@ const Editor = (() => {
     pos.textContent = `Ln ${info.line + 1}, Col ${info.column + 1}  |  ${currentLineCount} lines`;
   }
   function queueRenderView() {
-    // Throttle expensive syntax-color rebuilding instead of doing it for every
-    // keystroke. This keeps editing responsive without leaving the mirror stale
-    // for the whole duration of continuous typing.
+    // Keep typing/caret input immediate. Expensive syntax highlighting and
+    // gutter rebuilding are throttled so long documents do not repaint at
+    // display-frame frequency while the user is continuously typing.
     if (renderTimer || renderFrame) return;
     renderTimer = setTimeout(() => {
       renderTimer = 0;
@@ -282,7 +1097,14 @@ const Editor = (() => {
         renderFrame = 0;
         renderView();
       });
-    }, 24);
+    }, 64);
+  }
+  function queueSuggestions() {
+    if (suggestTimer) clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(() => {
+      suggestTimer = 0;
+      if (document.activeElement === ta && !suppressSuggestions) suggest(false);
+    }, 55);
   }
   function refreshView(immediate = false) {
     if (immediate) {
@@ -294,13 +1116,61 @@ const Editor = (() => {
     } else {
       queueRenderView();
     }
-    if (document.activeElement === ta && !suppressSuggestions) suggest(false);
+    if (document.activeElement === ta && !suppressSuggestions) {
+      if (immediate) suggest(false);
+      else queueSuggestions();
+    }
   }
-  function changed() {
+  function changed(event = null) {
+    const before = pendingHistoryState || pendingProgrammaticState || historyBaseline || captureHistoryState();
+    const inputType = pendingInputType || (event && event.inputType) || 'programmatic';
+    pendingHistoryState = null;
+    pendingInputType = '';
+    pendingProgrammaticState = null;
+
+    if (foldedRanges.length) {
+      commitProjectedEdit();
+    } else {
+      const next = normalize(ta.value);
+      if (next !== sourceText) {
+        let start = 0;
+        const limit = Math.min(sourceText.length, next.length);
+        while (start < limit && sourceText[start] === next[start]) start++;
+        let suffix = 0;
+        while (suffix < sourceText.length - start && suffix < next.length - start &&
+          sourceText[sourceText.length - suffix - 1] === next[next.length - suffix - 1]) suffix++;
+        const end = sourceText.length - suffix;
+        const insertion = next.slice(start, next.length - suffix);
+        const removed = sourceText.slice(start, end);
+        const needsFoldRescan = candidatesDirty || editNeedsFoldRescan(removed, insertion);
+        const delta = insertion.length - (end - start);
+        updateLineIndexForEdit(start, end, insertion);
+        const fastCandidates = needsFoldRescan
+          ? projectionState.candidates
+          : shiftCandidateDescriptors(projectionState.candidates, start, end, insertion.length, delta);
+        sourceText = next;
+        projectionState = {
+          text: sourceText,
+          segments: sourceText.length ? [{ type: 'text', sourceStart: 0, sourceEnd: sourceText.length, displayStart: 0, displayEnd: sourceText.length }] : [],
+          candidates: fastCandidates,
+          visibleFolds: []
+        };
+        candidatesDirty = needsFoldRescan;
+        gutterDirty = gutterDirty || needsFoldRescan || removed.includes('\n') || insertion.includes('\n');
+      }
+    }
+
+    const after = captureHistoryState();
+    pushHistory(before, after, inputType);
+    historyBaseline = after;
+    persistFoldState();
     refreshView();
     onChange();
   }
   function replaceRange(start, end, insertion, cursorOffset = null, selectionEnd = null) {
+    beginProgrammaticEdit();
+    const editable = prepareEditableRange(start, end);
+    start = editable.start; end = editable.end;
     const text = normalize(insertion);
     ta.setRangeText(text, start, end, "preserve");
     const caret = cursorOffset == null ? start + text.length : start + cursorOffset;
@@ -485,9 +1355,12 @@ const Editor = (() => {
   }
   function positionPopup() {
     if (!popOpen || !suggestions.length) return;
-    const info = currentLineInfo(ta.selectionStart);
-    const relX = PC + info.column * CHAR_W - ta.scrollLeft;
-    const relY = PL + info.line * LH - ta.scrollTop + LH;
+    const displayOffset = ta.selectionStart;
+    const displayBefore = value().slice(0, displayOffset);
+    const displayLine = (displayBefore.match(/\n/g) || []).length;
+    const displayColumn = displayOffset - (displayBefore.lastIndexOf("\n") + 1);
+    const relX = PC + displayColumn * CHAR_W - ta.scrollLeft;
+    const relY = PL + displayLine * LH - ta.scrollTop + LH;
     const maxWidth = Math.max(170, Math.min(480, ed.clientWidth - 12));
     pop.style.maxWidth = maxWidth + "px";
     pop.style.left = clamp(relX, 4, Math.max(4, ed.clientWidth - maxWidth - 4)) + "px";
@@ -570,8 +1443,11 @@ const Editor = (() => {
   function acceptSuggestion(index = selectedSuggestion) {
     const item = suggestions[index];
     if (!item) return closePop();
-    const start = item.replaceStart == null ? replaceTokenStart : item.replaceStart;
-    const end = item.replaceEnd == null ? replaceTokenEnd : item.replaceEnd;
+    beginProgrammaticEdit();
+    let start = item.replaceStart == null ? replaceTokenStart : item.replaceStart;
+    let end = item.replaceEnd == null ? replaceTokenEnd : item.replaceEnd;
+    const editable = prepareEditableRange(start, end);
+    start = editable.start; end = editable.end;
     let insertion = String(item.insert !== undefined ? item.insert : item.m || "");
     const lineStart = value().lastIndexOf("\n", Math.max(0, start - 1)) + 1;
     const indent = /^\s*/.exec(value().slice(lineStart, start))[0];
@@ -607,6 +1483,9 @@ const Editor = (() => {
   pop.addEventListener("touchstart", () => { lockPopupScrollSelection = false; }, { passive: true });
 
   function insertText(text, start = ta.selectionStart, end = ta.selectionEnd, caretOffset = null) {
+    beginProgrammaticEdit();
+    const editable = prepareEditableRange(start, end);
+    start = editable.start; end = editable.end;
     const insertion = normalize(text);
     const at = start;
     ta.setRangeText(insertion, start, end, "preserve");
@@ -631,7 +1510,9 @@ const Editor = (() => {
     insertText("\n" + indent, start, end);
   }
   function indentSelection(outdent = false) {
-    const start = ta.selectionStart, end = ta.selectionEnd, text = value();
+    beginProgrammaticEdit();
+    const editable = prepareEditableRange(ta.selectionStart, ta.selectionEnd);
+    const start = editable.start, end = editable.end, text = value();
     if (start === end) {
       const lineStart = text.lastIndexOf("\n", start - 1) + 1;
       const prefix = text.slice(lineStart, start);
@@ -664,7 +1545,9 @@ const Editor = (() => {
     changed();
   }
   function insertPair(open, close) {
-    const start = ta.selectionStart, end = ta.selectionEnd;
+    beginProgrammaticEdit();
+    const editable = prepareEditableRange(ta.selectionStart, ta.selectionEnd);
+    const start = editable.start, end = editable.end;
     const selected = value().slice(start, end);
     const replacement = open + selected + close;
     ta.setRangeText(replacement, start, end, "select");
@@ -675,6 +1558,19 @@ const Editor = (() => {
     const key = event.key;
     const ctrl = event.ctrlKey || event.metaKey;
     const shift = event.shiftKey;
+    if (ctrl && !event.altKey) {
+      const lower = key.toLowerCase();
+      if (lower === 'z') {
+        event.preventDefault();
+        if (shift) redo(); else undo();
+        return;
+      }
+      if (lower === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+    }
     if (popOpen) {
       if (key === "ArrowDown" || key === "ArrowUp") {
         event.preventDefault();
@@ -703,9 +1599,8 @@ const Editor = (() => {
         insertText(selected, rowStart, rowEnd);
         return;
       }
-      // Let the browser handle native cut/copy/paste/select-all/undo/redo so
-      // Android selection and desktop editing stay consistent.
-      if (["a", "c", "x", "v", "z", "y"].includes(lower)) return;
+      // Let the browser handle native selection and clipboard shortcuts.
+      if (["a", "c", "x", "v"].includes(lower)) return;
     }
     if (key === "Escape") { closePop(); return; }
     if (key === "Tab") { event.preventDefault(); indentSelection(shift); return; }
@@ -750,7 +1645,7 @@ const Editor = (() => {
       const regex = compileSearchRegex(true);
       if (!regex) { findStatus.textContent = ""; return; }
       let match;
-      while ((match = regex.exec(value()))) {
+      while ((match = regex.exec(sourceText))) {
         findMatches.push({ start: match.index, end: match.index + match[0].length });
         if (!match[0].length) regex.lastIndex++;
         if (findMatches.length > 10000) break;
@@ -764,11 +1659,28 @@ const Editor = (() => {
       findStatus.textContent = "Invalid regex";
     }
   }
+  function revealSourceRange(start, end) {
+    const beforeStart = start, beforeEnd = end;
+    const remaining = foldedRanges.filter(item => !(
+      (beforeStart >= item.start && beforeStart <= item.end) ||
+      (beforeEnd >= item.start && beforeEnd <= item.end) ||
+      (beforeStart <= item.start && beforeEnd >= item.end)
+    ));
+    if (remaining.length === foldedRanges.length) return;
+    foldedRanges = remaining;
+    applyProjection(start, end);
+    persistFoldState();
+    historyBaseline = captureHistoryState();
+  }
+
   function findMatch(backwards = false) {
     rebuildMatches();
     if (!findMatches.length) return;
-    const from = backwards ? ta.selectionStart - 1 : ta.selectionEnd;
-    let index = backwards ? -1 : -1;
+    const currentStart = displayToSource(ta.selectionStart, "left");
+    const currentEnd = ta.selectionStart === ta.selectionEnd
+      ? currentStart : displayToSource(ta.selectionEnd, "right");
+    const from = backwards ? currentStart - 1 : currentEnd;
+    let index = -1;
     if (backwards) {
       for (let i = findMatches.length - 1; i >= 0; i--) if (findMatches[i].start < from) { index = i; break; }
       if (index < 0) index = findMatches.length - 1;
@@ -778,14 +1690,18 @@ const Editor = (() => {
     }
     activeFind = index;
     const match = findMatches[index];
+    revealSourceRange(match.start, match.end);
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(match.start, match.end);
-    ta.scrollTop = Math.max(0, (value().slice(0, match.start).match(/\n/g) || []).length * LH - LH * 2);
+    const displayStart = sourceToDisplay(match.start, "left");
+    const displayEnd = sourceToDisplay(match.end, "right");
+    ta.setSelectionRange(displayStart, displayEnd);
+    ta.scrollTop = Math.max(0, findDisplayLine(projectionState.text, displayStart) * LH - LH * 2);
     refreshView();
     findStatus.textContent = `${index + 1} of ${findMatches.length}`;
   }
   function showSearch(replace = false, prefillSelection = false) {
-    const selected = prefillSelection && hasSelection() ? value().slice(ta.selectionStart, ta.selectionEnd) : "";
+    const selected = prefillSelection && hasSelection()
+      ? sourceText.slice(displayToSource(ta.selectionStart, "left"), displayToSource(ta.selectionEnd, "right")) : "";
     searchBar.hidden = false;
     replaceRow.hidden = !replace;
     if (selected && selected.length < 10000) findInput.value = selected;
@@ -808,15 +1724,17 @@ const Editor = (() => {
     if (!query) return;
     rebuildMatches();
     if (!findMatches.length) return;
-    const start = ta.selectionStart, end = ta.selectionEnd;
-    const selected = value().slice(start, end);
+    const start = displayToSource(ta.selectionStart, "left"), end = displayToSource(ta.selectionEnd, "right");
+    const selected = sourceText.slice(start, end);
     let replacement = replaceInput.value;
     if (findRegex.checked) {
       try { replacement = selected.replace(new RegExp(query, findCase.checked ? "" : "i"), replaceInput.value); }
       catch (_) { findInput.classList.add("invalid"); findStatus.classList.add("error"); findStatus.textContent = "Invalid regex"; return; }
     }
     if (!findMatches.some(match => match.start === start && match.end === end)) { findMatch(false); return; }
-    insertText(replacement, start, end);
+    revealSourceRange(start, end);
+    const displayStart = sourceToDisplay(start, "left"), displayEnd = sourceToDisplay(end, "right");
+    insertText(replacement, displayStart, displayEnd);
     rebuildMatches();
     findMatch(false);
   }
@@ -824,7 +1742,7 @@ const Editor = (() => {
     try {
       const countRegex = compileSearchRegex(true);
       if (!countRegex) return;
-      const before = value();
+      const before = sourceText;
       let count = 0, match;
       while ((match = countRegex.exec(before))) {
         count++;
@@ -833,11 +1751,34 @@ const Editor = (() => {
       const replaceRegex = compileSearchRegex(true);
       const after = before.replace(replaceRegex, replaceInput.value);
       if (count) {
-        const oldCursor = ta.selectionStart;
-        ta.value = after;
-        const caret = Math.min(oldCursor, after.length);
+        beginProgrammaticEdit();
+        const beforeState = pendingProgrammaticState;
+        const oldCursor = displayToSource(ta.selectionStart, 'left');
+        const oldSource = sourceText;
+        foldedRanges = [];
+        let prefix = 0;
+        const limit = Math.min(oldSource.length, after.length);
+        while (prefix < limit && oldSource[prefix] === after[prefix]) prefix++;
+        let suffix = 0;
+        while (suffix < oldSource.length - prefix && suffix < after.length - prefix &&
+          oldSource[oldSource.length - suffix - 1] === after[after.length - suffix - 1]) suffix++;
+        const oldEnd = oldSource.length - suffix;
+        const insertion = after.slice(prefix, after.length - suffix);
+        updateLineIndexForEdit(prefix, oldEnd, insertion);
+        sourceText = after;
+        projectionState = buildProjection(sourceText);
+        candidatesDirty = false;
+        gutterDirty = true;
+        if (ta.value !== projectionState.text) ta.value = projectionState.text;
+        const caret = sourceToDisplay(Math.min(oldCursor, after.length), 'left');
         ta.setSelectionRange(caret, caret);
-        changed();
+        const afterState = captureHistoryState();
+        pushHistory(beforeState, afterState, 'replaceAll');
+        pendingProgrammaticState = null;
+        historyBaseline = afterState;
+        persistFoldState();
+        refreshView();
+        onChange();
       }
       rebuildMatches();
       findStatus.textContent = `Replaced ${count} occurrence(s)`;
@@ -848,26 +1789,83 @@ const Editor = (() => {
   function showGoToLine() {
     gotoBar.hidden = false;
     gotoInput.value = String(currentLineInfo().line + 1);
-    gotoStatus.textContent = `1–${value().split("\n").length}`;
+    gotoStatus.textContent = `1–${sourceText.split("\n").length}`;
     gotoInput.focus();
     gotoInput.select();
   }
   function commitGoToLine() {
     const parsed = Number.parseInt(gotoInput.value, 10);
     if (!Number.isFinite(parsed)) { gotoStatus.textContent = "Enter a line number"; return; }
-    const lines = value().split("\n");
+    const lines = sourceText.split("\n");
     const targetLine = clamp(parsed, 1, lines.length) - 1;
     const lineStart = lines.slice(0, targetLine).reduce((sum, line) => sum + line.length + 1, 0);
+    revealSourceRange(lineStart, lineStart);
     gotoBar.hidden = true;
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(lineStart, lineStart);
-    ta.scrollTop = Math.max(0, targetLine * LH - LH * 2);
+    const displayOffset = sourceToDisplay(lineStart, "left");
+    ta.setSelectionRange(displayOffset, displayOffset);
+    ta.scrollTop = Math.max(0, findDisplayLine(projectionState.text, displayOffset) * LH - LH * 2);
     refreshView();
   }
 
-  ta.addEventListener("input", () => {
-    refreshView();
-    onChange();
+  ta.addEventListener('input', event => {
+    const type = event.inputType || '';
+    if (type === 'historyUndo' || type === 'historyRedo') {
+      if (ignoreNextNativeHistoryInput === type) {
+        ignoreNextNativeHistoryInput = '';
+      } else if (type === 'historyUndo') {
+        undo();
+      } else {
+        redo();
+      }
+      const state = historyBaseline || captureHistoryState();
+      projectionState = buildProjection(sourceText);
+      candidatesDirty = false;
+      gutterDirty = true;
+      if (ta.value !== projectionState.text) ta.value = projectionState.text;
+      const start = sourceToDisplay(clamp(state.selectionStart, 0, sourceText.length), 'left');
+      const end = state.selectionStart === state.selectionEnd ? start : sourceToDisplay(clamp(state.selectionEnd, 0, sourceText.length), 'right');
+      ta.setSelectionRange(start, end);
+      refreshView(true);
+      return;
+    }
+    if (ignoreNextNativeHistoryInput) ignoreNextNativeHistoryInput = '';
+    changed(event);
+  });
+  ta.addEventListener('beforeinput', event => {
+    const type = event.inputType || '';
+    // Mobile keyboards can request undo/redo through beforeinput instead of a
+    // Ctrl+Z key event. Route those through the same validated history stack.
+    if (type === 'historyUndo' || type === 'historyRedo') {
+      if (event.cancelable) event.preventDefault();
+      else ignoreNextNativeHistoryInput = type;
+      pendingHistoryState = null;
+      pendingInputType = '';
+      if (type === 'historyUndo') undo(); else redo();
+      return;
+    }
+    pendingHistoryState = captureHistoryState();
+    pendingInputType = type;
+    // Typing, deleting, or pasting on the placeholder first expands its fold.
+    // The native beforeinput operation then applies to the original source.
+    revealFoldAtSelection(false);
+  });
+  ta.addEventListener("copy", event => {
+    const start = displayToSource(ta.selectionStart, "left");
+    const end = displayToSource(ta.selectionEnd, "right");
+    if (start === end || !event.clipboardData) return;
+    event.clipboardData.setData("text/plain", sourceText.slice(start, end));
+    event.preventDefault();
+  });
+  ta.addEventListener("cut", event => {
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const rawStart = displayToSource(start, "left"), rawEnd = displayToSource(end, "right");
+    if (rawStart === rawEnd || !event.clipboardData) return;
+    event.clipboardData.setData("text/plain", sourceText.slice(rawStart, rawEnd));
+    event.preventDefault();
+    beginProgrammaticEdit();
+    ta.setRangeText("", start, end, "start");
+    changed();
   });
   ta.addEventListener("keydown", handleKeydown);
   ta.addEventListener("keyup", event => {
@@ -878,7 +1876,11 @@ const Editor = (() => {
         (["ArrowUp", "ArrowDown"].includes(event.key) && !popOpen)) suggest(false);
     else if (popOpen) positionPopup();
   });
-  ta.addEventListener("click", () => { updatePosition(); suggest(false); });
+  ta.addEventListener("click", () => {
+    if (revealFoldAtSelection(true)) return;
+    updatePosition();
+    suggest(false);
+  });
   ta.addEventListener("select", updatePosition);
   ta.addEventListener("scroll", syncScroll, { passive: true });
   ta.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== ta && !pop.contains(document.activeElement)) closePop(); }, 120));
@@ -901,14 +1903,35 @@ const Editor = (() => {
   window.addEventListener("resize", () => { CHAR_W = measureCharWidth(); syncScroll(); });
   if (window.visualViewport) window.visualViewport.addEventListener("resize", () => { if (popOpen) positionPopup(); });
 
+  // Initialize the source mirror before the first document is loaded.
+  sourceText = normalize(ta.value);
+  rebuildLineIndex(sourceText);
+  projectionState = buildProjection(sourceText);
+  ta.value = projectionState.text;
+  historyBaseline = { text: sourceText, folds: [], selectionStart: 0, selectionEnd: 0 };
+
   return {
-    init(options) { onRun = options.onRun || onRun; onChange = options.onChange || onChange; },
-    getValue: value,
+    init(options) { onRun = options.onRun || onRun; onChange = options.onChange || onChange; refreshView(true); },
+    getValue: () => sourceText,
     setValue(text) {
       closePop();
-      ta.value = normalize(text);
+      sourceText = normalize(text);
+      rebuildLineIndex(sourceText);
+      const candidates = collectFoldCandidates(sourceText);
+      restoreFoldState(sourceText, candidates);
+      projectionState = buildProjection(sourceText, candidates);
+      candidatesDirty = false;
+      gutterDirty = true;
+      ta.value = projectionState.text;
       ta.setSelectionRange(0, 0);
       ta.scrollTop = 0; ta.scrollLeft = 0;
+      undoStack.length = 0;
+      redoStack.length = 0;
+      pendingHistoryState = null;
+      pendingInputType = '';
+      pendingProgrammaticState = null;
+      historyBaseline = captureHistoryState();
+      persistFoldState();
       refreshView(true);
     },
     focus() { ta.focus({ preventScroll: true }); },
@@ -917,8 +1940,20 @@ const Editor = (() => {
     showSuggestions() { ta.focus({ preventScroll: true }); suggest(true); },
     openGoToLine: showGoToLine,
     refresh: refreshView,
-    foldAll() {},
-    unfoldAll() {}
+    foldAll() {
+      foldedRanges = collectFoldCandidates(sourceText).map(item => ({ kind: item.kind, start: item.start, end: item.end }));
+      applyProjection();
+      persistFoldState();
+      historyBaseline = captureHistoryState();
+    },
+    unfoldAll() {
+      foldedRanges = [];
+      applyProjection();
+      persistFoldState();
+      historyBaseline = captureHistoryState();
+    },
+    undo,
+    redo
   };
 })();
 

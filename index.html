@@ -47,6 +47,8 @@
 			<button type="button" onclick="Editor.showReplace()">Replace</button>
 			<button type="button" onclick="Editor.openGoToLine()">Go to line</button>
 			<button type="button" onclick="Editor.showSuggestions()">Suggest</button>
+			<button type="button" onclick="Editor.foldAll()" title="Collapse all foldable blocks">Fold all</button>
+			<button type="button" onclick="Editor.unfoldAll()" title="Expand all collapsed blocks">Unfold all</button>
 		</div>
 		<div hidden id="searchbar">
 			<div class="searchrow"><label for="findq">Find</label><input autocomplete="off" id="findq" placeholder="Search SGML" spellcheck="false" type="text"/>
@@ -55,8 +57,8 @@
 			<button id="closeSearch" title="Close search">×</button><span class="dim" id="findStatus"></span>
 		</div>
 		<div hidden id="gotoBar"><label for="gotoLine">Go to line</label><input aria-label="Line number" autocomplete="off" id="gotoLine" inputmode="numeric" spellcheck="false" type="text"/><button id="gotoGo" type="button">Go</button><button id="gotoClose" type="button">Cancel</button><span class="dim" id="gotoStatus"></span></div>
-		<div id="ed" class="sgml-native-editor"><div id="highlight" aria-hidden="true"></div><div id="editor-gutter" aria-hidden="true"></div><textarea autocapitalize="off" autocomplete="off" autocorrect="off" id="ta" inputmode="text" spellcheck="false" wrap="off" aria-label="SGML code editor"></textarea><div id="pop" role="listbox" aria-label="SGML code suggestions"></div></div>
-		<div class="sgml-editor-foot"><span id="pos"></span><span>Find · Replace · Go to line · Ctrl+Z undo · Suggest</span></div>
+		<div id="ed" class="sgml-native-editor"><div id="highlight" aria-hidden="true"></div><div id="editor-gutter"></div><textarea autocapitalize="off" autocomplete="off" autocorrect="off" id="ta" inputmode="text" spellcheck="false" wrap="off" aria-label="SGML code editor"></textarea><div id="pop" role="listbox" aria-label="SGML code suggestions"></div></div>
+		<div class="sgml-editor-foot"><span id="pos"></span><span>Gutter arrows fold blocks · Find · Replace · Go to line · Ctrl+Z undo · Suggest</span></div>
 		<div class="sgml-editor-actions"><button class="btn-submit" onclick="loadSGMLFromEditor()">Render SGML</button><button onclick="loadDefaultSample()">Load Sample</button><button onclick="toggleEditor()">Close Editor</button></div>
 	</div>
 

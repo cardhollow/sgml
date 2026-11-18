@@ -21,7 +21,7 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
   <a class="back" href="../index.html">← Back to SGML Viewer</a>
 </header>
 <nav aria-label="Documentation sections">
-  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#notebook">Notebook components</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
+  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#notebook">Notebook components</a><a href="#procedures">Procedures, copy/paste, terminals</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
 </nav>
 <main>
 <section id="overview">
@@ -46,7 +46,7 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
     <li>Select <strong>New SGML</strong> to create a document or <strong>Load SGML</strong> to open one saved in this browser.</li>
     <li>Select <strong>Edit Code</strong>, then write or paste your SGML. You can upload <code>.sgml</code>, <code>.txt</code>, <code>.md</code>, <code>.docx</code>, or <code>.pdf</code> files with <strong>Upload File</strong>.</li>
     <li>Select <strong>Render SGML</strong> to display the document. Editing is saved locally as you work.</li>
-    <li>Use <strong>Check All Answers</strong> or each question's own check button to mark answers.</li>
+    <li>Use <strong>Check All Answers</strong> for the document, or use the shared <strong>Check Answers</strong> button inside a grouped <code>&lt;questionaires&gt;</code> section.</li>
     <li>Select <strong>Download SGML</strong> to save the source to a file.</li>
   </ol>
   <h3>A first document</h3>
@@ -198,6 +198,43 @@ A comma-containing value: `Washington, D.C.`</pre>
   <pre>&lt;flashcard(Review)[Question 1, Question 2]{answers:[Answer 1, Answer 2]}&gt;
 &lt;flashcard(Review)[[Question 1][Question 2]]{answers:[[Answer 1][Answer 2]]}&gt;</pre>
   <p>A colon after <code>flashcard</code> is optional. Add <code>|shuffle:true</code> inside the answer braces to randomize the deck and show its shuffle control.</p>
+  <h3>Grouped questions — <code>questionaires</code></h3>
+  <p>Use <code>&lt;questionaires&gt;</code> to put several questions into one activity. Each question uses an explicit <code>type</code> attribute and the child tags <code>q</code>, <code>opt</code>, and <code>ans</code> instead of the parentheses, square brackets, and braces in the compact syntax.</p>
+  <pre>&lt;questionaires requiredCompletion&gt;
+  &lt;question type:"Choices"&gt;
+    &lt;q&gt;What does CPU stand for?&lt;/q&gt;
+    &lt;opt&gt;Central Processing Unit&lt;/opt&gt;
+    &lt;opt&gt;Control Program Unit&lt;/opt&gt;
+    &lt;opt&gt;Core Power Utility&lt;/opt&gt;
+    &lt;ans&gt;Central Processing Unit&lt;/ans&gt;
+  &lt;/question&gt;
+
+  &lt;question type:"Fillin" caseSensitive&gt;
+    &lt;q&gt;What is the exact name of the language?&lt;/q&gt;
+    &lt;ans&gt;JavaScript&lt;/ans&gt;
+  &lt;/question&gt;
+
+  &lt;question type:"Enumeration" count:3&gt;
+    &lt;q&gt;Name three primary colors.&lt;/q&gt;
+    &lt;ans&gt;Red, Green, Blue&lt;/ans&gt;
+  &lt;/question&gt;
+&lt;/questionaires&gt;</pre>
+  <div class="syntax-map">
+    <div><code>&lt;question type:"..."&gt;</code></div><div>Starts one question. Supported types are <code>Choices</code>, <code>Fillin</code>, and <code>Enumeration</code>.</div>
+    <div><code>&lt;q&gt;...&lt;/q&gt;</code></div><div>Contains the question prompt, equivalent to the parenthesized section <code>(...)</code>.</div>
+    <div><code>&lt;opt&gt;...&lt;/opt&gt;</code></div><div>Defines one choice or one item, equivalent to an entry in the square-bracket section <code>[...]</code>. Repeat it for multiple entries.</div>
+    <div><code>&lt;ans&gt;...&lt;/ans&gt;</code></div><div>Contains the accepted answer or answers and optional answer properties, equivalent to the brace section <code>{...}</code>.</div>
+  </div>
+  <p>Each question is checked by the single button at the bottom of its parent <code>&lt;questionaires&gt;</code> block. The progress display counts questions that have an answer entered or selected; it does not indicate whether those answers are correct. <code>requiredCompletion</code> defaults to the total number of questions, so the shared check button becomes available after every question has been answered. You can set a numeric threshold, such as <code>requiredCompletion:2</code>, to allow checking after any two questions have been answered, or set <code>requiredCompletion:false</code> to remove that minimum.</p>
+  <p>For an ordering enumeration, use <code>mode:"order"</code> on the <code>&lt;question&gt;</code> tag, add one <code>&lt;opt&gt;</code> for each displayed item, and list the correct sequence in <code>&lt;ans&gt;</code>.</p>
+  <pre>&lt;question type:"Enumeration" mode:"order"&gt;
+  &lt;q&gt;Arrange these numbers from smallest to largest.&lt;/q&gt;
+  &lt;opt&gt;3&lt;/opt&gt;
+  &lt;opt&gt;1&lt;/opt&gt;
+  &lt;opt&gt;4&lt;/opt&gt;
+  &lt;opt&gt;2&lt;/opt&gt;
+  &lt;ans&gt;1, 2, 3, 4&lt;/ans&gt;
+&lt;/question&gt;</pre>
   <h3>Question properties</h3>
   <table><thead><tr><th>Property</th><th>Values</th><th>Meaning</th></tr></thead><tbody>
     <tr><td><code>case</code></td><td><code>true</code> / <code>false</code></td><td>Whether answer checking is case-sensitive.</td></tr>
@@ -250,7 +287,7 @@ $EMC$
   &lt;p&gt;Optional details appear in a panel when its information button is tapped.&lt;/p&gt;
 &lt;/info&gt;</pre>
   <p>The viewer inserts an information button. Tapping it opens a panel. <code>title</code> sets the panel heading, while <code>bg</code> and <code>col</code> customize its background and text color. Its content is rendered separately inside the panel, so it does not become ordinary text in the surrounding document.</p>
-  <p>The panel content supports Markdown and ordinary HTML, questionnaire blocks, and the embedded components handled by the panel renderer, including <code>root</code>, <code>line</code>, <code>encircle</code>, and <code>spoiler</code>. Inline components such as <code>st</code>, <code>badge</code>, <code>x</code>, <code>ref</code>, <code>arrow</code>, and <code>ico</code> icons can also be used there. A nested <code>info</code> tag does not currently create a second information panel.</p>
+  <p>The panel content supports Markdown and ordinary HTML, questionnaire blocks, and the embedded components handled by the panel renderer, including <code>root</code>, <code>line</code>, <code>encircle</code>, and <code>spoiler</code>. Inline components such as <code>st</code>, <code>badge</code>, <code>x</code>, <code>ref</code>, <code>dictDef</code>, <code>dictWord</code>, <code>arrow</code>, and <code>ico</code> icons can also be used there. A nested <code>info</code> tag does not currently create a second information panel.</p>
   <h3>Spoiler — <code>spoiler</code></h3>
   <pre>&lt;spoiler&gt;The answer is 42.&lt;/spoiler&gt;</pre>
   <p>The content is hidden behind an overlay until the reader reveals it. The component behaves inline, so text before and after it remains in the same sentence. The content can include supported inline formatting.</p>
@@ -259,6 +296,20 @@ $EMC$
 
 &lt;ref id:"topic-a" /&gt;</pre>
   <p>The first form creates a link to the matching reference target; the self-closing form can mark a target location. Reuse the same identifier in the link and target.</p>
+  <h3>Dictionary links — <code>dictWord</code> and <code>dictDef</code></h3>
+  <p><code>dictDef</code> marks a definition in the document. A matching <code>dictWord</code> becomes a clickable link that scrolls to that definition. The word and definition can appear in either order in the source.</p>
+  <pre>&lt;dictWord&gt;Apple&lt;/dictWord&gt; is a fruit.
+
+&lt;dictDef&gt;Apple&lt;/dictDef&gt; — a round fruit that grows on an apple tree.</pre>
+  <p>Matching is case-insensitive by default and otherwise compares the text as written. Add any of these bare boolean attributes to <code>dictDef</code> to change matching:</p>
+  <ul>
+    <li><code>caseSensitive</code> requires the same letter case.</li>
+    <li><code>ignoreWhitespace</code> ignores all whitespace, including spaces, tabs, and newlines.</li>
+    <li><code>ignoreNewline</code> ignores newline characters only.</li>
+    <li><code>ignoreSpace</code> ignores spaces and tabs only.</li>
+  </ul>
+  <pre>&lt;dictDef caseSensitive ignoreWhitespace&gt;New York&lt;/dictDef&gt;
+&lt;dictWord&gt;NewYork&lt;/dictWord&gt;</pre>
   <h3>Directional connectors — <code>arrow</code></h3>
   <pre>&lt;arrow target:"diagram-a" head:"arrow" dir:"90" col:"#2563eb" /&gt; Source note
 
@@ -403,6 +454,60 @@ $EMC$
   <div class="note good"><strong>Notebook tip:</strong> mix these components with ordinary headings, paragraphs, tree graphs, timelines, tables, and diagrams. Using a callout for every paragraph makes the page harder to scan.</div>
 </section>
 
+<section id="procedures">
+  <h2>8b. Procedures, copy/paste, and terminals</h2>
+
+  <h3>Procedures — <code>procedure</code> and <code>step</code></h3>
+  <pre>&lt;procedure type="wizard" title="Make a deck"&gt;
+  Optional introduction text.
+  &lt;step title="Pick a topic"&gt;Choose one small topic.&lt;/step&gt;
+  &lt;step title="Write the cards"&gt;Question on the front, answer on the back.&lt;/step&gt;
+&lt;/procedure&gt;</pre>
+  <ul>
+    <li><code>type="tutorial"</code> (default) is a guide to read through: every step is listed with a collapsible body, a progress bar follows the step you are reading, and <strong>Outline</strong> (shown from 6 steps) jumps to any step. <strong>Collapse all</strong> / <strong>Expand all</strong> fold the whole list. For tick-off tasks use <code>checklist</code> instead.</li>
+    <li><code>type="wizard"</code> shows one step at a time. A progress bar and a scrollable <strong>Steps</strong> list (steps you have reached) replace one button per step, so procedures with 100+ steps stay compact. <strong>Back</strong> / <strong>Next</strong> / <strong>Finish</strong> sit under the step and stay on screen.</li>
+    <li><code>type="solution"</code> hides the steps and reveals them one at a time (or all at once), for worked answers. The <strong>Show</strong> controls sit under the steps and stay on screen, so long steps never need a scroll back up.</li>
+  </ul>
+  <p>The type is shown as an icon in the header (book, wand, light bulb). Optional attributes: <code>title</code>, <code>accent</code> (any CSS color) and, for tutorials, <code>collapsed="true"</code> to start with every step folded. A step accepts <code>title</code> and any SGML content, including questions. Text before the first <code>step</code> becomes the introduction.</p>
+
+  <h3>Copy and paste — <code>sgmlCopy</code> and <code>sgmlPaste</code></h3>
+  <pre>&lt;sgmlCopy name="tip"&gt;
+  &lt;notebox type="tip"&gt;Stored once, used many times.&lt;/notebox&gt;
+&lt;/sgmlCopy&gt;
+
+&lt;sgmlPaste name="tip"/&gt;
+&lt;sgmlPaste name="tip"/&gt;</pre>
+  <p><code>sgmlCopy</code> <strong>stores</strong> its contents and renders nothing. Everything inside is skipped: <code>&lt;js&gt;</code> blocks do not run, questions are not created, and nothing is parsed. <code>sgmlPaste</code> inserts the stored source at that position, so it renders exactly as if you had typed it there, and a pasted <code>&lt;js&gt;</code> block runs at the paste.</p>
+  <ul>
+    <li>A paste can appear before its copy. If two copies share a name, the first one wins.</li>
+    <li>A copy can paste another copy. Circular pastes and unknown names show a small red message.</li>
+    <li>A copy inside a backtick literal, an <code>~~~</code> ICB fence, a <code>&lt;js&gt;</code> body, or a terminal block is plain text and is not a copy.</li>
+    <li><code>&lt;sgmlPaste name="x"&gt;&lt;/sgmlPaste&gt;</code> also works.</li>
+  </ul>
+
+  <h3>Terminals — <code>terminalCode</code> and <code>terminalOutput</code></h3>
+  <pre>&lt;terminalCode title="JavaScript" accent="#22c55e"
+  style="#60a5fa if else function return; #f59e0b /\x22[^\x22]*\x22/; #6b7280 /\/\/.*$/m"
+  folding="start: [\[{(]; end: [\]})];"&gt;
+function add(a, b) {
+  return a + b; // sum
+}
+&lt;/terminalCode&gt;
+
+&lt;terminalOutput title="Console" accent="#f97316" style="#22c55e OK; #ef4444 ERROR"&gt;
+OK 1 test passed
+&lt;/terminalOutput&gt;</pre>
+  <p>The contents are literal text: never parsed as SGML, Markdown, or JavaScript, so you can show any tag or code. Common leading indentation is removed. Both blocks have a <strong>Copy</strong> button that copies the full text (including folded lines). <code>terminalCode</code> shows line numbers; <code>terminalOutput</code> wraps long lines.</p>
+  <table>
+    <tr><th>Attribute</th><th>Meaning</th></tr>
+    <tr><td><code>title</code></td><td>Label in the title bar.</td></tr>
+    <tr><td><code>accent</code></td><td>Any CSS color. Colors the border, title bar, buttons, and fold carets.</td></tr>
+    <tr><td><code>style</code></td><td>Rules separated by <code>;</code>. Each rule is a color followed by words (matched as whole words) and/or <code>/regex/flags</code> patterns, separated by spaces. The leftmost match wins, so a string or comment rule protects keywords inside it.</td></tr>
+    <tr><td><code>folding</code> (code only)</td><td><code>start: regex; end: regex;</code> Each line with a start match whose counterpart end match is on a later line gets a fold caret. Bracket pairs are matched by type and nesting, so <code>[\[{(]</code> and <code>[\]})]</code> pair <code>(</code> with <code>)</code>, and so on. Strings, comments, and regex literals are ignored unless you add <code>ignore: none;</code>. Omit <code>start</code>/<code>end</code> (for example <code>folding="auto"</code>) to use brackets. Add <code>collapsed: …;</code> to start with regions folded: <code>all</code>, line numbers and ranges (<code>collapsed: 2, 8-12;</code>, counted on the line that has the caret), or a regex tested on that line (<code>collapsed: /^function/;</code>). <code>folding="collapsed"</code> alone folds every bracket block. Readers can still open any fold.</td></tr>
+  </table>
+  <div class="note"><strong>Quotes:</strong> an attribute value ends at its next matching quote and has no backslash escapes. Write <code>\x22</code> for a double quote and <code>\x27</code> for a single quote inside a regex. Folding keeps the carets in a fixed column and keeps the folded line where it was on screen, so the page does not jump.</div>
+</section>
+
 <section id="html">
   <h2>9. Markdown, HTML, SVG, and LaTeX</h2>
   <h3>Markdown support</h3>
@@ -489,6 +594,11 @@ $$</pre>
     <tr><td><code>&lt;glossary&gt;&lt;term name="..."&gt;...&lt;/term&gt;&lt;/glossary&gt;</code></td><td>Term and definition collection.</td></tr>
     <tr><td><code>&lt;quickreview&gt;&lt;fact label="..."&gt;...&lt;/fact&gt;&lt;/quickreview&gt;</code></td><td>Responsive revision cards.</td></tr>
     <tr><td><code>&lt;cornell&gt;&lt;cue&gt;...&lt;/cue&gt;&lt;notes&gt;...&lt;/notes&gt;&lt;summary&gt;...&lt;/summary&gt;&lt;/cornell&gt;</code></td><td>Cornell notes page layout.</td></tr>
+    <tr><td><code>&lt;procedure type="tutorial|wizard|solution"&gt;&lt;step title="..."&gt;...&lt;/step&gt;&lt;/procedure&gt;</code></td><td>Step-by-step tutorial, wizard, or revealable solution.</td></tr>
+    <tr><td><code>&lt;sgmlCopy name="x"&gt;...&lt;/sgmlCopy&gt;</code></td><td>Stores SGML without rendering or running it.</td></tr>
+    <tr><td><code>&lt;sgmlPaste name="x"/&gt;</code></td><td>Renders the stored SGML normally at this position.</td></tr>
+    <tr><td><code>&lt;terminalCode title accent style folding&gt;...&lt;/terminalCode&gt;</code></td><td>Terminal-style code with regex coloring, copy button, and folding.</td></tr>
+    <tr><td><code>&lt;terminalOutput title accent style&gt;...&lt;/terminalOutput&gt;</code></td><td>Terminal-style output with regex coloring and copy button.</td></tr>
     <tr><td><code>&lt;st col:#hex bg:#hex display:block&gt;...&lt;/st&gt;</code></td><td>Styled text with optional color, background, font, and display settings.</td></tr>
     <tr><td><code>&lt;badge col:#hex bg:#hex&gt;...&lt;/badge&gt;</code></td><td>Compact inline label.</td></tr>
     <tr><td><code>&lt;icowarning scale:[1.5] color:"#hex" border:"2px #hex"/&gt;</code></td><td>Inline SVG icon with optional size and styles.</td></tr>

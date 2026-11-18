@@ -90,6 +90,18 @@ The XML-style deck is an additional way to write flashcards. The earlier compact
 
 ### Notebook Components
 
+<notebox type="important" title="Important">
+  SGML can combine study notes, Markdown, and interactive questions in one document.
+</notebox>
+
+<notebox type="reminder" title="Reminder">
+  Render the document to check how your note boxes and other components appear.
+</notebox>
+
+<notebox type="learn" title="Learning point">
+  A markup type controls the note box's label, icon, accent color, and background.
+</notebox>
+
 <notebox type="definition" title="Algorithm">
   A finite sequence of clear steps for solving a problem.
 </notebox>

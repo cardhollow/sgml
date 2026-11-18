@@ -19,6 +19,21 @@
     "alert-triangle": '<path d="M10.3 4.6 2.9 17.4A1.8 1.8 0 0 0 4.5 20h15a1.8 1.8 0 0 0 1.6-2.6L13.7 4.6a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4.5M12 17h.01"/>',
     idea: '<path d="M9 18h6m-5 3h4m-2-19a7 7 0 0 0-4 12.7c.8.6 1.3 1.3 1.5 2.3h5c.2-1 .7-1.7 1.5-2.3A7 7 0 0 0 12 2Z"/>',
     lightbulb: '<path d="M9 18h6m-5 3h4m-2-19a7 7 0 0 0-4 12.7c.8.6 1.3 1.3 1.5 2.3h5c.2-1 .7-1.7 1.5-2.3A7 7 0 0 0 12 2Z"/>',
+    brain: '<path d="M12 4a3 3 0 0 0-5.7 1.2A3.5 3.5 0 0 0 4 11a3.5 3.5 0 0 0 1 6.7A3 3 0 0 0 11 19V5a3 3 0 0 0-3-3m4 2a3 3 0 0 1 5.7 1.2A3.5 3.5 0 0 1 20 11a3.5 3.5 0 0 1-1 6.7A3 3 0 0 1 13 19V5a3 3 0 0 1 3-3"/><path d="M7 9h2m-2 5h2m6-5h2m-2 5h2"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    quote: '<path d="M5 11h5v8H3v-6c0-4 2-7 6-9m10 7h-5v8h7v-6c0-4-2-7-6-9"/>',
+    flask: '<path d="M9 3h6m-5 0v6l-5.5 9.2A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.8L14 9V3"/><path d="M7 15h10m-7-3h4"/>',
+    "calendar-check": '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4m8-4v4M3 9h18m-13 6 2 2 4-4"/>',
+    columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M7 8h2m-2 4h2m6-4h2m-2 4h2"/>',
+    zap: '<path d="M13 2 4 14h7l-1 8 10-13h-7z"/>',
+    dumbbell: '<path d="M6 9v6m-3-4v2m18-2v2m-3-4v6M6 12h12"/><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/>',
+    scale: '<path d="m12 3 8 4v3H4V7zM7 10l-3 8h6zm10 0-3 8h6zM12 10v10m-4 2h8"/>',
+    workflow: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><path d="M9 6h3a3 3 0 0 1 3 3v6M12 18h3"/>',
+    repeat: '<path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/>',
+    hand: '<path d="M8 12V5a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v9-6a2 2 0 0 1 4 0v9c0 5-3 8-8 8h-1c-3 0-5-2-7-5l-2-3a2 2 0 0 1 3-2z"/>',
+    "message-circle": '<path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9 9 0 0 1-4-.9L3 21l1.9-4A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 12h8m-8-4h5"/>',
+    ban: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+    network: '<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4m-7 4v-2a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/>',
     book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16M8 7h8m-8 4h8"/>',
     "book-open": '<path d="M3 5.5A2.5 2.5 0 0 1 5.5 3H12v17H5.5A2.5 2.5 0 0 0 3 22zM21 5.5A2.5 2.5 0 0 0 18.5 3H12v17h6.5a2.5 2.5 0 0 1 2.5 2z"/>',
     bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
@@ -110,7 +125,7 @@
     school: '<path d="m2 9 10-6 10 6-10 6zM6 12v5c4 3 8 3 12 0v-5M22 9v7"/>',
     graduation: '<path d="m2 9 10-6 10 6-10 6zM6 12v5c4 3 8 3 12 0v-5M22 9v7"/>',
     leaf: '<path d="M20 4c-8 0-14 3-14 10a6 6 0 0 0 6 6c7 0 10-8 8-16Z"/><path d="M4 21c3-6 7-9 13-12"/>',
-    bug: '<path d="M8 8h8a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4ZM12 8V4m-4 0 8 0M4 12H2m20 0h-2M4 18H2m20 0h-2M7 4 5 2m12 2 2-2M9 13h.01M15 13h.01"/>',
+    bug: '<ellipse cx="12" cy="14" rx="4" ry="5"/><circle cx="12" cy="8" r="2.5"/><path d="M10.5 6 8 3m5.5 3L16 3M8 10 5 8m11 2 3-2M8 13H3m5 4-3 3m11-7h5m-5 4 3 3M12 9v10"/>',
     database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     server: '<rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6m-6 10h6"/>',
     cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4M10 10h4v4h-4z"/>',
@@ -144,8 +159,122 @@
     "more-horizontal": '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     "more-vertical": '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
     dots: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-    pause: '<path d="M8 5h3v14H8zm6 0h3v14h-3z"/>'
+    pause: '<path d="M8 5h3v14H8zm6 0h3v14h-3z"/>',
+    'brain-question': '<path d="M12 4a3 3 0 0 0-5.7 1.2A3.5 3.5 0 0 0 4 11a3.5 3.5 0 0 0 1 6.7A3 3 0 0 0 11 19V5a3 3 0 0 0-3-3m4 2a3 3 0 0 1 5.7 1.2A3.5 3.5 0 0 1 20 11a3.5 3.5 0 0 1-1 6.7A3 3 0 0 1 13 19V5a3 3 0 0 1 3-3"/><path d="M8 9h1m6 0h1m-8 5h1m6-5a2 2 0 1 1 3 1.7c-.8.5-1.3.9-1.3 2.1m0 2h.01"/>',
+    'x-circle': '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+    'file-check': '<path d="M6 3h8l5 5v13H6zM14 3v5h5"/><path d="m8.5 15 2 2 4-4"/>',
+    'clipboard-check': '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2m-7 8h8m-8 4 2 2 4-4"/>',
+    'message-question': '<path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9 9 0 0 1-4-.9L3 21l1.9-4A8.5 8.5 0 1 1 21 11.5Z"/><path d="M9.5 9a2.6 2.6 0 1 1 4.4 1.9c-1.2 1-1.9 1.3-1.9 3.1m0 3h.01"/>',
+    equal: '<path d="M5 9h14M5 15h14"/>',
+    braces: '<path d="M9 4H7a2 2 0 0 0-2 2v3a3 3 0 0 1-2 3 3 3 0 0 1 2 3v3a2 2 0 0 0 2 2h2m6-16h2a2 2 0 0 1 2 2v3a3 3 0 0 0 2 3 3 3 0 0 0-2 3v3a2 2 0 0 1-2 2h-2"/>',
+    'trending-down': '<path d="M3 7 9 13l4-4 8 8M15 17h6v-6"/>'
   };
+
+  // ---------------------------------------------------------------------------
+  // Refined icon set. Icons that animate in noteboxes are split into named parts
+  // (class="ip p-name") so CSS can move only the relevant piece: a bell's
+  // clapper, a clock's hands, a bulb's rays. Later keys override earlier ones.
+  // ---------------------------------------------------------------------------
+  const P = (name, inner) => `<g class="ip p-${name}">${inner}</g>`;
+  function gearPath(teeth, rOut, rIn) {
+    const pt = (deg, r) => {
+      const a = (deg - 90) * Math.PI / 180;
+      return [(12 + r * Math.cos(a)).toFixed(2), (12 + r * Math.sin(a)).toFixed(2)];
+    };
+    const step = 360 / teeth;
+    let d = "";
+    for (let i = 0; i < teeth; i++) {
+      const a = i * step;
+      const [x1, y1] = pt(a - step * 0.32, rIn), [x2, y2] = pt(a - step * 0.17, rOut);
+      const [x3, y3] = pt(a + step * 0.17, rOut), [x4, y4] = pt(a + step * 0.32, rIn);
+      const [nx, ny] = pt(a + step - step * 0.32, rIn);
+      d += `${i ? "L" : "M"}${x1} ${y1}L${x2} ${y2}L${x3} ${y3}L${x4} ${y4}A${rIn} ${rIn} 0 0 1 ${nx} ${ny}`;
+    }
+    return d + "Z";
+  }
+  const warnTri = '<path d="M10.3 4.6 2.9 17.4A1.8 1.8 0 0 0 4.5 20h15a1.8 1.8 0 0 0 1.6-2.6L13.7 4.6a2 2 0 0 0-3.4 0Z"/>' + P("mark", '<path d="M12 9.5v4M12 16.8h.01"/>');
+  const checkCircle = '<circle cx="12" cy="12" r="9"/>' + P("tick", '<path d="m8 12.5 2.8 2.8 5.2-6"/>');
+  const questionMark = P("mark", '<path d="M9.5 9a2.6 2.6 0 1 1 4.4 1.9c-1.2 1-1.9 1.3-1.9 3.1M12 17h.01"/>');
+  const bulb = P("rays", '<path d="M12 .8V2M3.6 3.6l.9.9M20.4 3.6l-.9.9M1 10.5h1.2M22.8 10.5h-1.2"/>') +
+    P("glass", '<path d="M9 18h6M10 21.5h4M12 4a6 6 0 0 0-3.7 10.7c.7.6 1.2 1.4 1.4 2.3h4.6c.2-.9.7-1.7 1.4-2.3A6 6 0 0 0 12 4Z"/>') +
+    P("fil", '<path d="m10.5 11.5 1.5 1.6 1.5-1.6"/>');
+  const brainBase = '<path d="M17.6 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.6 1.5"/><path d="M18 5.1a4 4 0 0 1 2.5 5.8"/><path d="M18 18a4 4 0 0 0 2-7.5"/><path d="M20 17.5A4 4 0 1 1 12 18a4 4 0 1 1-8-.5"/><path d="M6 18a4 4 0 0 1-2-7.5"/><path d="M6 5.1a4 4 0 0 0-2.5 5.8"/>';
+  const gear = P("cog", `<path d="${gearPath(8, 10, 7.4)}"/><circle cx="12" cy="12" r="3"/>`);
+
+  Object.assign(bodies, {
+    bell: P("swing", '<path d="M12 3V2M18 9a6 6 0 0 0-12 0c0 6.5-2.5 7.5-3 9h18c-.5-1.5-3-2.5-3-9"/>') + P("clap", '<path d="M10 21a2 2 0 0 0 4 0"/>'),
+    idea: bulb, lightbulb: bulb,
+    eye: P("lid", '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>') + P("pupil", '<circle cx="12" cy="12" r="3"/>'),
+    clock: '<circle cx="12" cy="12" r="9"/>' + P("hour", '<path d="M12 12l2.6 1.6"/>') + P("min", '<path d="M12 12V6.5"/>'),
+    hourglass: '<path d="M5 3h14M5 21h14"/>' + P("glass", '<path d="M6.5 3c0 5 5.5 6 5.5 9s-5.5 4-5.5 9m11-18c0 5-5.5 6-5.5 9s5.5 4 5.5 9"/>'),
+    refresh: P("spin", '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.7 2.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.7-2.7L3 16M8 16H3v5"/>'),
+    success: checkCircle, "check-circle": checkCircle,
+    check: P("tick", '<path d="m5 12.5 4.5 4.5L19 7"/>'),
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/>' + P("dot", '<path d="M12 7.6h.01"/>'),
+    warning: warnTri, alert: warnTri, "alert-triangle": warnTri,
+    "alert-circle": '<circle cx="12" cy="12" r="9"/>' + P("mark", '<path d="M12 7.5v5M12 16.2h.01"/>'),
+    error: '<circle cx="12" cy="12" r="9"/>' + P("mark", '<path d="m9.2 9.2 5.6 5.6m0-5.6-5.6 5.6"/>'),
+    "x-circle": '<circle cx="12" cy="12" r="9"/>' + P("mark", '<path d="m9.2 9.2 5.6 5.6m0-5.6-5.6 5.6"/>'),
+    note: '<path d="M6 3h9l4 4v14H6zM14 3v5h5"/>' + P("l1", '<path d="M9 12.5h7"/>') + P("l2", '<path d="M9 16.5h7"/>'),
+    "book-a": '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>' + P("glyph", '<path d="m8.5 13 3.5-7 3.5 7M9.6 11h4.8"/>'),
+    book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>' + P("ribbon", '<path d="M10 2v8l3-3 3 3V2"/>'),
+    "book-open": P("open", '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>'),
+    compass: '<circle cx="12" cy="12" r="9.5"/>' + P("needle", '<path d="m16 8-2.4 5.6L8 16l2.4-5.6z"/>'),
+    signpost: '<path d="M12 3v18M8 21h8"/>' + P("b1", '<path d="M12 5H6L3.5 7.5 6 10h6"/>') + P("b2", '<path d="M12 12h6l2.5 2.5L18 17h-6"/>'),
+    split: '<path d="M12 21v-8M12 13 6 7M12 13l6-6"/><path d="M6 11V7h4M18 11V7h-4"/>',
+    sigma: '<path d="M18 6.5V4.5H6l6.5 7.5L6 19.5h12v-2"/>',
+    layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5M3 17l9 5 9-5"/>',
+    "zoom-in": P("lens", '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6M11 8v6M8 11h6"/>'),
+    wand: '<path d="m4 20 10-10M12.5 8.5l3 3"/>' + P("spark", '<path d="M18 2.5v3M16.5 4h3M20 9v2M19 10h2"/>'),
+    settings: gear, gear: gear,
+    target: '<circle cx="12" cy="12" r="9.5"/>' + P("mid", '<circle cx="12" cy="12" r="5.5"/>') + P("bull", '<circle cx="12" cy="12" r="1.6"/>'),
+    key: P("key", '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5M14 9l2 2"/>'),
+    hand: P("hand", '<path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/>'),
+    zap: '<path d="M13 2 4 14h7l-1 8 10-13h-7z"/>',
+    sparkles: P("s1", '<path d="m11 4 1.5 5.5L18 11l-5.5 1.5L11 18l-1.5-5.5L4 11l5.5-1.5z"/>') + P("s2", '<path d="M19 15.5l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7z"/>') + P("s3", '<path d="M19 2.5v3M17.5 4h3"/>'),
+    trophy: '<path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 14v3.5M8 21h8M9.5 17.5h5"/>' + P("glint", '<path d="M10 7v2.5"/>'),
+    fire: '<path d="M12 22a7 7 0 0 0 7-7c0-4-3-6-4-10-2 2-3 4-3 6-2-1-3-3-3-5-3 3-5 6-5 10a8 8 0 0 0 8 6Z"/>' + P("inner", '<path d="M12 22a4 4 0 0 0 4-4c0-2-1-3-2-4-.5 1.5-1.5 2-2 2.5-.5-1.5-1-2-2-3-1 1.5-2 3-2 4.5a4 4 0 0 0 4 4Z"/>'),
+    rocket: P("flame", '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"/>') + P("body", '<path d="m12 15-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2zM9 12H4s.55-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.55 4-2c1.1-1.6 0-5 0-5"/>'),
+    flask: '<path d="M9 3h6m-5 0v6l-5.5 9.2A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.8L14 9V3"/><path d="M6.5 15.5h11"/>' + P("b1", '<circle cx="9.6" cy="18.6" r=".05"/>') + P("b2", '<circle cx="14.4" cy="18" r=".05"/>') + P("b3", '<circle cx="12" cy="16.8" r=".05"/>'),
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' + P("u2", '<path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'),
+    "message-circle": '<path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9 9 0 0 1-4-.9L3 21l1.9-4A8.5 8.5 0 1 1 21 11.5Z"/>' + P("d1", '<path d="M8 11.5h.01"/>') + P("d2", '<path d="M12 11.5h.01"/>') + P("d3", '<path d="M16 11.5h.01"/>'),
+    "message-question": '<path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9 9 0 0 1-4-.9L3 21l1.9-4A8.5 8.5 0 1 1 21 11.5Z"/>' + questionMark,
+    question: '<circle cx="12" cy="12" r="9"/>' + questionMark, help: '<circle cx="12" cy="12" r="9"/>' + questionMark,
+    brain: brainBase + P("mid", '<path d="M12 18V5"/>'),
+    "brain-question": brainBase + P("mark", '<path d="M10.6 9.4a1.5 1.5 0 1 1 2.5 1.1c-.7.5-1.1.8-1.1 1.6M12 14.2h.01"/>'),
+    "chart-bar": '<path d="M4 20V4m0 16h17"/>' + P("b1", '<path d="M8.5 16v-5"/>') + P("b2", '<path d="M13 16V7"/>') + P("b3", '<path d="M17.5 16V4"/>'),
+    "pie-chart": '<path d="M11 3a9 9 0 1 0 10 10H11z"/>' + P("slice", '<path d="M14 3v7h7a9 9 0 0 0-7-7Z"/>'),
+    lock: P("shackle", '<path d="M8 11V7a4 4 0 0 1 8 0v4"/>') + '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M12 15v2"/>',
+    "list-check": P("t1", '<path d="m3 6 2 2 3-3"/>') + '<path d="M11 7h10M11 15h10"/>' + P("t2", '<path d="m3 14 2 2 3-3"/>'),
+    "list-ordered": '<path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+    workflow: P("n1", '<rect x="3" y="3" width="6" height="6" rx="1"/>') + P("n2", '<rect x="15" y="3" width="6" height="6" rx="1"/>') + P("n3", '<rect x="15" y="15" width="6" height="6" rx="1"/>') + '<path d="M9 6h6M18 9v6"/>',
+    network: P("n1", '<rect x="9" y="2" width="6" height="6" rx="1"/>') + P("n2", '<rect x="2" y="16" width="6" height="6" rx="1"/>') + P("n3", '<rect x="16" y="16" width="6" height="6" rx="1"/>') + '<path d="M12 8v4m-6 4v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/>',
+    "external-link": P("arr", '<path d="M15 3h6v6M10 14 21 3"/>') + '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    external: P("arr", '<path d="M15 3h6v6M10 14 21 3"/>') + '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    edit: P("pen", '<path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4zM14.5 6l3.5 3.5"/>'),
+    pencil: P("pen", '<path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4zM14.5 6l3.5 3.5"/>'),
+    terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3"/>' + P("cursor", '<path d="M13 15h4"/>'),
+    code: P("l", '<path d="m8 7-5 5 5 5"/>') + P("r", '<path d="m16 7 5 5-5 5"/>') + '<path d="m14 5-4 14"/>',
+    "map-pin": P("pin", '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'),
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"/>' + P("sun", '<circle cx="8.5" cy="8.5" r="1.5"/>') + '<path d="m21 15-5-5L5 21"/>',
+    sun: '<circle cx="12" cy="12" r="4"/>' + P("rays", '<path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    "more-horizontal": P("d1", '<circle cx="5" cy="12" r="1"/>') + P("d2", '<circle cx="12" cy="12" r="1"/>') + P("d3", '<circle cx="19" cy="12" r="1"/>'),
+    dots: P("d1", '<circle cx="5" cy="12" r="1"/>') + P("d2", '<circle cx="12" cy="12" r="1"/>') + P("d3", '<circle cx="19" cy="12" r="1"/>'),
+    graduation: '<path d="m2 9 10-6 10 6-10 6zM6 12v5c4 3 8 3 12 0v-5"/>' + P("tassel", '<path d="M22 9v6"/>'),
+    school: '<path d="m4 6 8-4 8 4M18 10l4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2M14 22v-4a2 2 0 0 0-4 0v4M18 5v17M6 5v17"/><circle cx="12" cy="9" r="2"/>',
+    scale: '<path d="M12 3v17M8 21h8"/>' + P("beam", '<path d="M4 7h16M4 7l-3 7a3.2 3.2 0 0 0 6 0zM20 7l-3 7a3.2 3.2 0 0 0 6 0z"/>'),
+    flag: '<path d="M5 21V3"/>' + P("flag", '<path d="M5 4c5-3 9 3 14 0v10c-5 3-9-3-14 0"/>'),
+    "shield-check": '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/>' + P("mark", '<path d="m8.5 12 2.3 2.3 4.8-5"/>'),
+    "shield-alert": '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/>' + P("mark", '<path d="M12 8v5m0 3h.01"/>'),
+    "file-check": '<path d="M6 3h8l5 5v13H6zM14 3v5h5"/>' + P("tick", '<path d="m8.8 15 2 2 4-4"/>'),
+    "clipboard-check": '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2"/>' + P("tick", '<path d="m8.5 14 2.2 2.2 4.3-4.4"/>'),
+    send: P("plane", '<path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/>'),
+    search: P("lens", '<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>'),
+    dumbbell: P("bar", '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>'),
+    calculator: '<rect x="4" y="2" width="16" height="20" rx="2"/>' + P("screen", '<path d="M8 6h8v4H8z"/>') + '<path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+    "arrow-up": P("arr", '<path d="M12 19V5m-7 7 7-7 7 7"/>'),
+    "arrow-down": P("arr", '<path d="M12 5v14m7-7-7 7-7-7"/>')
+  });
 
   const colorDefaults = {
     success: "#16a34a", check: "#16a34a", "check-circle": "#16a34a",
@@ -220,7 +349,7 @@
           : "";
         const fill = safeColor(style.fill, "none");
         const transform = rotate ? ` transform="rotate(${rotate} 12 12)"` : "";
-        return `<svg class="sgml-inline-icon" xmlns="http://www.w3.org/2000/svg" width="${scale.width}" height="${scale.height}" viewBox="0 0 24 24" role="img" aria-label="${name.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" focusable="false" style="display:inline-block;vertical-align:-0.2em;flex:none;color:${color};opacity:${opacity}"${transform}>${borderMarkup}<g fill="${fill}" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
+        return `<svg class="sgml-inline-icon" xmlns="http://www.w3.org/2000/svg" width="${scale.width}" height="${scale.height}" viewBox="0 0 24 24" role="img" aria-label="${name.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" focusable="false" style="display:inline-block;vertical-align:-0.2em;flex:none;color:${color};opacity:${opacity}"${transform}>${borderMarkup}<g fill="${fill}" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body.replace(/<(path|circle|rect|ellipse|line|polyline|polygon)\b/g, '<$1 pathLength="1"')}</g></svg>`;
       }
     };
     return entry;
@@ -274,4 +403,65 @@
       insert: `<ico${String(name || "").replace(/^ico/i, "").toLowerCase()}${icon.focus ? ` ${icon.focus}:"$0"` : ""}/>`
     };
   };
+
+  /*
+   * Notebox motion controller. Boxes play their icon entrance the first time they
+   * scroll into view, and idle loops pause while a box is off screen. Boxes that
+   * were already seen (live-preview re-renders) skip the entrance so typing in the
+   * editor never replays animations. Without JS or IntersectionObserver the
+   * icons simply render static and fully visible.
+   */
+  (function motionController() {
+    if (typeof document === "undefined" || typeof window.IntersectionObserver === "undefined") return;
+    const seen = new Set();
+    const reduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+    const view = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const box = entry.target;
+        if (entry.isIntersecting) {
+          if (box.dataset.motion === "wait") {
+            box.dataset.motion = "play";
+            if (box._sgmlKey) seen.add(box._sgmlKey);
+          }
+          box.dataset.view = "in";
+        } else {
+          box.dataset.view = "out";
+        }
+      });
+    }, { threshold: 0.2 });
+    function baseKey(box) {
+      const icon = box.querySelector(".sgml-notebox-icon");
+      const head = box.querySelector(".sgml-notebox-heading");
+      return (box.className.match(/sgml-notebox-[\w-]+/) || [""])[0] + "|" + (icon ? icon.dataset.icon : "") + "|" + (head ? head.textContent : "");
+    }
+    function arm(box, ordinals) {
+      if (box.dataset.motion) return;
+      const base = baseKey(box);
+      const n = ordinals[base] = (ordinals[base] || 0) + 1;
+      box._sgmlKey = base + "#" + n;
+      box.dataset.motion = seen.has(box._sgmlKey) || reduce.matches ? "done" : "wait";
+      box.dataset.view = "out";
+      view.observe(box);
+    }
+    function scan(root) {
+      const ordinals = {};
+      // Count existing boxes first so ordinals stay stable across re-renders.
+      document.querySelectorAll(".sgml-notebox").forEach(box => {
+        if (box.dataset.motion) {
+          const base = baseKey(box);
+          ordinals[base] = (ordinals[base] || 0) + 1;
+        } else {
+          arm(box, ordinals);
+        }
+      });
+    }
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      Promise.resolve().then(() => { queued = false; scan(); });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    if (document.readyState !== "loading") scan();
+    else document.addEventListener("DOMContentLoaded", () => scan());
+  })();
 })(window);

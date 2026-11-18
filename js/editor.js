@@ -230,10 +230,12 @@ const Editor = (() => {
   // comment for the SGML closing tag. Template strings are treated as strings.
   function findJsClose(text, start) {
     let quote = "", escaped = false, lineComment = false, blockComment = false;
+    let canStartRegex = true;
+    const regexPrefixKeywords = new Set(["await", "case", "delete", "do", "else", "in", "instanceof", "of", "return", "throw", "typeof", "void", "yield"]);
     for (let i = start; i < text.length; i++) {
       const ch = text[i], next = text[i + 1] || "";
       if (lineComment) {
-        if (ch === "\n") lineComment = false;
+        if (ch === "\n" || ch === "\r") lineComment = false;
         continue;
       }
       if (blockComment) {
@@ -243,13 +245,45 @@ const Editor = (() => {
       if (quote) {
         if (escaped) { escaped = false; continue; }
         if (ch === "\\") { escaped = true; continue; }
-        if (ch === quote) quote = "";
+        if (ch === quote) { quote = ""; canStartRegex = false; }
         continue;
       }
       if (ch === "/" && next === "/") { lineComment = true; i++; continue; }
       if (ch === "/" && next === "*") { blockComment = true; i++; continue; }
+      // Ignore a closing-looking token inside a regular-expression literal.
+      if (ch === "/" && canStartRegex) {
+        let inClass = false, regexEscaped = false, closed = false;
+        for (let j = i + 1; j < text.length; j++) {
+          const current = text[j];
+          if (regexEscaped) { regexEscaped = false; continue; }
+          if (current === "\\") { regexEscaped = true; continue; }
+          if (current === "[" && !inClass) { inClass = true; continue; }
+          if (current === "]" && inClass) { inClass = false; continue; }
+          if (current === "/" && !inClass) {
+            i = j;
+            while (/[a-z]/i.test(text[i + 1] || "")) i++;
+            closed = true;
+            break;
+          }
+          if (current === "\n" || current === "\r") break;
+        }
+        if (closed) { canStartRegex = false; continue; }
+      }
       if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
       if (ch === "<" && /^<\/js\s*>/i.test(text.slice(i))) return i;
+      if (/[a-z_$]/i.test(ch)) {
+        const word = text.slice(i).match(/^[a-z_$][\w$]*/i)[0];
+        i += word.length - 1;
+        canStartRegex = regexPrefixKeywords.has(word.toLowerCase());
+        continue;
+      }
+      if (/[0-9]/.test(ch)) {
+        while (/[\w.]/.test(text[i + 1] || "")) i++;
+        canStartRegex = false;
+        continue;
+      }
+      if (/\s/.test(ch)) continue;
+      canStartRegex = !(ch === ")" || ch === "]" || ch === "." || (ch === "+" && next === "+") || (ch === "-" && next === "-"));
     }
     return -1;
   }
@@ -1238,6 +1272,144 @@ const Editor = (() => {
       ...extra
     };
   }
+  function findJSRangeAtCaret(text, caret) {
+    const ranges = collectJsRanges(text);
+    return ranges.find(range => caret >= range.bodyStart && caret <= range.end) || null;
+  }
+  function isInsideJSStringOrComment(code) {
+    let quote = "", escaped = false, lineComment = false, blockComment = false;
+    for (let i = 0; i < code.length; i++) {
+      const ch = code[i], next = code[i + 1] || "";
+      if (lineComment) { if (ch === "\n" || ch === "\r") lineComment = false; continue; }
+      if (blockComment) { if (ch === "*" && next === "/") { blockComment = false; i++; } continue; }
+      if (quote) {
+        if (escaped) { escaped = false; continue; }
+        if (ch === "\\") { escaped = true; continue; }
+        if (ch === quote) quote = "";
+        continue;
+      }
+      if (ch === "/" && next === "/") { lineComment = true; i++; continue; }
+      if (ch === "/" && next === "*") { blockComment = true; i++; continue; }
+      if (ch === "'" || ch === '"' || ch === "`") quote = ch;
+    }
+    return !!quote || lineComment || blockComment;
+  }
+  function jsCompletionItem(name, description, kind = "js") {
+    return { m: String(name), insert: String(name), d: description || "JavaScript", k: kind };
+  }
+  function extractJSSymbols(code) {
+    const symbols = new Map();
+    const add = (name, description, kind = "js-variable") => {
+      if (!name || !/^[A-Za-z_$][\w$]*$/.test(name)) return;
+      symbols.set(name, jsCompletionItem(name, description, kind));
+    };
+    let match;
+    const declarations = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g;
+    while ((match = declarations.exec(code))) add(match[1], "Variable declared in this <js> block", "js-variable");
+    const functions = /\bfunction\s*([A-Za-z_$][\w$]*)\s*\(/g;
+    while ((match = functions.exec(code))) add(match[1], "Function declared in this <js> block", "js-function");
+    // A named const/let/var assigned an arrow function or function expression
+    // is also a function completion, not just an ordinary variable.
+    const functionVariables = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\b|\([^()\n]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/g;
+    while ((match = functionVariables.exec(code))) add(match[1], "Function or lambda declared in this <js> block", "js-function");
+    const classes = /\bclass\s+([A-Za-z_$][\w$]*)/g;
+    while ((match = classes.exec(code))) add(match[1], "Class declared in this <js> block", "js-class");
+    const addBindingList = (raw, description, kind) => {
+      String(raw || "").split(",").forEach(part => {
+        let item = part.trim().replace(/^\.\.\./, "").split(/\s*=\s*/)[0].trim();
+        if (!item) return;
+        if ((item[0] === "{" && item.endsWith("}")) || (item[0] === "[" && item.endsWith("]"))) {
+          item.slice(1, -1).split(",").forEach(binding => {
+            const clean = binding.trim().split(/\s*=\s*/)[0].trim();
+            const name = clean.split(/\s*:\s*/).pop().trim().replace(/^\.\.\./, "");
+            add(name, description, kind);
+          });
+          return;
+        }
+        item = item.split(/\s*:\s*/)[0].trim();
+        add(item, description, kind);
+      });
+    };
+    const destructured = /\b(?:const|let|var)\s*(?:\{([^}]*)\}|\[([^\]]*)\])\s*=/g;
+    while ((match = destructured.exec(code))) addBindingList(match[1] !== undefined ? match[1] : match[2], "Destructured variable", "js-variable");
+    // Include function parameters and arrow/lambda parameters so they are
+    // suggested inside the function body as the author types.
+    const functionParams = /\bfunction(?:\s+[A-Za-z_$][\w$]*)?\s*\(([^)]*)\)/g;
+    while ((match = functionParams.exec(code))) addBindingList(match[1], "Function parameter", "js-parameter");
+    const arrowParams = /(?:\(([^()]*)\)|\b([A-Za-z_$][\w$]*))\s*=>/g;
+    while ((match = arrowParams.exec(code))) addBindingList(match[1] || match[2] || "", "Arrow-function parameter", "js-parameter");
+    const objectMethods = /(?:^|[,{;\n])\s*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/g;
+    while ((match = objectMethods.exec(code))) add(match[1], "Function or object method", "js-function");
+    return [...symbols.values()];
+  }
+  function guessJSValueType(name, code) {
+    const known = {
+      Array: "arrayConstructor", Object: "objectConstructor", String: "stringConstructor",
+      Number: "numberConstructor", Math: "math", JSON: "json", Date: "dateConstructor",
+      RegExp: "regexpConstructor", Map: "mapConstructor", Set: "setConstructor", Promise: "promiseConstructor",
+      console: "console", document: "document", window: "window", navigator: "navigator",
+      localStorage: "storage", sessionStorage: "storage", URL: "urlConstructor", URLSearchParams: "urlSearchParamsConstructor"
+    };
+    if (known[name]) return known[name];
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const assignment = new RegExp("\\b(?:const|let|var)\\s+" + escaped + "\\s*=\\s*|\\b" + escaped + "\\s*=\\s*", "g");
+    let match, initializer = "";
+    while ((match = assignment.exec(code))) initializer = code.slice(assignment.lastIndex).trimStart();
+    if (!initializer) return "object";
+    if (/^(?:\[|new\s+Array\b|Array\s*\()/i.test(initializer)) return "array";
+    if (/^(?:['"`])/.test(initializer) || /^String\s*\(/.test(initializer)) return "string";
+    if (/^(?:-?\d|\.\d|new\s+Number\b|Number\s*\()/i.test(initializer)) return "number";
+    if (/^(?:true|false|new\s+Boolean\b|Boolean\s*\()/i.test(initializer)) return "boolean";
+    if (/^new\s+Date\b/.test(initializer)) return "date";
+    if (/^new\s+RegExp\b|^\//.test(initializer)) return "regexp";
+    if (/^new\s+Map\b/.test(initializer)) return "map";
+    if (/^new\s+Set\b/.test(initializer)) return "set";
+    if (/^new\s+Promise\b/.test(initializer) || /^Promise\./.test(initializer)) return "promise";
+    if (/^(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(initializer)) return "function";
+    if (/^\{/.test(initializer)) return "object";
+    if (/^(?:Array\.from|Array\.of|.*\.(?:map|filter|slice|concat|flat|flatMap)\s*\()/.test(initializer)) return "array";
+    if (/^(?:.*\.(?:join|toString|toFixed|toISOString)\s*\()/.test(initializer)) return "string";
+    return "object";
+  }
+  function getJSObjectProperties(name, code) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const declaration = new RegExp("\\b(?:const|let|var)\\s+" + escaped + "\\s*=\\s*\\{", "g");
+    let match, start = -1;
+    while ((match = declaration.exec(code))) start = declaration.lastIndex;
+    if (start < 0) return [];
+    let depth = 1, quote = "", escapedChar = false;
+    for (let i = start; i < code.length; i++) {
+      const ch = code[i];
+      if (quote) { if (escapedChar) { escapedChar = false; continue; } if (ch === "\\") { escapedChar = true; continue; } if (ch === quote) quote = ""; continue; }
+      if (ch === "'" || ch === '"' || ch === "`") { quote = ch; continue; }
+      if (ch === "{") depth++;
+      if (ch === "}" && --depth === 0) { const body = code.slice(start, i); const names = new Set(); const keyPattern = /(?:^|[,\n])\s*([A-Za-z_$][\w$]*)\s*(?=:\s*|\([^)]*\)\s*\{)/g; let key; while ((key = keyPattern.exec(body))) names.add(key[1]); return [...names].map(item => jsCompletionItem(item, "Property in " + name, "js-property")); }
+    }
+    return [];
+  }
+  function getJavaScriptCompletions(text, caret, range, force, wordStart) {
+    const code = text.slice(range.bodyStart, caret);
+    if (isInsideJSStringOrComment(code)) return { candidates: [], replaceStart: wordStart, replaceEnd: caret, suppressed: true };
+    const word = text.slice(wordStart, caret);
+    const config = LANG.javascriptCompletions || {};
+    const members = config.members || {};
+    const beforeWord = text.slice(range.bodyStart, wordStart);
+    const member = /(?:([A-Za-z_$][\w$]*)|(\])|(\))|\})\s*(?:\?\.|\.)\s*$/.exec(beforeWord);
+    let candidates = [];
+    if (member) {
+      const base = member[1] || (member[2] ? "[]" : member[3] ? "()" : "{}");
+      const type = base === "[]" ? "array" : base === "{}" ? "object" : base === "()" ? "object" : guessJSValueType(base, code);
+      const list = members[type] || members.object || [];
+      candidates = list.map(name => jsCompletionItem(name, type + " member", "js-member"));
+      if (base !== "[]" && base !== "{}" && base !== "()") candidates.push(...getJSObjectProperties(base, code));
+    } else if (word || force) {
+      candidates = extractJSSymbols(code);
+      (config.globals || []).forEach(item => candidates.push(jsCompletionItem(item[0], item[1], "js-builtin")));
+      (config.keywords || []).forEach(item => candidates.push(jsCompletionItem(item, "JavaScript keyword", "js-keyword")));
+    }
+    return { candidates, replaceStart: wordStart, replaceEnd: caret };
+  }
+  function rangeStartForJS(text, caret, range) { return range ? range.bodyStart : caret; }
   function getCandidates(force) {
     const text = value();
     const caret = ta.selectionStart;
@@ -1250,13 +1422,20 @@ const Editor = (() => {
     const lastClose = prefix.lastIndexOf(">");
     const insideTag = lastOpen > lastClose;
     const context = getContextCompletions(prefix);
+    const jsRange = findJSRangeAtCaret(text, caret);
     let candidates = [];
     let replaceStart = startWord;
     let replaceEnd = caret;
 
     if (hasSelection()) return { candidates: [], replaceStart, replaceEnd };
 
-    if (context.matched) {
+    if (jsRange) {
+      const jsResult = getJavaScriptCompletions(text, caret, jsRange, force, startWord);
+      if (jsResult.suppressed) return jsResult;
+      candidates = jsResult.candidates;
+      replaceStart = jsResult.replaceStart;
+      replaceEnd = jsResult.replaceEnd;
+    } else if (context.matched) {
       candidates = context.candidates;
     } else if (insideStringOrComment(prefix)) {
       return { candidates: [], replaceStart, replaceEnd };
@@ -1322,19 +1501,20 @@ const Editor = (() => {
 
     // Context-specific color completion.
     const beforeCursorLine = linePrefix;
-    const colorMatch = /(?:\bbg|\bcol|\bcolor)\s*:\s*#?([\da-fA-F]*)$/i.exec(beforeCursorLine);
+    const colorMatch = /(?:\bbg|\bcol|\bcolor|\baccent)\s*:\s*#?([\da-fA-F]*)$/i.exec(beforeCursorLine);
     if (!context.matched && insideTag && colorMatch && (word.length || force)) {
-      const hashExists = /(?:\bbg|\bcol|\bcolor)\s*:\s*#[\da-fA-F]*$/i.test(beforeCursorLine);
+      const hashExists = /(?:\bbg|\bcol|\bcolor|\baccent)\s*:\s*#[\da-fA-F]*$/i.test(beforeCursorLine);
       candidates = (((LANG.values || {}).colors) || []).map(item => ({
         m: item.name, insert: (hashExists ? "" : "#") + (item.insert !== undefined ? item.insert : item.name),
         d: item.description || "Color", k: "value", replaceStart: startWord, replaceEnd: caret
       }));
     }
 
-    if (!force && !word && !context.matched && !insideTag) candidates = [];
+    if (!force && !word && !context.matched && !insideTag && !jsRange) candidates = [];
     // A value completion immediately after a colon is useful even when there is
     // no partial word yet, while ordinary empty prefixes stay quiet.
-    if (!force && !word && !context.matched && !(insideTag && linePrefix.endsWith("<"))) candidates = [];
+    const jsMemberContext = !!jsRange && /(?:\.|\?\.)\s*$/.test(prefix.slice(rangeStartForJS(text, caret, jsRange), caret));
+    if (!force && !word && !context.matched && !(insideTag && linePrefix.endsWith("<")) && !jsMemberContext) candidates = [];
 
     const lower = word.toLowerCase();
     const unique = new Map();

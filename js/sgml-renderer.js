@@ -243,10 +243,31 @@
 		}
 
 		function findTagStart(source,tag,from=0){
-			const re=new RegExp(`<${tag}\\b[^>]*>`,`gi`);
+			// Attribute values may contain markup (for example an inline SVG in a
+			// notebox icon). Find the tag name first, then scan to its closing > while
+			// respecting quoted values so a > inside the value cannot truncate it.
+			const re=new RegExp(`<${tag}\\b`,`gi`);
 			re.lastIndex=from;
-			const match=re.exec(source);
-			return match?{index:match.index,end:re.lastIndex,open:match[0]}:null;
+			let match;
+			while((match=re.exec(source))!==null){
+				let quote='';
+				let escaped=false;
+				for(let i=re.lastIndex;i<source.length;i++){
+					const char=source[i];
+					if(quote){
+						if(escaped){escaped=false;continue;}
+						if(char==='\\'){escaped=true;continue;}
+						if(char===quote)quote='';
+						continue;
+					}
+					if(char==='\"'||char==="'"){quote=char;continue;}
+					if(char==='>'){
+						const end=i+1;
+						return{index:match.index,end,open:source.slice(match.index,end)};
+					}
+				}
+			}
+			return null;
 		}
 
         // Locate </js> only when it is JavaScript syntax rather than text
@@ -1981,32 +2002,199 @@ table{max-width:none}
 			});
 		}
 
+		function sanitizeNotebookSVGIcon(source,accent){
+			const raw=String(source||'').trim();
+			if(!/^<svg\b[\s\S]*<\/svg\s*>$/i.test(raw)||typeof DOMParser==='undefined'||typeof XMLSerializer==='undefined')return'';
+			try{
+				const parsed=new DOMParser().parseFromString(raw,'image/svg+xml');
+				const root=parsed.documentElement;
+				if(!root||String(root.localName).toLowerCase()!=='svg'||parsed.querySelector('parsererror'))return'';
+				const allowedElements=new Set(['svg','g','path','circle','rect','line','polyline','polygon','ellipse','defs','lineargradient','radialgradient','stop','clippath','mask','pattern','marker','title','desc','text','tspan']);
+				const allowedAttributes=new Set(['xmlns','viewbox','width','height','x','y','x1','x2','y1','y2','cx','cy','r','rx','ry','d','points','fill','fill-rule','fill-opacity','stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','stroke-opacity','opacity','transform','class','id','offset','stop-color','stop-opacity','gradientunits','gradienttransform','spreadmethod','clip-path','clip-rule','mask','role','aria-hidden','focusable','preserveaspectratio','vector-effect','font-size','text-anchor','dominant-baseline']);
+				const cleanElement=element=>{
+					const tag=String(element.localName||'').toLowerCase();
+					if(!allowedElements.has(tag)){
+						element.remove();
+						return;
+					}
+					[...element.attributes].forEach(attribute=>{
+						const name=String(attribute.name||'').toLowerCase();
+						const value=String(attribute.value||'').trim();
+						const safeLocalUrl=/^url\(\s*#[\w.-]+\s*\)$/i.test(value);
+						if(!allowedAttributes.has(name)||/^on/i.test(name)||(/url\s*\(/i.test(value)&&!safeLocalUrl)||/javascript:/i.test(value)||/[<>]/.test(value))element.removeAttribute(attribute.name);
+					});
+					[...element.children].forEach(cleanElement);
+				};
+				cleanElement(root);
+				if(!root.hasAttribute('viewBox'))root.setAttribute('viewBox','0 0 24 24');
+				if(!root.hasAttribute('width'))root.setAttribute('width','20');
+				if(!root.hasAttribute('height'))root.setAttribute('height','20');
+				root.setAttribute('aria-hidden','true');
+				root.setAttribute('focusable','false');
+				root.setAttribute('class',((root.getAttribute('class')||'')+' sgml-notebox-custom-svg').trim());
+				return new XMLSerializer().serializeToString(root);
+			}catch(error){
+				console.warn('Invalid notebox SVG icon:',error);
+				return'';
+			}
+		}
+
 		function buildNotebookBoxHTML(component){
 			const attrs=parseNotebookTagAttributes(component.open);
 			const presets={
-				note:{label:'NOTE',icon:'note',color:'#475569',bg:'#f8fafc'},
-				definition:{label:'DEFINITION',icon:'book-open',color:'#2563eb',bg:'#eff6ff'},
-				key:{label:'KEY IDEA',icon:'key',color:'#2563eb',bg:'#eff6ff'},
-				idea:{label:'IDEA',icon:'idea',color:'#7c3aed',bg:'#f5f3ff'},
-				example:{label:'EXAMPLE',icon:'check-circle',color:'#15803d',bg:'#f0fdf4'},
-				warning:{label:'WARNING',icon:'warning',color:'#b45309',bg:'#fffbeb'},
-				remember:{label:'REMEMBER',icon:'bookmark',color:'#a21caf',bg:'#fdf4ff'},
-				formula:{label:'FORMULA',icon:'calculator',color:'#c2410c',bg:'#fff7ed'}
+				'note':{label:'NOTE',icon:'note',color:'#475569',bg:'#f8fafc'},
+				'important':{label:'IMPORTANT',icon:'alert-circle',color:'#b45309',bg:'#fffbeb'},
+				'reminder':{label:'REMINDER',icon:'bell',color:'#a21caf',bg:'#fdf4ff'},
+				'learn':{label:'LEARN',icon:'book-open',color:'#2563eb',bg:'#eff6ff'},
+				'definition':{label:'DEFINITION',icon:'book-a',color:'#2563eb',bg:'#eff6ff'},
+				'key':{label:'KEY IDEA',icon:'key',color:'#1d4ed8',bg:'#eff6ff'},
+				'idea':{label:'IDEA',icon:'lightbulb',color:'#7c3aed',bg:'#f5f3ff'},
+				'insight':{label:'INSIGHT',icon:'eye',color:'#6d28d9',bg:'#f5f3ff'},
+				'concept':{label:'CONCEPT',icon:'book',color:'#4f46e5',bg:'#eef2ff'},
+				'overview':{label:'OVERVIEW',icon:'map',color:'#475569',bg:'#f8fafc'},
+				'summary':{label:'SUMMARY',icon:'list',color:'#0f766e',bg:'#f0fdfa'},
+				'takeaway':{label:'KEY TAKEAWAY',icon:'bookmark',color:'#0f766e',bg:'#f0fdfa'},
+				'objective':{label:'OBJECTIVE',icon:'target',color:'#1d4ed8',bg:'#eff6ff'},
+				'goal':{label:'GOAL',icon:'flag',color:'#0f766e',bg:'#f0fdfa'},
+				'fact':{label:'FACT',icon:'info',color:'#0369a1',bg:'#f0f9ff'},
+				'example':{label:'EXAMPLE',icon:'image',color:'#15803d',bg:'#f0fdf4'},
+				'counterexample':{label:'COUNTEREXAMPLE',icon:'x-circle',color:'#b45309',bg:'#fffbeb'},
+				'analogy':{label:'ANALOGY',icon:'columns',color:'#7c3aed',bg:'#f5f3ff'},
+				'comparison':{label:'COMPARISON',icon:'filter',color:'#4f46e5',bg:'#eef2ff'},
+				'distinction':{label:'DISTINCTION',icon:'columns',color:'#4f46e5',bg:'#eef2ff'},
+				'background':{label:'BACKGROUND',icon:'layers',color:'#64748b',bg:'#f8fafc'},
+				'context':{label:'CONTEXT',icon:'map-pin',color:'#64748b',bg:'#f8fafc'},
+				'detail':{label:'DETAIL',icon:'zoom-in',color:'#475569',bg:'#f8fafc'},
+				'explanation':{label:'EXPLANATION',icon:'message-circle',color:'#0369a1',bg:'#f0f9ff'},
+				'clarification':{label:'CLARIFICATION',icon:'message-question',color:'#0369a1',bg:'#f0f9ff'},
+				'question':{label:'QUESTION',icon:'question',color:'#7c3aed',bg:'#f5f3ff'},
+				'answer':{label:'ANSWER',icon:'check',color:'#15803d',bg:'#f0fdf4'},
+				'discussion':{label:'DISCUSSION',icon:'users',color:'#0e7490',bg:'#ecfeff'},
+				'reflection':{label:'REFLECTION',icon:'user',color:'#6d28d9',bg:'#f5f3ff'},
+				'think':{label:'THINK ABOUT IT',icon:'brain',color:'#6d28d9',bg:'#f5f3ff'},
+				'remember':{label:'REMEMBER',icon:'bookmark',color:'#a21caf',bg:'#fdf4ff'},
+				'memorize':{label:'MEMORIZE',icon:'graduation',color:'#a21caf',bg:'#fdf4ff'},
+				'review':{label:'REVIEW',icon:'refresh',color:'#0f766e',bg:'#f0fdfa'},
+				'revision':{label:'REVISION',icon:'edit',color:'#0f766e',bg:'#f0fdfa'},
+				'practice':{label:'PRACTICE',icon:'pencil',color:'#15803d',bg:'#f0fdf4'},
+				'exercise':{label:'EXERCISE',icon:'dumbbell',color:'#15803d',bg:'#f0fdf4'},
+				'quiz':{label:'QUIZ',icon:'clipboard',color:'#7c3aed',bg:'#f5f3ff'},
+				'exam':{label:'EXAM',icon:'school',color:'#7c3aed',bg:'#f5f3ff'},
+				'tip':{label:'TIP',icon:'hand',color:'#0e7490',bg:'#ecfeff'},
+				'trick':{label:'TRICK',icon:'wand',color:'#0e7490',bg:'#ecfeff'},
+				'shortcut':{label:'SHORTCUT',icon:'rocket',color:'#0e7490',bg:'#ecfeff'},
+				'formula':{label:'FORMULA',icon:'calculator',color:'#c2410c',bg:'#fff7ed'},
+				'equation':{label:'EQUATION',icon:'equal',color:'#c2410c',bg:'#fff7ed'},
+				'theorem':{label:'THEOREM',icon:'sigma',color:'#4338ca',bg:'#eef2ff'},
+				'principle':{label:'PRINCIPLE',icon:'compass',color:'#4338ca',bg:'#eef2ff'},
+				'rule':{label:'RULE',icon:'shield-check',color:'#4338ca',bg:'#eef2ff'},
+				'law':{label:'LAW',icon:'scale',color:'#4338ca',bg:'#eef2ff'},
+				'method':{label:'METHOD',icon:'settings',color:'#2563eb',bg:'#eff6ff'},
+				'process':{label:'PROCESS',icon:'workflow',color:'#2563eb',bg:'#eff6ff'},
+				'steps':{label:'STEPS',icon:'list-ordered',color:'#2563eb',bg:'#eff6ff'},
+				'procedure':{label:'PROCEDURE',icon:'workflow',color:'#2563eb',bg:'#eff6ff'},
+				'instruction':{label:'INSTRUCTION',icon:'clipboard-check',color:'#2563eb',bg:'#eff6ff'},
+				'guide':{label:'GUIDE',icon:'signpost',color:'#2563eb',bg:'#eff6ff'},
+				'reference':{label:'REFERENCE',icon:'external-link',color:'#475569',bg:'#f8fafc'},
+				'source':{label:'SOURCE',icon:'file-text',color:'#475569',bg:'#f8fafc'},
+				'citation':{label:'CITATION',icon:'quote',color:'#475569',bg:'#f8fafc'},
+				'quote':{label:'QUOTE',icon:'quote',color:'#475569',bg:'#f8fafc'},
+				'evidence':{label:'EVIDENCE',icon:'file-check',color:'#0f766e',bg:'#f0fdfa'},
+				'research':{label:'RESEARCH',icon:'flask',color:'#0e7490',bg:'#ecfeff'},
+				'statistic':{label:'STATISTIC',icon:'chart-bar',color:'#0e7490',bg:'#ecfeff'},
+				'data':{label:'DATA',icon:'database',color:'#0e7490',bg:'#ecfeff'},
+				'observation':{label:'OBSERVATION',icon:'eye',color:'#0e7490',bg:'#ecfeff'},
+				'experiment':{label:'EXPERIMENT',icon:'flask',color:'#0e7490',bg:'#ecfeff'},
+				'result':{label:'RESULT',icon:'chart',color:'#15803d',bg:'#f0fdf4'},
+				'conclusion':{label:'CONCLUSION',icon:'flag',color:'#15803d',bg:'#f0fdf4'},
+				'hypothesis':{label:'HYPOTHESIS',icon:'lightbulb',color:'#7c3aed',bg:'#f5f3ff'},
+				'assumption':{label:'ASSUMPTION',icon:'brain',color:'#b45309',bg:'#fffbeb'},
+				'prerequisite':{label:'PREREQUISITE',icon:'lock',color:'#b45309',bg:'#fffbeb'},
+				'dependency':{label:'DEPENDENCY',icon:'network',color:'#b45309',bg:'#fffbeb'},
+				'requirement':{label:'REQUIREMENT',icon:'file-check',color:'#b45309',bg:'#fffbeb'},
+				'limitation':{label:'LIMITATION',icon:'shield-alert',color:'#b45309',bg:'#fffbeb'},
+				'exception':{label:'EXCEPTION',icon:'alert-triangle',color:'#b45309',bg:'#fffbeb'},
+				'warning':{label:'WARNING',icon:'warning',color:'#b45309',bg:'#fffbeb'},
+				'caution':{label:'CAUTION',icon:'alert',color:'#c2410c',bg:'#fff7ed'},
+				'danger':{label:'DANGER',icon:'alert-circle',color:'#b91c1c',bg:'#fef2f2'},
+				'error':{label:'ERROR',icon:'error',color:'#b91c1c',bg:'#fef2f2'},
+				'mistake':{label:'MISTAKE',icon:'x-circle',color:'#b91c1c',bg:'#fef2f2'},
+				'misconception':{label:'MISCONCEPTION',icon:'brain-question',color:'#b91c1c',bg:'#fef2f2'},
+				'pitfall':{label:'PITFALL',icon:'alert-triangle',color:'#b91c1c',bg:'#fef2f2'},
+				'debug':{label:'DEBUG',icon:'bug',color:'#b91c1c',bg:'#fef2f2'},
+				'success':{label:'SUCCESS',icon:'trophy',color:'#15803d',bg:'#f0fdf4'},
+				'completed':{label:'COMPLETED',icon:'check-circle',color:'#15803d',bg:'#f0fdf4'},
+				'progress':{label:'IN PROGRESS',icon:'pie-chart',color:'#0e7490',bg:'#ecfeff'},
+				'todo':{label:'TO DO',icon:'list-check',color:'#2563eb',bg:'#eff6ff'},
+				'task':{label:'TASK',icon:'list-check',color:'#2563eb',bg:'#eff6ff'},
+				'action':{label:'ACTION REQUIRED',icon:'hand',color:'#c2410c',bg:'#fff7ed'},
+				'priority':{label:'PRIORITY',icon:'star',color:'#b45309',bg:'#fffbeb'},
+				'deadline':{label:'DEADLINE',icon:'hourglass',color:'#b91c1c',bg:'#fef2f2'},
+				'schedule':{label:'SCHEDULE',icon:'clock',color:'#2563eb',bg:'#eff6ff'},
+				'event':{label:'EVENT',icon:'calendar',color:'#2563eb',bg:'#eff6ff'},
+				'resource':{label:'RESOURCE',icon:'folder-open',color:'#0e7490',bg:'#ecfeff'},
+				'link':{label:'LINK',icon:'link',color:'#2563eb',bg:'#eff6ff'},
+				'code':{label:'CODE',icon:'code',color:'#475569',bg:'#f8fafc'},
+				'syntax':{label:'SYNTAX',icon:'braces',color:'#475569',bg:'#f8fafc'},
+				'command':{label:'COMMAND',icon:'terminal',color:'#475569',bg:'#f8fafc'},
+				'output':{label:'OUTPUT',icon:'arrow-down',color:'#0f766e',bg:'#f0fdfa'},
+				'input':{label:'INPUT',icon:'arrow-up',color:'#0e7490',bg:'#ecfeff'},
+				'case-study':{label:'CASE STUDY',icon:'briefcase',color:'#0e7490',bg:'#ecfeff'},
+				'scenario':{label:'SCENARIO',icon:'map',color:'#0e7490',bg:'#ecfeff'},
+				'pros':{label:'ADVANTAGES',icon:'thumbs-up',color:'#15803d',bg:'#f0fdf4'},
+				'cons':{label:'DISADVANTAGES',icon:'trending-down',color:'#b45309',bg:'#fffbeb'},
+				'advantage':{label:'ADVANTAGE',icon:'plus',color:'#15803d',bg:'#f0fdf4'},
+				'disadvantage':{label:'DISADVANTAGE',icon:'thumbs-down',color:'#b45309',bg:'#fffbeb'},
+				'alternative':{label:'ALTERNATIVE',icon:'repeat',color:'#7c3aed',bg:'#f5f3ff'},
+				'decision':{label:'DECISION',icon:'split',color:'#7c3aed',bg:'#f5f3ff'},
+				'recommendation':{label:'RECOMMENDATION',icon:'star',color:'#0f766e',bg:'#f0fdfa'},
+				'challenge':{label:'CHALLENGE',icon:'fire',color:'#c2410c',bg:'#fff7ed'},
+				'open-question':{label:'OPEN QUESTION',icon:'message-question',color:'#7c3aed',bg:'#f5f3ff'},
+				'personal-note':{label:'PERSONAL NOTE',icon:'note',color:'#64748b',bg:'#f8fafc'},
+				'privacy':{label:'PRIVACY',icon:'eye-off',color:'#0f766e',bg:'#f0fdfa'},
+				'safety':{label:'SAFETY',icon:'shield-check',color:'#0f766e',bg:'#f0fdfa'},
+				'pro-tip':{label:'PRO TIP',icon:'medal',color:'#0e7490',bg:'#ecfeff'},
+				'common-mistake':{label:'COMMON MISTAKE',icon:'error',color:'#b91c1c',bg:'#fef2f2'},
+				'quick-fact':{label:'QUICK FACT',icon:'info',color:'#0369a1',bg:'#f0f9ff'},
+				'important-date':{label:'IMPORTANT DATE',icon:'calendar-check',color:'#b45309',bg:'#fffbeb'},
+				'follow-up':{label:'FOLLOW UP',icon:'send',color:'#a21caf',bg:'#fdf4ff'},
+				'pending':{label:'PENDING',icon:'clock',color:'#b45309',bg:'#fffbeb'},
+				'blocked':{label:'BLOCKED',icon:'ban',color:'#b91c1c',bg:'#fef2f2'},
+				'optional':{label:'OPTIONAL',icon:'more-horizontal',color:'#64748b',bg:'#f8fafc'},
+				'required':{label:'REQUIRED',icon:'clipboard-check',color:'#b91c1c',bg:'#fef2f2'},
+				'new':{label:'NEW',icon:'sparkles',color:'#7c3aed',bg:'#f5f3ff'},
+				'updated':{label:'UPDATED',icon:'refresh',color:'#2563eb',bg:'#eff6ff'},
+				'deprecated':{label:'DEPRECATED',icon:'archive',color:'#64748b',bg:'#f1f5f9'},
+				'preview':{label:'PREVIEW',icon:'eye',color:'#2563eb',bg:'#eff6ff'},
+				'draft':{label:'DRAFT',icon:'edit',color:'#64748b',bg:'#f8fafc'},
+				'final':{label:'FINAL',icon:'check-circle',color:'#15803d',bg:'#f0fdf4'},
 			};
-			const requested=String(attrs.type||attrs.kind||'note').toLowerCase();
-			const kind=Object.prototype.hasOwnProperty.call(presets,requested)?requested:'note';
-			const preset=presets[kind];
-			const accent=sanitizeSGMLColor(attrs.color||attrs.col)||preset.color;
+			const requested=String(attrs.type||attrs.kind||'note').trim().toLowerCase();
+			const kind=Object.prototype.hasOwnProperty.call(presets,requested)?requested:'custom';
+			// Unknown type names remain useful custom labels instead of silently
+			// collapsing to NOTE. Authors can still style them with color/bg/icon.
+			const customLabel=requested.replace(/[-_]+/g,' ').replace(/\b\w/g,char=>char.toUpperCase()).toUpperCase()||'NOTE';
+			const preset=presets[requested]||{label:customLabel,icon:'note',color:'#475569',bg:'#f8fafc'};
+			// New attributes take precedence. Existing color/col and named icon
+			// values remain supported for backwards compatibility.
+			const accent=sanitizeSGMLColor(attrs.accent||attrs.color||attrs.col)||preset.color;
 			const background=sanitizeSGMLColor(attrs.bg)||preset.bg;
 			const title=attrs.title||preset.label;
-			const requestedIcon=String(attrs.icon||preset.icon).toLowerCase();
-			const iconName=window.SGMLICON&&window.SGMLICON[requestedIcon]?requestedIcon:preset.icon;
-			const icon=typeof window.renderSGMLIcon==='function'
-				?window.renderSGMLIcon(iconName,`scale:[20] color:"${accent}"`)
-				:'';
+			const requestedIcon=String(attrs.icon||'').trim();
+			let icon='';
+			let motionIcon='custom';
+			if(requestedIcon&&/^<svg\b/i.test(requestedIcon)){
+				icon=sanitizeNotebookSVGIcon(requestedIcon,accent);
+			}else{
+				motionIcon=window.SGMLICON&&window.SGMLICON[requestedIcon.toLowerCase()]?requestedIcon.toLowerCase():preset.icon;
+				icon=typeof window.renderSGMLIcon==='function'
+					?window.renderSGMLIcon(motionIcon,`scale:[18] color:"${accent}"`)
+					:'';
+			}
+			const safeMotionIcon=/^[a-z0-9-]+$/i.test(motionIcon)?motionIcon:'custom';
 			const content=renderEmbeddedSGML(component.content||'');
 			return `<aside class="sgml-notebox sgml-notebox-${kind}" style="--sgml-notebox-accent:${escapeHTMLAttribute(accent)};--sgml-notebox-bg:${escapeHTMLAttribute(background)}">`+
-				`<div class="sgml-notebox-heading">${icon?`<span class="sgml-notebox-icon">${icon}</span>`:''}<span>${renderMarkdown(String(title),{inline:true})}</span></div>`+
+				`<div class="sgml-notebox-heading">${icon?`<span class="sgml-notebox-icon" data-icon="${safeMotionIcon}" style="color:${escapeHTMLAttribute(accent)}">${icon}</span>`:''}<span>${renderMarkdown(String(title),{inline:true})}</span></div>`+
 				`<div class="sgml-notebox-content">${content}</div></aside>`;
 		}
 
@@ -2505,11 +2693,10 @@ table{max-width:none}
 				.replace(/<\/(iframe|object|embed|portal|frame|frameset|applet)\s*>/gi,'');
 		}
 
-        // Execute <js> blocks as a source preprocessing step. The returned
-        // value replaces the entire block in the original SGML string BEFORE
-        // any SGML, ICB, Markdown, questionnaire, or HTML processing occurs.
-        // This makes the result indistinguishable from text authored directly
-        // at that location in the document.
+        // Treat each <js> body as opaque JavaScript source. The code itself is
+        // evaluated here and is never passed to SGML, ICB, or Markdown parsers.
+        // Only the returned value replaces the block; that returned value then
+        // enters the normal document pipeline exactly once.
         function evaluateJSAsSourceText(source){
             try{
                 const evaluate=new Function(
@@ -3141,8 +3328,8 @@ table{max-width:none}
 
 
 		function prepareSGMLRender(sgmlContent,{resetState=false}={}){
-            // <js> is source substitution, including for dynamically rendered
-            // fragments. Its return value joins the ordinary SGML pipeline.
+            // <js> source is fully removed before every document parser runs.
+            // Only its returned value is inserted into the ordinary SGML pipeline.
             sgmlContent=expandJSBlocks(String(sgmlContent||''));
 
             // Literal tokens are only needed while the current source is being

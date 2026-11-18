@@ -1,7 +1,7 @@
 'use strict';
 
-const CACHE_NAME = 'sgml-viewer-cache-v27';
-const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v27-';
+const CACHE_NAME = 'sgml-viewer-cache-v29';
+const STAGING_CACHE_PREFIX = 'sgml-viewer-staging-v29-';
 const SHARE_CACHE_NAME = 'sgml-viewer-share-v1';
 const CONVERTER_CACHE_NAME = 'sgml-viewer-converters-v1';
 const CONVERTER_RESOURCES = [
@@ -25,6 +25,7 @@ const APP_SHELL = [
   './js/editor-language.js',
   './js/editor.js',
   './js/app-state.js',
+  './js/sgml-extensions.js',
   './js/sgml-renderer.js',
   './js/file-converter.js',
   './js/document-library.js',

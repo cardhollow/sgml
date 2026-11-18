@@ -29,6 +29,7 @@ sgml-main/
     ├── document-library.js # Import/export, document operations, editor controls
     ├── file-converter.js   # DOCX/PDF-to-HTML import pipeline
     ├── sgml-icons.js       # Built-in inline SVG icon registry and icon renderer
+    ├── sgml-extensions.js  # procedure/step, sgmlCopy/sgmlPaste, terminalCode/terminalOutput
     ├── editor-language.js  # SGML syntax and suggestion configuration
     ├── editor.js           # Native textarea editor and completion engine
     └── sgml-renderer.js    # SGML parsing and rendering
@@ -82,6 +83,49 @@ behavior. The existing `case` option still controls whether letter case matters:
 ```sgml
 <Fillin:(Enter the city name)[]{New York|case:false|ignoreWhitespace:true}>
 ```
+
+## Dictionary links
+
+Use `<dictDef>...</dictDef>` to mark a definition and `<dictWord>...</dictWord>`
+to mark a word that should link to it. The first matching definition is used,
+and the link scrolls to that definition even when it appears later in the source.
+Matching is case-insensitive by default. Bare boolean flags on `dictDef` can
+change matching: `caseSensitive`, `ignoreWhitespace`, `ignoreNewline`, and
+`ignoreSpace`.
+
+```sgml
+<dictWord>Apple</dictWord>
+
+<dictDef>Apple</dictDef> — a fruit that grows on an apple tree.
+```
+
+## Grouped questionnaires
+
+`<questionaires>` groups multiple `<question>` elements under one progress bar
+and one shared **Check Answers** button. The default `requiredCompletion`
+threshold is every question in the group. A numeric value sets a smaller
+minimum, while `requiredCompletion:false` removes the minimum. Each question
+uses `type:"Choices"`, `type:"Fillin"`, or `type:"Enumeration"`; its `<q>`
+contains the prompt, each `<opt>` defines one list entry, and `<ans>` contains
+the accepted answer(s) and optional answer properties.
+
+```sgml
+<questionaires requiredCompletion>
+  <question type:"Choices">
+    <q>What does CPU stand for?</q>
+    <opt>Central Processing Unit</opt>
+    <opt>Control Program Unit</opt>
+    <ans>Central Processing Unit</ans>
+  </question>
+  <question type:"Fillin" caseSensitive>
+    <q>What language is this viewer written in?</q>
+    <ans>JavaScript</ans>
+  </question>
+</questionaires>
+```
+
+For ordering enumerations, add `mode:"order"` to the `<question>` tag and
+provide the displayed items as repeated `<opt>` elements.
 
 ## Executable JavaScript blocks
 
@@ -234,3 +278,15 @@ The deck uses the existing flashcard interaction and scoring controls. Markdown 
 ```
 
 `notebox` includes 126 built-in types, grouped below. General and learning: `note`, `important`, `reminder`, `learn`, `definition`, `key`, `idea`, `insight`, `concept`, `overview`, `summary`, `takeaway`, `objective`, `goal`, `fact`, `example`, `counterexample`, `analogy`, `comparison`, `distinction`, `background`, `context`, `detail`, `explanation`, `clarification`. Discussion and study: `question`, `answer`, `discussion`, `reflection`, `think`, `remember`, `memorize`, `review`, `revision`, `practice`, `exercise`, `quiz`, `exam`, `tip`, `trick`, `shortcut`. Academic and technical: `formula`, `equation`, `theorem`, `principle`, `rule`, `law`, `method`, `process`, `steps`, `procedure`, `instruction`, `guide`, `reference`, `source`, `citation`, `quote`, `evidence`, `research`, `statistic`, `data`, `observation`, `experiment`, `result`, `conclusion`, `hypothesis`, `assumption`. Planning and status: `prerequisite`, `dependency`, `requirement`, `limitation`, `exception`, `success`, `completed`, `progress`, `todo`, `task`, `action`, `priority`, `deadline`, `schedule`, `event`, `resource`, `follow-up`, `pending`, `blocked`, `optional`, `required`. Caution and troubleshooting: `warning`, `caution`, `danger`, `error`, `mistake`, `misconception`, `pitfall`, `debug`, `common-mistake`, `safety`, `privacy`. Development and analysis: `link`, `code`, `syntax`, `command`, `output`, `input`, `case-study`, `scenario`, `pros`, `cons`, `advantage`, `disadvantage`, `alternative`, `decision`, `recommendation`, `challenge`, `open-question`, `personal-note`, `pro-tip`, `quick-fact`, `important-date`, `new`, `updated`, `deprecated`, `preview`, `draft`, `final`. Use `<notebox type="important">` for an important point, `<notebox type="reminder">` for a reminder, or `<notebox type="learn">` for a learning point. Unknown type names also work as custom labels (for example, `type="field-note"`); their default appearance is neutral. The optional `title`, `accent`, `bg`, and `icon` attributes override the type defaults; `accent` changes the accent color, and `icon` accepts either a built-in icon name or inline SVG markup. NoteBox icons have subtle CSS animations (including eye movement and blinking where applicable); the animations automatically stop when the device requests reduced motion. Existing `color` and `col` accent aliases remain supported. Empty or omitted attributes keep the selected type defaults. SVG icons are sanitized to a safe subset of SVG elements and attributes. Checklist items are interactive in the rendered page. Glossary entries and quick-review cards support Markdown and embedded components. Cornell notes use cue, notes, and summary regions that stack on narrow screens.
+
+
+## Procedures, copy/paste, and terminals
+
+Implemented in `js/sgml-extensions.js`. Full reference: **Documentation**, section 8b.
+
+- `<procedure type="tutorial|wizard|solution" title="..." accent="#hex">` with `<step title="...">` children. The type is shown as an icon in the header. Tutorial is a guide to read: collapsible steps, a progress bar that follows your scroll position, an Outline jump list and Collapse/Expand all (`collapsed="true"` starts it folded). Wizard shows one step at a time with a progress bar, a scrollable Steps list instead of one button per step (so 100+ steps stay compact), and Back/Next/Finish docked under the step. Solution reveals steps one by one with its Show controls docked under the steps. Use the checklist component for tick-off tasks.
+- `<sgmlCopy name="x">...</sgmlCopy>` stores SGML and renders nothing; everything inside is skipped, including `<js>`. `<sgmlPaste name="x"/>` renders the stored SGML normally (a pasted `<js>` runs). Copies are collected before pastes, so a paste may come first; the first copy with a name wins; circular pastes show an error.
+- `<terminalCode title accent style folding>` and `<terminalOutput title accent style>` show literal text in a terminal-style box with a Copy button. `style="#hex word word /regex/flags; #hex ..."` colors words or regex matches (leftmost match wins). `folding="start: regex; end: regex; collapsed: all"` adds fold carets (`collapsed` starts regions folded: `all`, line numbers/ranges like `2, 8-12`, or a `/regex/` tested on the fold's first line; `folding="collapsed"` alone folds every bracket block); brackets are paired by type and nesting, strings/comments/regex literals are ignored unless `ignore: none;` is given. Carets sit in a fixed gutter and folding keeps the clicked line in place so the view does not jump.
+- Attribute values end at the next matching quote, with no backslash escapes. Use `\x22` / `\x27` for quotes inside a regex.
+
+Order of processing: copy/paste, then terminal extraction, then `<js>` expansion, then copy/paste and terminals again for anything a `<js>` block returned, then the normal ICB/SGML/Markdown pipeline.

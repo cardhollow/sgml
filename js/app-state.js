@@ -9,6 +9,8 @@
 		let customComponentCounter=0;
 		let sgmlSpoilerIdCounter=0;
 		let questionCounter=0;
+		let dictDefinitionCounter=0;
+		let questionaireCounter=0;
 		let infoCounter=0;
 		let openInfoWrap=null;
 

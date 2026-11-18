@@ -288,13 +288,54 @@ const Editor = (() => {
     return -1;
   }
 
+  // Quotes outside a tag are ordinary prose ("Don't ever do that", 5" pipe).
+  // They only count as a string when they open and close on the same line; a
+  // quote that stays open is plain text and never colors what follows.
+  const SAME_LINE_QUOTE = /^(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\\n])*`)/;
+  const WORD_CHAR = /[\p{L}\p{N}_]/u;
+  // End of an opening tag, quote-aware but bounded so a stray "<" cannot make
+  // the scan walk the whole document.
+  function boundedTagEnd(text, start) {
+    const limit = Math.min(text.length, start + 1500);
+    let quote = "";
+    for (let i = start + 1; i < limit; i++) {
+      const ch = text[i];
+      if (quote) { if (ch === quote) quote = ""; continue; }
+      if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === ">") return i + 1;
+    }
+    return -1;
+  }
+
   function sgmlTokenHtml(text) {
     const spans = [];
     TOKEN_LEXICAL.lastIndex = 0;
-    let match;
+    let match, tagEnd = 0;
     while ((match = TOKEN_LEXICAL.exec(text))) {
-      const raw = match[0];
+      let raw = match[0];
       let cls = "";
+      const isQuote = (raw[0] === '"' || raw[0] === "'" || raw[0] === '`') && !raw.startsWith("```");
+      if (isQuote) {
+        // An apostrophe inside a word (Don't, students') is not a string start.
+        if (raw[0] === "'" && WORD_CHAR.test(text[match.index - 1] || "")) {
+          TOKEN_LEXICAL.lastIndex = match.index + 1;
+          continue;
+        }
+        // Inside a tag a value may span lines; elsewhere it must close on its line.
+        if (match.index >= tagEnd && raw.includes("\n")) {
+          const lineEnd = text.indexOf("\n", match.index);
+          const sameLine = SAME_LINE_QUOTE.exec(text.slice(match.index, lineEnd < 0 ? text.length : lineEnd));
+          if (!sameLine) {
+            TOKEN_LEXICAL.lastIndex = match.index + 1;
+            continue;
+          }
+          raw = sameLine[0];
+          TOKEN_LEXICAL.lastIndex = match.index + raw.length;
+        }
+      } else if (raw[0] === "<" && !raw.startsWith("<!--")) {
+        const end = boundedTagEnd(text, match.index);
+        tagEnd = end < 0 ? match.index + raw.length : end;
+      }
       if (raw.startsWith("<!--") || raw.startsWith("```") || raw.startsWith("~~~")) cls = "com";
       else if (raw[0] === '"' || raw[0] === "'" || raw[0] === '`') cls = "str";
       else if (raw[0] === "<") {

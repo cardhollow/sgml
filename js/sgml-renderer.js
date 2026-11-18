@@ -741,7 +741,7 @@ table{max-width:none}
 			let cursor=0;
 
 			while(cursor<source.length){
-				const candidates=['ref','badge','x']
+				const candidates=['ref','badge','x','dictDef','dictWord']
 					.map(type=>({type,found:findTagStart(source,type,cursor)}))
 					.filter(item=>item.found)
 					.sort((a,b)=>a.found.index-b.found.index);
@@ -762,8 +762,9 @@ table{max-width:none}
 						continue;
 					}
 					end=matched.end;
+					const mappedType=type==='ref'?'ref-link':type==='badge'?'badge':type==='x'?'x-mark':type==='dictDef'?'dict-definition':'dict-word';
 					component={
-						type:type==='ref'?'ref-link':type==='badge'?'badge':'x-mark',
+						type:mappedType,
 						id:type==='ref'?getAttributeFromTag(found.open,'id'):'',
 						open:found.open,
 						content:matched.content
@@ -881,6 +882,9 @@ table{max-width:none}
 				if(component.type==='x-mark'){
 					const color=sanitizeSGMLColor(parseComponentAttributes(component.open).col)||'#c62828';
 					return`<span class="sgml-x-mark" style="--sgml-x-color:${escapeHTMLAttribute(color)}"><span class="sgml-x-content">${renderMarkdown(component.content,{inline:true})}</span><svg class="sgml-x-pencil" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="sgml-x-crayon-base" d="M 2 8 C 9 13, 16 23, 26 31 C 37 40, 46 49, 57 60 C 69 72, 84 87, 98 96"/><path class="sgml-x-crayon-texture" d="M 4 5 C 13 15, 18 24, 28 32 C 39 42, 48 52, 59 62 C 72 75, 86 88, 96 94"/><path class="sgml-x-crayon-base" d="M 97 4 C 88 12, 79 24, 69 34 C 59 44, 49 56, 38 67 C 27 79, 14 90, 3 98"/><path class="sgml-x-crayon-texture" d="M 95 7 C 86 14, 78 25, 67 36 C 57 47, 47 58, 36 69 C 24 82, 13 91, 5 96"/><path class="sgml-x-crayon-grain" d="M 8 11 C 27 31, 41 43, 61 63 C 76 78, 87 88, 94 94 M 92 10 C 73 29, 58 45, 39 65 C 24 81, 13 89, 7 94"/></svg></span>`;
+				}
+				if(component.type==='dict-definition'||component.type==='dict-word'){
+					return buildDictionaryInlineHTML(component);
 				}
 				return'';
 			});
@@ -1245,6 +1249,8 @@ table{max-width:none}
 				props:{
 					case:false,
 					ignoreWhitespace:false,
+					ignoreNewline:false,
+					ignoreSpace:false,
 					inorder:false,
 					count:null,
 					type:null
@@ -1263,6 +1269,8 @@ table{max-width:none}
 
 					if(key==='case')result.props.case=val==='true';
 					else if(key==='ignorewhitespace')result.props.ignoreWhitespace=val==='true';
+					else if(key==='ignorenewline')result.props.ignoreNewline=val==='true';
+					else if(key==='ignorespace')result.props.ignoreSpace=val==='true';
 					else if(key==='inorder')result.props.inorder=val==='true';
 					else if(key==='count')result.props.count=parseInt(val,10);
 					else if(key==='type')result.props.type=val;
@@ -1292,6 +1300,10 @@ table{max-width:none}
 			const normalize=value=>{
 				let text=String(value===undefined||value===null?'':value);
 				if(props.ignoreWhitespace)text=text.replace(/\s+/g,'');
+				else{
+					if(props.ignoreNewline)text=text.replace(/[\r\n]/g,'');
+					if(props.ignoreSpace)text=text.replace(/[ \t\f\v]/g,'');
+				}
 				if(!props.case)text=text.toLowerCase();
 				return text;
 			};
@@ -2286,6 +2298,79 @@ table{max-width:none}
 			return `<span class="sgml-encircle" style="--sgml-encircle-color:${escapeHTMLAttribute(color)}"><span class="sgml-encircle-content">${content}</span></span>`;
 		}
 
+		function readSGMLAttribute(tag,name){
+			const safeName=String(name).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+			const match=String(tag||'').match(new RegExp(`(?:^|\\s)${safeName}(?:\\s*[:=]\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+)))?(?=\\s|/?>)`,'i'));
+			if(!match)return{present:false,value:''};
+			return{present:true,value:match[1]??match[2]??match[3]??''};
+		}
+
+		function readSGMLBooleanAttribute(tag,name){
+			const attr=readSGMLAttribute(tag,name);
+			if(!attr.present)return false;
+			return !/^(?:false|0|no|off)$/i.test(String(attr.value).trim());
+		}
+
+		function renderInlineComponentContent(source){
+			return renderEmbeddedSGML(String(source||'')).replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/i,'$1');
+		}
+
+		function buildDictionaryInlineHTML(component){
+			const content=renderInlineComponentContent(component.content||'');
+			if(component.type==='dict-definition'){
+				const id=`sgml-dict-def-${dictDefinitionCounter++}`;
+				const flags={
+					caseSensitive:readSGMLBooleanAttribute(component.open,'caseSensitive'),
+					ignoreWhitespace:readSGMLBooleanAttribute(component.open,'ignoreWhitespace'),
+					ignoreNewline:readSGMLBooleanAttribute(component.open,'ignoreNewline'),
+					ignoreSpace:readSGMLBooleanAttribute(component.open,'ignoreSpace')
+				};
+				return `<span class="sgml-dict-definition" id="${id}" data-case-sensitive="${flags.caseSensitive}" data-ignore-whitespace="${flags.ignoreWhitespace}" data-ignore-newline="${flags.ignoreNewline}" data-ignore-space="${flags.ignoreSpace}">${content}</span>`;
+			}
+			return `<span class="sgml-dict-word" data-dict-word="true">${content}</span>`;
+		}
+
+		function normalizeDictionaryText(value,flags={}){
+			let text=String(value||'').replace(/\r\n?/g,'\n');
+			if(flags.ignoreWhitespace)text=text.replace(/\s+/g,'');
+			else{
+				if(flags.ignoreNewline)text=text.replace(/\n/g,'');
+				if(flags.ignoreSpace)text=text.replace(/[ \t\f\v]/g,'');
+			}
+			if(!flags.caseSensitive)text=text.toLocaleLowerCase();
+			return text;
+		}
+
+		function setupDictionaryLinks(target){
+			if(!target)return;
+			const definitions=[...document.querySelectorAll('.sgml-dict-definition[id]')];
+			// Scan the rendered document rather than only the latest fragment. This
+			// also resolves earlier unmatched words when a definition is appended
+			// later through renderSGMLInto().
+			const words=[...document.querySelectorAll('.sgml-dict-word')];
+			words.forEach(word=>{
+				if(word.dataset.linked==='true')return;
+				const text=word.textContent||'';
+				const definition=definitions.find(definition=>{
+					const flags={
+						caseSensitive:definition.dataset.caseSensitive==='true',
+						ignoreWhitespace:definition.dataset.ignoreWhitespace==='true',
+						ignoreNewline:definition.dataset.ignoreNewline==='true',
+						ignoreSpace:definition.dataset.ignoreSpace==='true'
+					};
+					return normalizeDictionaryText(text,flags)===normalizeDictionaryText(definition.textContent,flags);
+				});
+				if(!definition){word.classList.add('sgml-dict-word-unmatched');return;}
+				const link=document.createElement('a');
+				link.className='sgml-dict-link';
+				link.href=`#${definition.id}`;
+				link.setAttribute('aria-label',`Go to definition: ${definition.textContent.trim()}`);
+				link.title='Go to definition';
+				link.append(...word.childNodes);
+				word.replaceWith(link);
+			});
+		}
+
 		function revealSpoiler(id){
 			const wrap=document.getElementById(id);
 			if(!wrap)return;
@@ -2294,20 +2379,37 @@ table{max-width:none}
 			if(overlay)overlay.remove();
 		}
 
+		function getQuestionParsedValues(q,answersList){
+			if(q.preparsed){
+				return{
+					props:q.props||{},
+					correctAnswers:Array.isArray(q.correctAnswers)?q.correctAnswers:[]
+				};
+			}
+			return parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+		}
+
+		function buildQuestionControls(q,label){
+			const button=q.suppressIndividualCheck
+				?''
+				:`<button type="button" onclick="${q.checkFunction}('${q.id}')">${label}</button>`;
+			return `<div class="sgml-controls">${button}<span class="sgml-feedback" id="fb_${q.id}"></span></div>`;
+		}
+
 		function buildChoicesHTML(q){
 			const qHTML=renderQuestionText(q.questionRaw);
-			const options=splitByChar(q.answersRaw,',');
-			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,options);
+			const options=Array.isArray(q.options)?q.options:splitByChar(q.answersRaw,',');
+			const parsed=getQuestionParsedValues(q,options);
 
 			parsedQuestions[q.id]={
 				type:'choices',
 				options,
 				correctAnswers:parsed.correctAnswers,
-				props:parsed.props
+				props:parsed.props,
+				questionaireId:q.questionaireId||null
 			};
 
 			let optionsHTML='';
-
 			options.forEach((opt,idx)=>{
 				optionsHTML+=`
 					<label class="sgml-option">
@@ -2320,22 +2422,20 @@ table{max-width:none}
 				<div class="sgml-qblock" id="${q.id}">
 					<div class="sgml-qtitle">${qHTML}</div>
 					<div class="sgml-options">${optionsHTML}</div>
-					<div class="sgml-controls">
-						<button onclick="checkChoicesAnswer('${q.id}')">Check Answer</button>
-						<span class="sgml-feedback" id="fb_${q.id}"></span>
-					</div>
+					${buildQuestionControls({...q,checkFunction:'checkChoicesAnswer'},'Check Answer')}
 				</div>`;
 		}
 
 		function buildFillinHTML(q){
 			const qHTML=renderQuestionText(q.questionRaw);
-			const answersList=splitByChar(q.answersRaw,',');
-			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+			const answersList=Array.isArray(q.options)?q.options:splitByChar(q.answersRaw,',');
+			const parsed=getQuestionParsedValues(q,answersList);
 
 			parsedQuestions[q.id]={
 				type:'fillin',
 				correctAnswers:parsed.correctAnswers,
-				props:parsed.props
+				props:parsed.props,
+				questionaireId:q.questionaireId||null
 			};
 
 			return`
@@ -2344,29 +2444,25 @@ table{max-width:none}
 					<div class="sgml-inputs">
 						<input type="text" class="sgml-text-input" id="input_${q.id}" placeholder="Type answer..." autocomplete="off">
 					</div>
-					<div class="sgml-controls">
-						<button onclick="checkFillinAnswer('${q.id}')">Check Answer</button>
-						<span class="sgml-feedback" id="fb_${q.id}"></span>
-					</div>
+					${buildQuestionControls({...q,checkFunction:'checkFillinAnswer'},'Check Answer')}
 				</div>`;
 		}
 
 		function buildEnumerationHTML(q){
 			const qHTML=renderQuestionText(q.questionRaw);
-			const answersList=splitByChar(q.answersRaw,',');
-			const parsed=parsePropsAndAnswers(q.correctAndPropsRaw,answersList);
+			const answersList=Array.isArray(q.options)?q.options:splitByChar(q.answersRaw,',');
+			const parsed=getQuestionParsedValues(q,answersList);
 
 			if(parsed.props.type==='order'){
 				const items=answersList.length?answersList:parsed.correctAnswers;
-
 				parsedQuestions[q.id]={
 					type:'enum_order',
 					correctAnswers:parsed.correctAnswers,
-					props:parsed.props
+					props:parsed.props,
+					questionaireId:q.questionaireId||null
 				};
 
 				let listItemsHTML='';
-
 				items.forEach(item=>{
 					listItemsHTML+=`
 						<li class="sgml-order-item" draggable="true" data-raw="${encodeURIComponent(item)}">
@@ -2381,25 +2477,21 @@ table{max-width:none}
 				return`
 					<div class="sgml-qblock" id="${q.id}">
 						<div class="sgml-qtitle">${qHTML}</div>
-						<ul class="sgml-order-list" id="order_list_${q.id}">${listItemsHTML}</ul>
-						<div class="sgml-controls">
-							<button onclick="checkEnumOrderAnswer('${q.id}')">Check Order</button>
-							<span class="sgml-feedback" id="fb_${q.id}"></span>
-						</div>
+						<ul class="sgml-order-list" id="order_list_${q.id}" data-touched="false">${listItemsHTML}</ul>
+						${buildQuestionControls({...q,checkFunction:'checkEnumOrderAnswer'},'Check Order')}
 					</div>`;
 			}
 
 			const count=parsed.props.count||parsed.correctAnswers.length||1;
-
 			parsedQuestions[q.id]={
 				type:'enum_written',
 				count,
 				correctAnswers:parsed.correctAnswers,
-				props:parsed.props
+				props:parsed.props,
+				questionaireId:q.questionaireId||null
 			};
 
 			let inputsHTML='';
-
 			for(let i=0;i<count;i++){
 				inputsHTML+=`
 					<div class="sgml-enum-row">
@@ -2412,11 +2504,111 @@ table{max-width:none}
 				<div class="sgml-qblock" id="${q.id}">
 					<div class="sgml-qtitle">${qHTML}</div>
 					<div class="sgml-inputs">${inputsHTML}</div>
-					<div class="sgml-controls">
-						<button onclick="checkEnumWrittenAnswer('${q.id}')">Check Answers</button>
-						<span class="sgml-feedback" id="fb_${q.id}"></span>
-					</div>
+					${buildQuestionControls({...q,checkFunction:'checkEnumWrittenAnswer'},'Check Answers')}
 				</div>`;
+		}
+
+		function parseQuestionaireQuestion(component,questionaireId){
+			const typeAttr=readSGMLAttribute(component.open,'type');
+			const requestedType=String(typeAttr.value||'').trim().toLowerCase();
+			const typeMap={
+				choices:'choices',
+				multiplechoice:'choices',
+				mcq:'choices',
+				fillin:'fillin',
+				fill:'fillin',
+				enumeration:'enumeration',
+				enum:'enumeration'
+			};
+			const type=typeMap[requestedType];
+			if(!type)return{error:`Unsupported question type: ${requestedType||'(missing type)'}`};
+
+			const qNode=extractChildren(component.content,'q',false).children[0];
+			if(!qNode)return{error:'A <question> needs one <q>...</q> prompt.'};
+			const options=extractChildren(component.content,'opt',false).children.map(item=>item.content);
+			const answerNodes=extractChildren(component.content,'ans',false).children;
+			const answersRaw=answerNodes.map(item=>item.content).join(',');
+			const parsed=answerNodes.length
+				?parsePropsAndAnswers(answersRaw,options)
+				:{props:{case:false,ignoreWhitespace:false,ignoreNewline:false,ignoreSpace:false,inorder:false,count:null,type:null},correctAnswers:[]};
+
+			const caseAttr=readSGMLAttribute(component.open,'caseSensitive');
+			const oldCaseAttr=readSGMLAttribute(component.open,'case');
+			const whitespaceAttr=readSGMLAttribute(component.open,'ignoreWhitespace');
+			const newlineAttr=readSGMLAttribute(component.open,'ignoreNewline');
+			const spaceAttr=readSGMLAttribute(component.open,'ignoreSpace');
+			const inorderAttr=readSGMLAttribute(component.open,'inorder');
+			const countAttr=readSGMLAttribute(component.open,'count');
+			const orderAttr=readSGMLAttribute(component.open,'order');
+			const modeAttr=readSGMLAttribute(component.open,'mode');
+			const enumTypeAttr=readSGMLAttribute(component.open,'enumType');
+
+			if(caseAttr.present)parsed.props.case=readSGMLBooleanAttribute(component.open,'caseSensitive');
+			else if(oldCaseAttr.present)parsed.props.case=readSGMLBooleanAttribute(component.open,'case');
+			if(whitespaceAttr.present)parsed.props.ignoreWhitespace=readSGMLBooleanAttribute(component.open,'ignoreWhitespace');
+			if(newlineAttr.present)parsed.props.ignoreNewline=readSGMLBooleanAttribute(component.open,'ignoreNewline');
+			if(spaceAttr.present)parsed.props.ignoreSpace=readSGMLBooleanAttribute(component.open,'ignoreSpace');
+			if(inorderAttr.present)parsed.props.inorder=readSGMLBooleanAttribute(component.open,'inorder');
+			if(countAttr.present){
+				const count=Number.parseInt(countAttr.value,10);
+				if(Number.isFinite(count)&&count>0)parsed.props.count=count;
+			}
+			const enumMode=String(modeAttr.value||enumTypeAttr.value||'').trim().toLowerCase();
+			if(orderAttr.present&&readSGMLBooleanAttribute(component.open,'order'))parsed.props.type='order';
+			if(enumMode==='order')parsed.props.type='order';
+
+			return{
+				id:`sgmlq${questionCounter++}`,
+				type,
+				questionRaw:qNode.content,
+				options,
+				correctAnswers:parsed.correctAnswers,
+				props:parsed.props,
+				preparsed:true,
+				suppressIndividualCheck:true,
+				questionaireId
+			};
+		}
+
+		function extractQuestionaireQuestions(source,questionaireId){
+			const questions=[];
+			const errors=[];
+			let cursor=0;
+			while(cursor<source.length){
+				const found=findTagStart(source,'question',cursor);
+				if(!found)break;
+				const matched=findMatchingTag(source,'question',found.end,true);
+				if(!matched){errors.push('An opening <question> has no closing </question>.');break;}
+				const parsed=parseQuestionaireQuestion({open:found.open,content:matched.content},questionaireId);
+				if(parsed.error)errors.push(parsed.error);
+				else questions.push(parsed);
+				cursor=matched.end;
+			}
+			return{questions,errors};
+		}
+
+		function buildQuestionairesHTML(component){
+			const id=`sgml-questionaires-${questionaireCounter++}`;
+			const extracted=extractQuestionaireQuestions(component.content||'',id);
+			const questionHTML=extracted.questions.map(buildQuestionUI).join('');
+			const attrs=readSGMLAttribute(component.open,'requiredCompletion');
+			let requiredCompletion=extracted.questions.length;
+			if(attrs.present){
+				const value=String(attrs.value||'').trim().toLowerCase();
+				if(/^(?:false|0|no|off)$/.test(value))requiredCompletion=0;
+				else if(value&&Number.isFinite(Number(value)))requiredCompletion=Math.max(0,Math.min(extracted.questions.length,Math.floor(Number(value))));
+			}
+			const questionIds=extracted.questions.map(question=>question.id).join(',');
+			const errorsHTML=extracted.errors.map(error=>`<div class="sgml-questionaires-error">${escapeHTMLText(error)}</div>`).join('');
+			return `
+				<section class="sgml-questionaires" id="${id}" data-question-ids="${questionIds}" data-total="${extracted.questions.length}" data-required-completion="${requiredCompletion}">
+					<div class="sgml-questionaires-progress">
+						<div class="sgml-questionaires-progress-track" role="progressbar" aria-label="Questionnaire progress" aria-valuemin="0" aria-valuemax="${extracted.questions.length}" aria-valuenow="0"><div class="sgml-questionaires-progress-fill"></div></div>
+						<span class="sgml-questionaires-progress-label">0 / ${extracted.questions.length}</span>
+					</div>
+					<div class="sgml-questionaires-body">${questionHTML||'<p class="sgml-questionaires-empty">No valid questions were found in this questionnaire.</p>'}${errorsHTML}</div>
+					<div class="sgml-questionaires-actions"><button class="sgml-questionaires-check" id="check_${id}" type="button" onclick="checkQuestionaireAnswers('${id}')">Check Answers</button><span class="sgml-questionaires-feedback" aria-live="polite"></span></div>
+				</section>`;
 		}
 
 		function normalizeComponentSource(source){
@@ -3192,7 +3384,7 @@ table{max-width:none}
 
 				[
 					'info','root','line','spoiler','encircle',
-					'flashcards','notebox','checklist','glossary','quickreview','cornell'
+					'flashcards','notebox','checklist','glossary','quickreview','cornell','questionaires','procedure'
 				].forEach(tag=>{
 					const found=findTagStart(text,tag,cursor);
 					if(found)candidates.push({...found,tag});
@@ -3304,6 +3496,8 @@ table{max-width:none}
 				else if(component.type==='glossary')html=buildNotebookGlossaryHTML(component);
 				else if(component.type==='quickreview')html=buildQuickReviewHTML(component);
 				else if(component.type==='cornell')html=buildCornellNotesHTML(component);
+				else if(component.type==='questionaires')html=buildQuestionairesHTML(component);
+				else if(component.type==='procedure')html=buildProcedureHTML(component);
 				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
 				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
 			});
@@ -3328,9 +3522,14 @@ table{max-width:none}
 
 
 		function prepareSGMLRender(sgmlContent,{resetState=false}={}){
-            // <js> source is fully removed before every document parser runs.
+            // <sgmlCopy>/<sgmlPaste> and <terminalCode>/<terminalOutput> bodies are
+            // opaque, so they are handled before <js> runs (see sgml-extensions.js).
+            // <js> source is then fully removed before every document parser runs.
             // Only its returned value is inserted into the ordinary SGML pipeline.
-            sgmlContent=expandJSBlocks(String(sgmlContent||''));
+            if(resetState&&typeof resetSGMLExtensionState==='function')resetSGMLExtensionState();
+            sgmlContent=typeof preprocessSGMLExtensions==='function'
+                ?preprocessSGMLExtensions(String(sgmlContent||''),expandJSBlocks)
+                :expandJSBlocks(String(sgmlContent||''));
 
             // Literal tokens are only needed while the current source is being
             // parsed. Already-rendered DOM contains their restored values.
@@ -3340,6 +3539,8 @@ table{max-width:none}
             if(resetState){
                 parsedQuestions={};
                 questionCounter=0;
+                dictDefinitionCounter=0;
+                questionaireCounter=0;
                 sgmlSpoilerIdCounter=0;
                 infoCounter=0;
                 sgmlInfoIdCounter=0;
@@ -3386,8 +3587,12 @@ table{max-width:none}
             setupArrowConnections(target);
             setupICB();
             setupVisualComponents();
+            if(typeof setupTerminals==='function')setupTerminals(target);
+            if(typeof setupProcedures==='function')setupProcedures(target);
             setupInfoPanels();
             setupConnectComponents();
+            setupQuestionaires(target);
+            setupDictionaryLinks(target);
 
             if(window.MathJax&&window.MathJax.typesetPromise){
                 window.MathJax.typesetPromise([target]).catch(error=>{
@@ -3502,6 +3707,7 @@ table{max-width:none}
 			const currentItems=[
 				...list.querySelectorAll('.sgml-order-item')
 			];
+			if(list.closest('.sgml-questionaires'))list.dataset.touched='true';
 
 			const userTrueList=currentItems.map(
 				li=>extractTrueText(
@@ -3583,6 +3789,7 @@ table{max-width:none}
 		}
 
 		function setFeedback(element,isCorrect){
+			if(!element)return;
 			if(isCorrect){
 				element.className='sgml-feedback correct';
 				element.textContent='Correct!';
@@ -3590,6 +3797,93 @@ table{max-width:none}
 				element.className='sgml-feedback incorrect';
 				element.textContent='Incorrect!';
 			}
+			const group=element.closest('.sgml-questionaires');
+			if(group)updateQuestionaireProgress(group);
+		}
+
+		function isQuestionAnswered(qId,question){
+			if(!question)return false;
+			if(question.type==='choices')return !!document.querySelector(`input[name="radio_${qId}"]:checked`);
+			if(question.type==='fillin'){
+				const input=document.getElementById(`input_${qId}`);
+				return !!(input&&input.value.trim());
+			}
+			if(question.type==='enum_order'){
+				const list=document.getElementById(`order_list_${qId}`);
+				return !!(list&&(list.dataset.touched==='true'||list.querySelectorAll('.sgml-order-item').length<=1));
+			}
+			if(question.type==='enum_written'){
+				const values=[...document.querySelectorAll(`.input_${qId}`)].map(input=>input.value.trim());
+				return values.filter(Boolean).length>=Math.max(1,question.count||1);
+			}
+			if(question.type==='connect')return Array.isArray(question.connections)&&question.connections.length>=question.left.length;
+			return false;
+		}
+
+		function updateQuestionaireProgress(group){
+			if(!group)return;
+			const ids=(group.dataset.questionIds||'').split(',').filter(Boolean);
+			const answered=ids.filter(id=>isQuestionAnswered(id,parsedQuestions[id])).length;
+			const total=Number(group.dataset.total)||ids.length;
+			const required=Number(group.dataset.requiredCompletion)||0;
+			const track=group.querySelector('.sgml-questionaires-progress-track');
+			const fill=group.querySelector('.sgml-questionaires-progress-fill');
+			const label=group.querySelector('.sgml-questionaires-progress-label');
+			if(track)track.setAttribute('aria-valuenow',String(answered));
+			if(fill)fill.style.width=(total?Math.min(100,answered/total*100):0)+'%';
+			if(label)label.textContent=`${answered} / ${total}`;
+			const ready=answered>=required;
+			const checkButton=group.querySelector('.sgml-questionaires-check');
+			if(checkButton)checkButton.disabled=!ready;
+			group.classList.toggle('sgml-questionaires-requirement-met',ready);
+			return{answered,total,required};
+		}
+
+		function setupQuestionaires(target){
+			if(!target)return;
+			const groups=[...(target.matches&&target.matches('.sgml-questionaires')?[target]:[]),...target.querySelectorAll('.sgml-questionaires')];
+			groups.forEach(group=>{
+				if(group.dataset.progressBound==='true')return;
+				group.dataset.progressBound='true';
+				const refresh=()=>updateQuestionaireProgress(group);
+				group.addEventListener('input',refresh);
+				group.addEventListener('change',refresh);
+				refresh();
+			});
+		}
+
+		function checkQuestionaireAnswers(questionaireId){
+			const group=document.getElementById(questionaireId);
+			if(!group)return;
+			const ids=(group.dataset.questionIds||'').split(',').filter(Boolean);
+			const progress=updateQuestionaireProgress(group);
+			if(progress&&progress.answered<progress.required){
+				const parentFeedback=group.querySelector('.sgml-questionaires-feedback');
+				if(parentFeedback){
+					parentFeedback.className='sgml-questionaires-feedback incorrect';
+					parentFeedback.textContent=`Complete ${progress.required-progress.answered} more question${progress.required-progress.answered===1?'':'s'} first.`;
+				}
+				return;
+			}
+			ids.forEach(qId=>{
+				const question=parsedQuestions[qId];
+				if(!question)return;
+				if(question.type==='choices')checkChoicesAnswer(qId);
+				else if(question.type==='fillin')checkFillinAnswer(qId);
+				else if(question.type==='enum_order')checkEnumOrderAnswer(qId);
+				else if(question.type==='enum_written')checkEnumWrittenAnswer(qId);
+				else if(question.type==='connect')checkConnectAnswer(qId);
+			});
+			const correct=ids.filter(qId=>{
+				const feedback=document.getElementById(`fb_${qId}`);
+				return feedback&&feedback.classList.contains('correct');
+			}).length;
+			const parentFeedback=group.querySelector('.sgml-questionaires-feedback');
+			if(parentFeedback){
+				parentFeedback.className='sgml-questionaires-feedback '+(correct===ids.length&&ids.length?'correct':'incorrect');
+				parentFeedback.textContent=ids.length?`${correct} / ${ids.length} correct`:'No questions to check.';
+			}
+			updateQuestionaireProgress(group);
 		}
 
 		function checkAllQuestions(){
@@ -3613,6 +3907,11 @@ table{max-width:none}
 			}else if(direction===1&&li.nextElementSibling){
 				list.insertBefore(li.nextElementSibling,li);
 			}
+			if(list){
+				list.dataset.touched='true';
+				const group=list.closest('.sgml-questionaires');
+				if(group)updateQuestionaireProgress(group);
+			}
 		}
 
 		function setupDragAndDrop(){
@@ -3626,6 +3925,11 @@ table{max-width:none}
 
 				list.addEventListener('dragend',()=>{
 					if(draggedItem)draggedItem.classList.remove('dragging');
+					if(list.dataset.touched!==undefined){
+						list.dataset.touched='true';
+						const group=list.closest('.sgml-questionaires');
+						if(group)updateQuestionaireProgress(group);
+					}
 					draggedItem=null;
 				});
 

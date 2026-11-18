@@ -141,6 +141,94 @@ The spoiler itself does not contain visible "Tap to reveal" text; the dark overl
 
 ---
 
+### Procedures
+
+\`<procedure>\` turns \`<step>\` elements into a guided walkthrough. Set \`type\` to \`tutorial\` (a guide to read, with collapsible steps), \`wizard\` (one step at a time), or \`solution\` (steps revealed one by one). The type is shown as an icon in the header. Long procedures stay compact: the tutorial and wizard have a step outline, and the Back/Next and Show controls sit under the steps. Text placed before the first step is shown as an introduction, and each step can contain any SGML.
+
+<procedure type="tutorial" title="Study a chapter">
+Read the steps in order. Tap a step title to fold it, or use Outline to jump to any step.
+<step title="Preview">Skim the headings, summary, and review questions.</step>
+<step title="Read actively">Read one section at a time and mark the <st bg:#fff3cd>key terms</st>.</step>
+<step title="Test yourself">Close the notes and answer the practice questions from memory.</step>
+</procedure>
+
+<procedure type="wizard" title="Make a flashcard deck">
+<step title="Pick a topic">Choose one small topic so the deck stays focused.</step>
+<step title="Write the cards">Put a question on the front and a short answer on the back.</step>
+<step title="Review">Go through the deck and move the cards you missed to the top.</step>
+</procedure>
+
+<procedure type="solution" title="Solve 3x + 4 = 19">
+Reveal one step at a time and try each step yourself before you open it.
+<step title="Subtract 4">3x = 15</step>
+<step title="Divide by 3">x = 5</step>
+<step title="Check">3(5) + 4 = 19 ✓</step>
+</procedure>
+
+### Copy and Paste SGML
+
+\`<sgmlCopy name="...">\` stores SGML and renders nothing, so everything inside it is skipped, including \`<js>\` blocks. \`<sgmlPaste name="..."/>\` renders the stored SGML normally, as if you had typed it there. You can paste the same copy many times, and a paste may come before its copy.
+
+<sgmlCopy name="tip-box">
+<notebox type="tip" title="Stored tip">This box was stored once and is pasted wherever it is needed.</notebox>
+</sgmlCopy>
+
+<sgmlCopy name="dice">
+<js>
+  return '<p><strong>Pasted JavaScript rolled:</strong> ' + (1 + Math.floor(Math.random() * 6)) + '</p>';
+</js>
+</sgmlCopy>
+
+<sgmlPaste name="tip-box"/>
+
+<sgmlPaste name="dice"/>
+
+<sgmlPaste name="dice"/>
+
+### Terminal Blocks
+
+\`<terminalCode>\` and \`<terminalOutput>\` show text in a terminal-style box with a **Copy** button. Their contents are never parsed as SGML, Markdown, or JavaScript. \`accent\` colors the terminal. \`style\` is a list of rules separated by \`;\`. Each rule starts with a color followed by words or \`/regex/flags\` patterns to color. \`folding\` adds fold carets: \`start\` matches an opening token and \`end\` matches its closing counterpart. Add \`collapsed: all;\` (or line numbers such as \`collapsed: 2, 8-12;\`, or a regex such as \`collapsed: /^function/;\`) to start with those regions folded. Use \`\\\\x22\` for a double quote inside a regex, because an attribute value ends at its next quote.
+
+<terminalCode title="JavaScript" accent="#22c55e" style="#60a5fa if else function return const let for while new; #f59e0b /\\x22[^\\x22]*\\x22|'[^']*'/; #6b7280 /\\/\\/.*$/m; #c084fc /\\b\\d+(\\.\\d+)?\\b/" folding="start: [\\[{(]; end: [\\]})];">
+function grade(scores) {
+  // Average the scores and pick a letter
+  const total = scores.reduce((sum, s) => sum + s, 0);
+  const average = total / scores.length;
+  if (average >= 90) {
+    return "A";
+  } else if (average >= 80) {
+    return "B";
+  }
+  return "C";
+}
+
+console.log(grade([92, 88, 95]));
+</terminalCode>
+
+<terminalOutput title="Console" accent="#f97316" style="#22c55e PASS; #ef4444 FAIL; #94a3b8 /^\\$ .*$/m">
+$ node grade.js
+A
+PASS 3 of 3 checks
+FAIL 0 checks
+</terminalOutput>
+
+Here is the source of the examples above. It is shown inside a terminal block, so the tags display as plain text.
+
+<terminalCode title="SGML source" accent="#a78bfa" style="#a78bfa /<\\/?[A-Za-z]+/; #60a5fa /[A-Za-z]+(?==)/; #f59e0b /\\x22[^\\x22]*\\x22/">
+<procedure type="wizard" title="Title">
+  <step title="First">Content</step>
+</procedure>
+
+<sgmlCopy name="box">Stored SGML</sgmlCopy>
+<sgmlPaste name="box"/>
+
+<terminalOutput title="Output" accent="#94a3b8" style="#22c55e OK">
+OK
+</terminalOutput>
+</terminalCode>
+
+---
+
 ## Edit the Code
 
 SGML is text-based, so the study guide can be edited directly.

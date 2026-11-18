@@ -39,6 +39,19 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "cue", description: "Cornell notes cue column", insert: "cue" },
     { name: "notes", description: "Cornell notes main column", insert: "notes" },
     { name: "summary", description: "Cornell notes summary area", insert: "summary" },
+    { name: "procedure", description: "Step-by-step procedure: type tutorial, wizard or solution", insert: "procedure" },
+    { name: "step", description: "One step inside a procedure", insert: "step" },
+    { name: "sgmlCopy", description: "Store SGML under a name without rendering it", insert: "sgmlCopy" },
+    { name: "sgmlPaste", description: "Render SGML stored by sgmlCopy", insert: "sgmlPaste" },
+    { name: "terminalCode", description: "Terminal-style code block with colors, copy button and folding", insert: "terminalCode" },
+    { name: "terminalOutput", description: "Terminal-style output block with colors and copy button", insert: "terminalOutput" },
+    { name: "dictDef", description: "Dictionary definition target", insert: "dictDef" },
+    { name: "dictWord", description: "Clickable word that jumps to its matching definition", insert: "dictWord" },
+    { name: "questionaires", description: "Grouped questions with shared checking and progress", insert: "questionaires" },
+    { name: "question", description: "One question inside a questionaires group", insert: "question" },
+    { name: "q", description: "Question prompt inside a question", insert: "q" },
+    { name: "opt", description: "One option or enumeration item", insert: "opt" },
+    { name: "ans", description: "Correct answer or answer properties", insert: "ans" },
     { name: "Choices", openingSuffix: ":", description: "Multiple-choice question", insert: "Choices:" },
     { name: "Fillin", openingSuffix: ":", description: "Fill-in-the-blank question", insert: "Fillin:" },
     { name: "Enumeration", openingSuffix: ":", description: "Enumeration question", insert: "Enumeration:" },
@@ -94,6 +107,14 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "count", description: "Number of answers", insert: "count:" },
     { name: "shuffle", description: "Shuffle answer order", insert: "shuffle:" },
     { name: "case", description: "Case-sensitive answers", insert: "case:" },
+    { name: "caseSensitive", description: "Match text with exact letter case", insert: "caseSensitive" },
+    { name: "ignoreWhitespace", description: "Ignore all whitespace when matching text", insert: "ignoreWhitespace" },
+    { name: "ignoreNewline", description: "Ignore newline characters when matching text", insert: "ignoreNewline" },
+    { name: "ignoreSpace", description: "Ignore spaces and tabs when matching text", insert: "ignoreSpace" },
+    { name: "requiredCompletion", description: "Minimum number of answered questions required for completion", insert: "requiredCompletion:" },
+    { name: "mode", description: "Question mode, such as order", insert: "mode:" },
+    { name: "enumType", description: "Enumeration mode, such as order", insert: "enumType:" },
+    { name: "order", description: "Use drag-to-order enumeration", insert: "order" },
     { name: "inorder", description: "Require ordered answers", insert: "inorder:" },
     { name: "x", description: "Horizontal coordinate", insert: "x=" },
     { name: "y", description: "Vertical coordinate", insert: "y=" },
@@ -104,7 +125,10 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "icon", description: "Inline SVG markup or a built-in icon name", insert: "icon=''" },
     { name: "accent", description: "Accent color for the notebook callout", insert: 'accent="#2563eb"' },
     { name: "checked", description: "Start a checklist item as completed", insert: "checked=" },
-    { name: "name", description: "Glossary term name", insert: "name=" },
+    { name: "collapsed", description: "Tutorial procedure: start with every step folded", insert: 'collapsed="true"' },
+    { name: "name", description: "Glossary term name, or sgmlCopy/sgmlPaste name", insert: "name=" },
+    { name: "style", description: "Terminal colors: #hex word word /regex/flags; #hex ...", insert: "style=" },
+    { name: "folding", description: "Terminal folding: start: regex; end: regex; collapsed: all | 2, 8-12 | /regex/;", insert: 'folding="start: [\\[{(]; end: [\\]})];"' },
     { name: "label", description: "Label for a revision card", insert: "label=" },
     { name: "front", description: "Flashcard question side", insert: "front=" },
     { name: "back", description: "Flashcard answer side", insert: "back=" },
@@ -116,7 +140,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "rotate", description: "Icon rotation in degrees", insert: "rotate:" },
     { name: "fill", description: "SVG fill color", insert: "fill:" }
   ],
-  xmlAttributeTags: ["flashcards", "card", "notebox", "checklist", "item", "glossary", "term", "quickreview", "fact", "cornell"],
+  xmlAttributeTags: ["procedure", "step", "sgmlCopy", "sgmlPaste", "terminalCode", "terminalOutput", "flashcards", "card", "notebox", "checklist", "item", "glossary", "term", "quickreview", "fact", "cornell"],
   tagAttributes: {
     st: ["bg", "col", "display", "fontSize", "fontFamily"],
     encircle: ["col"],
@@ -143,6 +167,19 @@ window.SGML_EDITOR_LANGUAGE = {
     quickreview: ["title"],
     fact: ["label", "title"],
     cornell: ["title", "cueLabel", "notesLabel", "summaryLabel"],
+    procedure: ["type", "title", "accent", "collapsed"],
+    step: ["title"],
+    sgmlCopy: ["name"],
+    sgmlPaste: ["name"],
+    terminalCode: ["title", "accent", "style", "folding"],
+    terminalOutput: ["title", "accent", "style"],
+    dictDef: ["caseSensitive", "ignoreWhitespace", "ignoreNewline", "ignoreSpace"],
+    dictWord: [],
+    questionaires: ["requiredCompletion"],
+    question: ["type", "count", "caseSensitive", "case", "ignoreWhitespace", "ignoreNewline", "ignoreSpace", "inorder", "mode", "enumType", "order"],
+    q: [],
+    opt: [],
+    ans: [],
     svg: ["width", "height", "viewBox", "xmlns", "role", "aria-labelledby"],
     rect: ["x", "y", "width", "height", "rx", "ry", "fill", "stroke", "stroke-width"],
     path: ["d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
@@ -167,9 +204,27 @@ window.SGML_EDITOR_LANGUAGE = {
     booleans: [
       { name: "true", description: "Enabled", insert: "true" },
       { name: "false", description: "Disabled", insert: "false" }
+    ],
+    questionTypes: [
+      { name: "Choices", description: "Multiple-choice question", insert: "Choices", kind: "value" },
+      { name: "Fillin", description: "Text-answer question", insert: "Fillin", kind: "value" },
+      { name: "Enumeration", description: "List or ordering question", insert: "Enumeration", kind: "value" }
+    ],
+    enumerationModes: [
+      { name: "order", description: "Rearrange items into the correct order", insert: "order", kind: "value" }
     ]
   },
   snippets: [
+    { trigger: "procedure", description: "Tutorial, wizard or solution made of steps", insert: "<procedure type=\"tutorial\" title=\"$0\">\n  <step title=\"Step 1\">\n    Do this first.\n  </step>\n  <step title=\"Step 2\">\n    Then do this.\n  </step>\n</procedure>" },
+    { trigger: "step", description: "Procedure step", insert: "<step title=\"$0\">\n  Step content.\n</step>" },
+    { trigger: "sgmlCopy", description: "Store SGML without rendering it", insert: "<sgmlCopy name=\"$0\">\n  SGML to store.\n</sgmlCopy>" },
+    { trigger: "sgmlPaste", description: "Render stored SGML", insert: "<sgmlPaste name=\"$0\"/>" },
+    { trigger: "terminalCode", description: "Terminal code block with colors and folding", insert: "<terminalCode title=\"JavaScript\" accent=\"#22c55e\" style=\"#60a5fa if else function return const let; #f59e0b /\\x22[^\\x22]*\\x22/; #6b7280 /\\/\\/.*$/m\" folding=\"start: [\\[{(]; end: [\\]})];\">\n$0\n</terminalCode>" },
+    { trigger: "terminalOutput", description: "Terminal output block", insert: "<terminalOutput title=\"Output\" accent=\"#94a3b8\" style=\"#22c55e OK; #ef4444 ERROR\">\n$0\n</terminalOutput>" },
+    { trigger: "dictDef", description: "Dictionary term definition", insert: "<dictDef>$0</dictDef>" },
+    { trigger: "dictWord", description: "Clickable word linking to a dictionary definition", insert: "<dictWord>$0</dictWord>" },
+    { trigger: "questionaires", description: "Question group with shared progress and checking", insert: "<questionaires requiredCompletion>\n  <question type:\"Choices\">\n    <q>$0</q>\n    <opt>Option A</opt>\n    <opt>Option B</opt>\n    <ans>Option A</ans>\n  </question>\n</questionaires>" },
+    { trigger: "question", description: "One grouped question", insert: "<question type:\"Choices\">\n  <q>$0</q>\n  <opt>Option A</opt>\n  <opt>Option B</opt>\n  <ans>Option A</ans>\n</question>" },
     { trigger: "st", description: "Styled text", insert: "<st bg:#ffff00 col:#111111>$0</st>" },
     { trigger: "encircle", description: "Hand-drawn circle around text", insert: "<encircle col:#c62828>$0</encircle>" },
     { trigger: "info", description: "Information panel", insert: "<info title:\"$0\">\n  Information text.\n</info>" },
@@ -361,6 +416,11 @@ window.SGML_EDITOR_LANGUAGE = {
         { name: "draft", description: "Draft note", insert: "draft", kind: "value" },
         { name: "final", description: "Final result", insert: "final", kind: "value" }
       ],
+      procedureTypes: [
+        { name: "tutorial", description: "Guide to read: collapsible steps, outline, scroll progress", insert: "tutorial", kind: "value" },
+        { name: "wizard", description: "One step at a time: progress bar, step list, Back and Next", insert: "wizard", kind: "value" },
+        { name: "solution", description: "Worked solution revealed step by step", insert: "solution", kind: "value" }
+      ],
       displayModes: [
         { name: "inline-block", insert: "inline-block", description: "Keep the styled text together in one inline box", kind: "value" },
         { name: "block", insert: "block", description: "Start a full-width block", kind: "value" },
@@ -476,6 +536,11 @@ window.SGML_EDITOR_LANGUAGE = {
     }
   },
   contextRules: [
+    { pattern: "<question\\b[^>]*\\btype\\s*:\\s*[\"']?[A-Za-z]*$", items: "values.questionTypes", flags: "i" },
+    { pattern: "<question\\b[^>]*\\bmode\\s*:\\s*[\"']?[A-Za-z]*$", items: "values.enumerationModes", flags: "i" },
+    { pattern: "<questionaires\\b[^>]*\\brequiredCompletion\\s*:\\s*\\d*$", items: "values.counts", flags: "i" },
+    { pattern: "<questionaires\\b[^>]*\\brequiredCompletion\\s*:\\s*[A-Za-z]*$", items: "values.booleans", flags: "i" },
+    { pattern: "<procedure\\b[^>]*\\btype\\s*[=:]\\s*[\"']?[A-Za-z]*$", items: "values.procedureTypes", flags: "i" },
     { pattern: "<notebox\\b[^>]*\\btype\\s*=\\s*[\"']?[A-Za-z-]*$", items: "values.notebookTypes", flags: "i" },
     { pattern: "<(?:flashcards|item)\\b[^>]*\\b(?:shuffle|checked)\\s*=\\s*[\"']?[A-Za-z]*$", items: "values.booleans", flags: "i" },
     { pattern: "<connect\\s*:(?:(?!<(?:Choices|Fillin|Enumeration|connect|flashcard)\\b)[\\s\\S])*\\{\\s*[A-Za-z_]*$", items: "questionParams.answerField", flags: "i" },
@@ -499,5 +564,5 @@ window.SGML_EDITOR_LANGUAGE = {
     { pattern: "<arrow\\b[^>]*\\bdir\\s*:\\s*[\"']?\\d*$", items: "values.arrowDirections", flags: "i" }
   ],
 
-    voidTags: ["br", "hr", "img", "input", "meta", "link", "source", "path", "rect", "circle"]
+    voidTags: ["sgmlPaste", "br", "hr", "img", "input", "meta", "link", "source", "path", "rect", "circle"]
 };

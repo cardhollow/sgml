@@ -339,6 +339,7 @@ $EMC$
   <p>Each <code>&lt;card&gt;</code> contains one <code>&lt;front&gt;</code> question and one <code>&lt;back&gt;</code> answer. Both sides support Markdown and supported embedded SGML such as icons. Set <code>shuffle="true"</code> to enable the existing shuffle control. This new format uses the same flashcard viewer, progress, scoring, and review controls as the legacy syntax.</p>
 
   <h3>Notebook callout — <code>notebox</code></h3>
+  <p>NoteBox icons include subtle CSS motion, such as blinking and looking around for the eye icon. Animations are disabled when reduced motion is enabled on the device.</p>
   <pre>&lt;notebox type="definition" title="Algorithm"&gt;
   A finite sequence of clear steps for solving a problem.
 &lt;/notebox&gt;
@@ -346,7 +347,27 @@ $EMC$
 &lt;notebox type="warning" title="Common mistake"&gt;
   Do not confuse a variable with its stored value.
 &lt;/notebox&gt;</pre>
-  <p>Available types include <code>note</code>, <code>definition</code>, <code>key</code>, <code>idea</code>, <code>example</code>, <code>warning</code>, <code>remember</code>, and <code>formula</code>. The optional <code>color</code>, <code>bg</code>, and <code>icon</code> attributes customize the accent, background, and icon. Content supports Markdown, LaTeX, and embedded SGML.</p>
+  <pre>&lt;notebox type="important"&gt;This point is especially important.&lt;/notebox&gt;
+&lt;notebox type="reminder"&gt;Review this again tomorrow.&lt;/notebox&gt;
+&lt;notebox type="learn" title="Learning point"&gt;A new concept to understand.&lt;/notebox&gt;
+&lt;notebox type="tip"&gt;A useful shortcut or technique.&lt;/notebox&gt;
+&lt;notebox type="mistake"&gt;Avoid this common error.&lt;/notebox&gt;</pre>
+  <pre>&lt;notebox type="important" title="Keep this" accent="#7c3aed"&gt;
+  A custom accent color while keeping the preset's default icon.
+&lt;/notebox&gt;
+
+&lt;notebox type="learn" icon='&lt;svg viewBox="0 0 24 24"&gt;&lt;path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2"/&gt;&lt;/svg&gt;' accent="#ef4444"&gt;
+  Inline SVG replaces the preset icon.
+&lt;/notebox&gt;</pre>
+  <p><code>accent</code> overrides the type's accent color. <code>icon</code> accepts a built-in icon name or quoted inline SVG markup. If either attribute is omitted or empty, the selected type's default is retained. Existing <code>color</code>/<code>col</code> accent aliases remain supported.</p>
+  <p>There are <strong>126 built-in types</strong>. You can use them as the value of <code>type</code>:</p>
+  <p><strong>General and learning:</strong> <code>note</code>, <code>important</code>, <code>reminder</code>, <code>learn</code>, <code>definition</code>, <code>key</code>, <code>idea</code>, <code>insight</code>, <code>concept</code>, <code>overview</code>, <code>summary</code>, <code>takeaway</code>, <code>objective</code>, <code>goal</code>, <code>fact</code>, <code>example</code>, <code>counterexample</code>, <code>analogy</code>, <code>comparison</code>, <code>distinction</code>, <code>background</code>, <code>context</code>, <code>detail</code>, <code>explanation</code>, <code>clarification</code>.</p>
+  <p><strong>Discussion and study:</strong> <code>question</code>, <code>answer</code>, <code>discussion</code>, <code>reflection</code>, <code>think</code>, <code>remember</code>, <code>memorize</code>, <code>review</code>, <code>revision</code>, <code>practice</code>, <code>exercise</code>, <code>quiz</code>, <code>exam</code>, <code>tip</code>, <code>trick</code>, <code>shortcut</code>.</p>
+  <p><strong>Academic and technical:</strong> <code>formula</code>, <code>equation</code>, <code>theorem</code>, <code>principle</code>, <code>rule</code>, <code>law</code>, <code>method</code>, <code>process</code>, <code>steps</code>, <code>procedure</code>, <code>instruction</code>, <code>guide</code>, <code>reference</code>, <code>source</code>, <code>citation</code>, <code>quote</code>, <code>evidence</code>, <code>research</code>, <code>statistic</code>, <code>data</code>, <code>observation</code>, <code>experiment</code>, <code>result</code>, <code>conclusion</code>, <code>hypothesis</code>, <code>assumption</code>.</p>
+  <p><strong>Planning and status:</strong> <code>prerequisite</code>, <code>dependency</code>, <code>requirement</code>, <code>limitation</code>, <code>exception</code>, <code>success</code>, <code>completed</code>, <code>progress</code>, <code>todo</code>, <code>task</code>, <code>action</code>, <code>priority</code>, <code>deadline</code>, <code>schedule</code>, <code>event</code>, <code>resource</code>, <code>follow-up</code>, <code>pending</code>, <code>blocked</code>, <code>optional</code>, <code>required</code>.</p>
+  <p><strong>Caution and troubleshooting:</strong> <code>warning</code>, <code>caution</code>, <code>danger</code>, <code>error</code>, <code>mistake</code>, <code>misconception</code>, <code>pitfall</code>, <code>debug</code>, <code>common-mistake</code>, <code>safety</code>, <code>privacy</code>.</p>
+  <p><strong>Development and analysis:</strong> <code>link</code>, <code>code</code>, <code>syntax</code>, <code>command</code>, <code>output</code>, <code>input</code>, <code>case-study</code>, <code>scenario</code>, <code>pros</code>, <code>cons</code>, <code>advantage</code>, <code>disadvantage</code>, <code>alternative</code>, <code>decision</code>, <code>recommendation</code>, <code>challenge</code>, <code>open-question</code>, <code>personal-note</code>, <code>pro-tip</code>, <code>quick-fact</code>, <code>important-date</code>, <code>new</code>, <code>updated</code>, <code>deprecated</code>, <code>preview</code>, <code>draft</code>, <code>final</code>.</p>
+  <p>Type names are not limited to the built-in list. An unknown name such as <code>type="field-note"</code> becomes a neutral custom heading. Use <code>title</code> to supply your own heading; use optional <code>accent</code>, <code>bg</code>, and <code>icon</code> attributes to customize its appearance. Empty or omitted <code>title</code>, <code>accent</code>, and <code>icon</code> values retain the selected type defaults. Content supports Markdown, LaTeX, and embedded SGML.</p>
 
   <h3>Interactive checklist — <code>checklist</code> and <code>item</code></h3>
   <pre>&lt;checklist title="Chapter 1 Review"&gt;
@@ -405,12 +426,12 @@ $EMC$
 &lt;/div&gt;</pre>
   <p>The viewer removes certain embedded browsing and plugin elements, including ordinary <code>iframe</code>, <code>object</code>, and <code>embed</code> tags. Do not put private information or untrusted code in a study guide.</p>
   <h3>JavaScript source block — <code>js</code></h3>
-  <p>A <code>&lt;js&gt;</code> block executes JavaScript before the SGML document is parsed. The value returned by the block is converted to text and inserted at that position, then processed as ordinary SGML, Markdown, HTML, and questionnaire syntax.</p>
+  <p>The content inside <code>&lt;js&gt;</code> is treated only as JavaScript source. It is evaluated before document parsing and is never itself passed to SGML or Markdown parsers. Only the value returned by the block replaces it; that returned value then passes through the normal SGML, Markdown, HTML, and questionnaire pipeline once.</p>
   <pre>&lt;js&gt;
   const label = "Generated by JavaScript";
   return `&lt;badge col:#1d4ed8 bg:#dbeafe&gt;${label}&lt;/badge&gt;`;
 &lt;/js&gt;</pre>
-  <p>Use <code>return</code> to provide the content. Returning <code>undefined</code> or <code>null</code> inserts nothing. A returned string can contain other SGML markup, as in the example above. JavaScript blocks are expanded before the rest of the document is rendered.</p>
+  <p>Use <code>return</code> to provide the content. Returning <code>undefined</code> or <code>null</code> inserts nothing. A returned string can contain other SGML markup, as in the example above. The JavaScript source itself is not displayed or parsed as document content; only the returned value is inserted.</p>
   <div class="note warning"><strong>Trust warning:</strong> JavaScript in <code>&lt;js&gt;</code> executes in the viewer page context. Only render SGML files containing code from sources you trust. The block is not a sandbox for untrusted JavaScript.</div>
   <h3>Isolated HTML block (ICB)</h3>
   <p>A line beginning with three tildes followed by a name starts an isolated HTML container. A line containing only three tildes closes it. This is intended for standalone HTML/SVG examples that need their own scrollable, resizable area.</p>
@@ -433,12 +454,13 @@ $$</pre>
 
 <section id="editor">
   <h2>10. Mobile editor and smart suggestions</h2>
+  <p>Inside a <code>&lt;js&gt;</code> block, completions include variables and functions declared in that block, arrow-function parameters, JavaScript keywords and globals, and common built-in methods. Member suggestions adapt to recognized values, such as array methods after <code>items.</code> (including <code>join</code>, <code>map</code>, and <code>filter</code>), string methods after string variables, and methods for common browser objects. Suggestions are static and context-aware; they do not execute the code being edited.</p>
   <p>The editor uses a real text area for editing. Native Android/mobile selection handles, long-press selection, Select All, copy, cut, and paste come from the browser. Syntax colors and line numbers are display overlays; they do not replace text selection.</p>
   <ul>
     <li>Type the beginning of a built-in syntax, such as <code>&lt;Choi</code>, to see the <strong>Choices</strong> suggestion. Tapping it inserts the full question structure and places the cursor at an editable location.</li>
     <li>Typing a component prefix can suggest templates for <code>encircle</code>, <code>info</code>, <code>badge</code>, <code>x</code>, <code>arrow</code>, <code>spoiler</code>, <code>ref</code>, <code>js</code>, trees, timelines, question blocks, structured flashcards, notebook callouts, checklists, glossaries, quick-review grids, Cornell notes, and the complete <code>ico</code> icon registry.</li>
     <li>For <code>st</code>, the editor can suggest <code>display</code> values such as <code>inline</code>, <code>inline-block</code>, and <code>block</code>. For <code>arrow</code>, it can suggest the common direction values <code>0</code>, <code>90</code>, <code>180</code>, and <code>270</code>.</li>
-    <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested for compact SGML components. The XML-style notebook components suggest equals-sign attributes such as <code>title="..."</code> and <code>shuffle="true"</code>. Color suggestions use hexadecimal values.</li>
+    <li>Inside a tag, attributes such as <code>title:</code>, <code>bg:</code>, and <code>col:</code> can be suggested for compact SGML components. The XML-style notebook components suggest equals-sign attributes such as <code>title="..."</code>, <code>accent="#2563eb"</code>, <code>icon="..."</code>, and <code>shuffle="true"</code>. Color suggestions use hexadecimal values.</li>
     <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
     <li>Use <strong>Find</strong>, <strong>Replace</strong>, <strong>Go to line</strong>, and <strong>Suggest</strong> for larger documents. The editor also supports indentation, bracket pairing, and syntax-aware templates.</li>
   </ul>

@@ -1,4 +1,4 @@
-# SGML Viewer
+# SGML Viewer — Version 13.2
 
 A browser-based viewer and editor for Study Guide Markup Language (SGML) documents. The app is organized into a separate HTML entry point, stylesheet, and small groups of JavaScript files.
 
@@ -9,6 +9,14 @@ A browser-based viewer and editor for Study Guide Markup Language (SGML) documen
 - Open the viewer once while online before expecting it to work offline for the first time. A browser cannot cache resources that it has never downloaded.
 - Resource updates use a shared cache and migrate the previous viewer cache before replacing old entries. A resource that cannot be downloaded does not erase its previously cached copy.
 - Offline fallback covers the viewer and its same-origin resources. Importing a new remote SGML URL or a Google Drive file still requires a network connection, unless the content was already imported and saved in this browser.
+
+## v13.2 changes
+
+- **Bookmark icon:** the bookmark editor (long-press or right-click a tab) has an **Icon** selector to the right of the accent color. Created bookmarks remember their icon.
+- **Bookmark placement:** a bookmark created from the selection menu is now anchored *after* the selected text's block instead of above it.
+- **Questionnaire progress:** the progress bar sticks to the top of the screen while you scroll through a questionnaire and now shows a percentage (`3 / 10 · 30%`).
+- **Keyboard-safe focus:** focusing a typable field in the document centers it in the visible area above the virtual keyboard, then scrolls back to where you were when focus leaves (unless you scrolled manually).
+- **Settings:** new toolbar button opening a modal with **Cancel** and **Apply**. It currently holds **SGML file name** (the document name, also used by Download SGML).
 
 ## Project structure
 
@@ -28,8 +36,11 @@ sgml-main/
     ├── default-document.js # Sample and local library initialization
     ├── document-library.js # Import/export, document operations, editor controls
     ├── file-converter.js   # DOCX/PDF-to-HTML import pipeline
+    ├── settings.js         # Settings modal (SGML file name)
+    ├── focus-center.js     # Centers focused inputs above the mobile keyboard
     ├── sgml-icons.js       # Built-in inline SVG icon registry and icon renderer
-    ├── sgml-extensions.js  # procedure/step, sgmlCopy/sgmlPaste, terminalCode/terminalOutput
+    ├── sgml-bookmarks.js   # <bookmark/> side tabs, sgmlBookmarks storage, custom selection menu
+    ├── sgml-extensions.js  # procedure/step, sgmlCopy/sgmlPaste/sgmlHolder, terminalCode/terminalOutput
     ├── editor-language.js  # SGML syntax and suggestion configuration
     ├── editor.js           # Native textarea editor and completion engine
     └── sgml-renderer.js    # SGML parsing and rendering
@@ -39,7 +50,7 @@ See [CONVERSION-LIBRARIES.md](CONVERSION-LIBRARIES.md) for the pinned DOCX/PDF c
 
 ## SGML code editor
 
-Open **Edit Code** to use the mobile-friendly code editor. It fills nearly all available viewport height below the top toolbar. The source is edited in a real textarea, so text selection, long-press handles, copy/paste, and the native Android selection toolbar work as expected. A syntax-color overlay, line numbers, auto-pairing, indentation, find/replace, go-to-line, and SGML-aware suggestions remain available. Questionnaire completions show the expected syntax and insert the full snippet when selected. While the editor is open, browser Back is trapped so an accidental press will not navigate away; use **Close Editor** to exit. Open **Documentation** in the top bar to view the bundled guide in a modal, or open it in a new tab. **Find**, **Replace**, **Go to line**, and **Suggest** buttons are available for touch devices, and **Ctrl+Space** works on keyboards.
+Open **Edit Code** to use the mobile-friendly code editor. It fills nearly all available viewport height below the top toolbar. The source is edited in a real textarea, so text selection, long-press handles, copy/paste, and the native Android selection toolbar work as expected. A syntax-color overlay, line numbers, auto-pairing, indentation, find/replace, go-to-line, and SGML-aware suggestions remain available. Attribute completions cover all attributes enabled for each tag, use case-insensitive matching, and insert boolean flags without an equals sign. Questionnaire completions show the expected syntax and insert the full snippet when selected. While the editor is open, browser Back is trapped so an accidental press will not navigate away; use **Close Editor** to exit. Open **Documentation** in the top bar to view the bundled guide in a modal, or open it in a new tab. The documentation page includes a live search across its sections, examples, attributes, and tables. **Find**, **Replace**, **Go to line**, and **Suggest** buttons are available for touch devices, and **Ctrl+Space** works on keyboards.
 
 The editor engine is separate from the language definition. Add or adjust tags, attributes, tag-specific attributes, value suggestions, context-aware parameter completions, completion rules, void tags, and reusable snippets in `js/editor-language.js`. Questionnaire parameter suggestions and values are configuration-driven too, so extending the profile usually does not require replacing the editor engine. The editor reads this configuration at startup; adding a language item usually means editing the language profile rather than replacing the editor engine.
 
@@ -89,14 +100,28 @@ behavior. The existing `case` option still controls whether letter case matters:
 Use `<dictDef>...</dictDef>` to mark a definition and `<dictWord>...</dictWord>`
 to mark a word that should link to it. The first matching definition is used,
 and the link scrolls to that definition even when it appears later in the source.
-Matching is case-insensitive by default. Bare boolean flags on `dictDef` can
-change matching: `caseSensitive`, `ignoreWhitespace`, `ignoreNewline`, and
-`ignoreSpace`.
+Matching uses rendered visible text, not the original Markdown or SGML source,
+and is case-insensitive by default. Markdown headings, emphasis, and inline SGML
+therefore match by what they display. Bare boolean flags on `dictDef` include
+`caseSensitive`, `ignoreWhitespace`, `ignoreNewline`, `ignoreSpace`, `ignoreSGML`,
+and `allowFirsttextMatching`. `ignoreWhitespace` keeps its existing behavior and
+ignores all whitespace. `ignoreSGML` normalizes from rendered text, so `HELL`,
+`**HELL**`, `## HELL`, and `<span>HELL</span>` compare as `HELL`.
+`allowFirsttextMatching` also compares the first source line of a `dictWord`
+after rendering it; use `ignoreSGML` when that line contains Markdown or SGML.
+Tap a linked word to highlight its definition. Tap the same word again or tap
+elsewhere to clear the highlight.
 
 ```sgml
-<dictWord>Apple</dictWord>
+<dictWord>
+## Apple
 
-<dictDef>Apple</dictDef> — a fruit that grows on an apple tree.
+Apple Falls
+</dictWord>
+<dictDef ignoreSGML allowFirsttextMatching>Apple</dictDef>
+
+<dictWord><span>HELL</span></dictWord>
+<dictDef ignoreSGML>**HELL**</dictDef>
 ```
 
 ## Grouped questionnaires
@@ -285,8 +310,21 @@ The deck uses the existing flashcard interaction and scoring controls. Markdown 
 Implemented in `js/sgml-extensions.js`. Full reference: **Documentation**, section 8b.
 
 - `<procedure type="tutorial|wizard|solution" title="..." accent="#hex">` with `<step title="...">` children. The type is shown as an icon in the header. Tutorial is a guide to read: collapsible steps, a progress bar that follows your scroll position, an Outline jump list and Collapse/Expand all (`collapsed="true"` starts it folded). Wizard shows one step at a time with a progress bar, a scrollable Steps list instead of one button per step (so 100+ steps stay compact), and Back/Next/Finish docked under the step. Solution reveals steps one by one with its Show controls docked under the steps. Use the checklist component for tick-off tasks.
-- `<sgmlCopy name="x">...</sgmlCopy>` stores SGML and renders nothing; everything inside is skipped, including `<js>`. `<sgmlPaste name="x"/>` renders the stored SGML normally (a pasted `<js>` runs). Copies are collected before pastes, so a paste may come first; the first copy with a name wins; circular pastes show an error.
-- `<terminalCode title accent style folding>` and `<terminalOutput title accent style>` show literal text in a terminal-style box with a Copy button. `style="#hex word word /regex/flags; #hex ..."` colors words or regex matches (leftmost match wins). `folding="start: regex; end: regex; collapsed: all"` adds fold carets (`collapsed` starts regions folded: `all`, line numbers/ranges like `2, 8-12`, or a `/regex/` tested on the fold's first line; `folding="collapsed"` alone folds every bracket block); brackets are paired by type and nesting, strings/comments/regex literals are ignored unless `ignore: none;` is given. Carets sit in a fixed gutter and folding keeps the clicked line in place so the view does not jump.
+- `<sgmlCopy name="x">...</sgmlCopy>` stores SGML and renders nothing; everything inside is skipped, including `<js>`. `<sgmlPaste name="x"/>` renders the stored SGML normally (a pasted `<js>` runs). Copies are collected before pastes, so a paste may come first; the first copy with a name wins; circular pastes show an error. A `<sgmlHolder id="x">default</sgmlHolder>` inside a copy is replaced by the matching `x="value"` attribute on each paste. Holders can be repeated and each paste instance gets its own values.
+- `<terminalCode title accent style folding runnable target maxHeight editable suggestion>` and `<terminalOutput title accent style connect addCode allowInput maxHeight>` show terminal-style text with Copy buttons and scrollable bodies. `editable` makes the displayed source editable while retaining the same syntax coloring, live folding, gutter, and terminal layout as a read-only code block; changes are temporary and do not modify the SGML source. `suggestion` accepts a JSON array of `{ "text": "...", "subtitle": "...", "insert": "..." }` items (or one `text|subtitle|insert` item per line). The suggestion text is displayed as the title, subtitle as its explanation, and insert as the source placed into the editor. Type to filter, press Ctrl+Space to show all, use the arrow keys to select, and Enter/Tab to insert. `$0` marks the caret position inside inserted source. Both terminal tags preserve spaces, tabs, blank lines, and line breaks exactly. `outCode` is removed without adding spacing of its own. Set `runnable` on code and give it a `target`; set the same value on the output's `connect`. Run hides the source and reveals connected output; Stop cancels workers, hides output and restores the source. Put executable JavaScript inside `<outCode>` within any terminal output. It runs whenever that output is created or shown again: unconnected outputs execute immediately, while connected outputs execute each time Run reveals them. Each output's scripts run as separate asynchronous IIFEs in a dedicated Web Worker and receive `terminalPrint(value)` (appends without a newline) and `getCode` (the raw connected source string, or an empty string when unconnected). Use `\n` in a printed string for a line break. `addCode` includes the connected source at the beginning of the displayed output. Add `allowInput` to an output to enable `await terminalInput("Prompt: ")`; it displays an editable terminal line, focuses its caret, and resolves to the submitted text when Enter is pressed. The entered line is echoed in the output. `maxHeight` accepts CSS max-height values (a plain number means pixels) and caps either terminal body; both bodies scroll in both directions. The editor output snippet suggests `maxHeight="240px"`, but that is not a forced default. In the editor, `<outCode>` reuses the JavaScript highlighting, folding, and autocomplete behavior of `<js>`, with `terminalPrint`, `terminalInput`, and `getCode` included as terminal-specific completions. Do not run code you do not trust. Existing `style="#hex word word /regex/flags; #hex ..."` highlighting (leftmost match wins) and `folding="start: regex; end: regex; collapsed: all"` behavior are unchanged: brackets are paired by type and nesting, strings/comments/regex literals are ignored unless `ignore: none;` is set, and `collapsed` can use `all`, line numbers/ranges, or a regex.
 - Attribute values end at the next matching quote, with no backslash escapes. Use `\x22` / `\x27` for quotes inside a regex.
 
 Order of processing: copy/paste, then terminal extraction, then `<js>` expansion, then copy/paste and terminals again for anything a `<js>` block returned, then the normal ICB/SGML/Markdown pipeline.
+
+
+## Bookmarks
+
+`<bookmark title="" subtitle="" icon="" type="" accent="#hex" side="right" userdefined/>` is self-closing.
+
+- Renders as a fixed tab peeking in from the screen edge (`side="left"` or `"right"`, default right). Press it to open `[Icon][title / subtitle][X]`; press the card to scroll to where the tag sits. Open cards can be dragged anywhere; the latest dragged is on top, and a closed bookmark docks to the nearest edge (position saved for saved bookmarks only).
+- `icon` is an icon name or inline `<svg>` (default: Bookmark). `type` reuses the notebox types: it supplies the default icon, accent and title.
+- `userdefined` adds the X button. Bookmarks created from the selection menu are saved in `localStorage` as `sgmlBookmarks` and are removed from it by X. Bookmarks written in the SGML source are never stored or recorded as removed: X only hides them until the next render.
+
+Releasing the pointer after selecting text shows a native-style toolbar above the selection (Copy, Select all, divider, Bookmark); it hides when you reselect. New bookmarks get a random accent from a palette. Right-click or long-press a bookmark to edit title, subtitle and accent; the X (on the bookmark's edge side) asks for confirmation. Dragged bookmarks snap to the nearest edge on release.
+
+`<question type="choices|fillin|enumeration">` also works outside `<questionaires>`, with its own Check button, like `<Choices:()[]{}>`.

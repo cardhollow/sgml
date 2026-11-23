@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8"/>
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-	<title>SGML Viewer</title>
+	<title>SGML Viewer v13.2</title>
 	<link rel="manifest" href="./manifest.json"/>
 	<meta name="theme-color" content="#ffffff"/>
 	<link rel="stylesheet" href="./style.css"/>
@@ -22,6 +22,7 @@
 		<button onclick="document.getElementById('file-upload-input').click()">Upload File</button>
 		<button onclick="downloadSGML()">Download SGML</button>
 		<button onclick="toggleEditor()">Edit Code</button>
+		<button onclick="openSettings()">Settings</button>
 		<button onclick="openDocumentation()">Documentation</button>
 		<button class="btn-submit" onclick="checkAllQuestions()">Check All Answers</button>
 		<button onclick="window.open('https://gemini.google.com/gem/1TCc5lmYcFHr5piZ27QsNzA04Mvv49YiO','_blank')">SAIG</button>
@@ -83,6 +84,22 @@
 		</div>
 	</div>
 
+	<div aria-hidden="true" class="sgml-modal-backdrop" id="settings-modal">
+		<div aria-labelledby="settings-title" aria-modal="true" class="sgml-modal" role="dialog">
+			<div class="sgml-modal-header" id="settings-title">Settings</div>
+			<div class="sgml-modal-body">
+				<label class="sgml-settings-field" for="settings-file-name">SGML file name
+					<input id="settings-file-name" type="text" maxlength="120" autocomplete="off" spellcheck="false" enterkeyhint="done"/>
+					<span class="sgml-settings-hint" id="settings-file-hint"></span>
+				</label>
+			</div>
+			<div class="sgml-modal-footer">
+				<button type="button" id="settings-cancel">Cancel</button>
+				<button type="button" class="btn-submit" id="settings-apply">Apply</button>
+			</div>
+		</div>
+	</div>
+
 	<div aria-hidden="true" class="sgml-modal-backdrop" id="documentation-modal">
 		<div aria-labelledby="documentation-title" aria-modal="true" class="sgml-modal sgml-docs-modal" role="dialog">
 			<div class="sgml-modal-header" id="documentation-title">SGML Documentation</div>
@@ -113,9 +130,12 @@
 	<script src="./js/app-state.js"></script>
 	<script src="./js/sgml-extensions.js"></script>
 	<script src="./js/sgml-renderer.js"></script>
+	<script src="./js/sgml-bookmarks.js"></script>
 	<script src="./js/file-converter.js"></script>
 	<script src="./js/document-library.js"></script>
 	<script src="./js/default-document.js"></script>
+	<script src="./js/settings.js"></script>
+	<script src="./js/focus-center.js"></script>
 	<script src="./js/app.js"></script>
 </body>
 </html>

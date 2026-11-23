@@ -11,6 +11,21 @@
 header{padding:24px clamp(16px,4vw,44px) 18px;border-bottom:1px solid var(--line);background:#fff}header .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}h1{margin:4px 0 8px;font-size:clamp(27px,5vw,38px);line-height:1.15;letter-spacing:-.035em}header p{max-width:780px;margin:0;color:var(--muted)}nav{position:sticky;top:0;z-index:4;display:flex;gap:6px;overflow-x:auto;padding:9px clamp(12px,4vw,42px);background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);scrollbar-width:thin}nav a{white-space:nowrap;text-decoration:none;color:#333;border:1px solid var(--line);border-radius:5px;padding:5px 9px;font-size:13px}nav a:hover,nav a:focus{background:#edf3fc;border-color:#b5c7e2}
 main{max-width:940px;padding:20px clamp(16px,4vw,44px) 60px;margin:0 auto}section{scroll-margin-top:70px;padding:12px 0 25px;border-bottom:1px solid var(--line)}h2{font-size:24px;line-height:1.25;margin:0 0 12px;letter-spacing:-.02em}h3{font-size:18px;margin:23px 0 8px}h4{font-size:15px;margin:17px 0 6px}p{margin:8px 0 12px}ul,ol{padding-left:23px}li{margin:5px 0}.note{background:var(--panel);border-left:3px solid #8b9bb1;padding:10px 13px;margin:14px 0;border-radius:0 5px 5px 0}.good{border-left-color:#25835a}.warning{border-left-color:#b7791f}
 code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{font-size:.92em;background:var(--code);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}pre{white-space:pre;overflow:auto;max-width:100%;padding:13px 15px;background:var(--code);border:1px solid #e0e4e9;border-radius:6px;font-size:13px;line-height:1.55;-webkit-overflow-scrolling:touch}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}th{background:var(--panel)}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--muted)}a{color:var(--blue)}.back{display:inline-block;margin-top:4px;font-size:13px}.syntax-map{display:grid;grid-template-columns:minmax(120px,.7fr) 2fr;gap:8px 14px;margin:12px 0}.syntax-map>div{padding:7px 9px;border-bottom:1px solid var(--line)}.syntax-map>div:nth-child(odd){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#fafbfc}@media(max-width:540px){body{font-size:14px}pre{font-size:12px;padding:11px}table{font-size:12px}th,td{padding:6px}.syntax-map{grid-template-columns:1fr;gap:0}.syntax-map>div:nth-child(even){padding-top:3px}}
+
+.doc-search{padding:14px clamp(16px,4vw,44px);border-bottom:1px solid var(--line);background:#fbfcfe}
+.doc-search-inner{max-width:940px;margin:0 auto}
+.doc-search label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.doc-search-row{display:flex;gap:8px}
+.doc-search input{min-width:0;flex:1;padding:10px 12px;border:1px solid #bcc5d1;border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:14px;outline-offset:2px}
+.doc-search button{padding:8px 13px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font:inherit;cursor:pointer}
+.doc-search button:hover{background:var(--panel)}
+.doc-search-status{margin:6px 0 0;color:var(--muted);font-size:12px}
+.doc-search-results{display:grid;gap:6px;margin-top:9px}.doc-search-results[hidden],.doc-search button[hidden]{display:none}
+.doc-search-results a{display:block;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);text-decoration:none}
+.doc-search-results a:hover,.doc-search-results a:focus{border-color:#9bb3d7;background:#f2f6fc}
+.doc-search-results strong{display:block;font-size:13px}
+.doc-search-results span{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.45}
+
 </style>
 </head>
 <body>
@@ -20,8 +35,19 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{f
   <p>A practical guide to writing SGML documents, building interactive questionnaires, and using the viewer's formatting, tree, timeline, and editor features.</p>
   <a class="back" href="../index.html">← Back to SGML Viewer</a>
 </header>
+<div class="doc-search" role="search">
+  <div class="doc-search-inner">
+    <label for="doc-search-input">Search documentation</label>
+    <div class="doc-search-row">
+      <input id="doc-search-input" type="search" autocomplete="off" placeholder="Search tags, attributes, examples, or topics…" aria-describedby="doc-search-status">
+      <button id="doc-search-clear" type="button" hidden>Clear</button>
+    </div>
+    <p class="doc-search-status" id="doc-search-status" role="status" aria-live="polite">Search across all documentation sections.</p>
+    <div class="doc-search-results" id="doc-search-results" hidden></div>
+  </div>
+</div>
 <nav aria-label="Documentation sections">
-  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#notebook">Notebook components</a><a href="#procedures">Procedures, copy/paste, terminals</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
+  <a href="#overview">What is SGML?</a><a href="#using">How to use it</a><a href="#import-files">DOCX and PDF</a><a href="#syntax">Syntax rules</a><a href="#questions">Questionnaires</a><a href="#formatting">Formatting</a><a href="#visuals">Tree and timeline</a><a href="#notebook">Notebook components</a><a href="#bookmarks">Bookmarks</a><a href="#procedures">Procedures, copy/paste, terminals</a><a href="#html">HTML, Markdown and LaTeX</a><a href="#editor">Editor</a><a href="#offline">Offline cache</a>
 </nav>
 <main>
 <section id="overview">
@@ -297,18 +323,30 @@ $EMC$
 &lt;ref id:"topic-a" /&gt;</pre>
   <p>The first form creates a link to the matching reference target; the self-closing form can mark a target location. Reuse the same identifier in the link and target.</p>
   <h3>Dictionary links — <code>dictWord</code> and <code>dictDef</code></h3>
-  <p><code>dictDef</code> marks a definition in the document. A matching <code>dictWord</code> becomes a clickable link that scrolls to that definition. The word and definition can appear in either order in the source.</p>
+  <p><code>dictDef</code> marks a definition in the document. A matching <code>dictWord</code> becomes a clickable link. Tap it to highlight and scroll to its matching definition; tap the same word again or tap elsewhere to clear the highlight. The word and definition can appear in either order in the source.</p>
   <pre>&lt;dictWord&gt;Apple&lt;/dictWord&gt; is a fruit.
 
 &lt;dictDef&gt;Apple&lt;/dictDef&gt; — a round fruit that grows on an apple tree.</pre>
-  <p>Matching is case-insensitive by default and otherwise compares the text as written. Add any of these bare boolean attributes to <code>dictDef</code> to change matching:</p>
+  <p>Matching uses rendered visible text rather than the original Markdown or SGML source, so a heading, bold text, or an inline SGML element can match the same visible word. The first matching definition is used. Matching is case-insensitive by default. Add these bare boolean attributes to <code>dictDef</code> as needed:</p>
   <ul>
     <li><code>caseSensitive</code> requires the same letter case.</li>
-    <li><code>ignoreWhitespace</code> ignores all whitespace, including spaces, tabs, and newlines.</li>
+    <li><code>ignoreWhitespace</code> ignores all whitespace, including spaces, tabs, and newlines. Existing behavior is preserved.</li>
     <li><code>ignoreNewline</code> ignores newline characters only.</li>
     <li><code>ignoreSpace</code> ignores spaces and tabs only.</li>
+    <li><code>ignoreSGML</code> compares normalized rendered text, not raw SGML/Markdown markup. For example, <code>HELL</code>, <code>**HELL**</code>, <code>## HELL</code>, and <code>&lt;span&gt;HELL&lt;/span&gt;</code> match as the visible text <code>HELL</code>.</li>
+    <li><code>allowFirsttextMatching</code> also compares the first text line of a <code>dictWord</code> as an additional term. Formatting on that line is rendered before matching; use <code>ignoreSGML</code> when that term includes Markdown or SGML markup.</li>
   </ul>
-  <pre>&lt;dictDef caseSensitive ignoreWhitespace&gt;New York&lt;/dictDef&gt;
+  <pre>&lt;dictWord&gt;
+## Apple
+
+Apple Falls
+&lt;/dictWord&gt;
+&lt;dictDef ignoreSGML allowFirsttextMatching&gt;Apple&lt;/dictDef&gt;
+
+&lt;dictWord&gt;&lt;span&gt;HELL&lt;/span&gt;&lt;/dictWord&gt;
+&lt;dictDef ignoreSGML&gt;**HELL**&lt;/dictDef&gt;
+
+&lt;dictDef caseSensitive ignoreWhitespace&gt;New York&lt;/dictDef&gt;
 &lt;dictWord&gt;NewYork&lt;/dictWord&gt;</pre>
   <h3>Directional connectors — <code>arrow</code></h3>
   <pre>&lt;arrow target:"diagram-a" head:"arrow" dir:"90" col:"#2563eb" /&gt; Source note
@@ -454,8 +492,39 @@ $EMC$
   <div class="note good"><strong>Notebook tip:</strong> mix these components with ordinary headings, paragraphs, tree graphs, timelines, tables, and diagrams. Using a callout for every paragraph makes the page harder to scan.</div>
 </section>
 
+<section id="bookmarks">
+  <h2>8a. Bookmarks and the selection menu</h2>
+  <pre>&lt;bookmark title="Chapter 2" subtitle="Cells" type="learn" accent="#2563eb" side="right" userdefined/&gt;</pre>
+  <p><code>bookmark</code> is a self-closing tag. It marks the place where it is written and shows a tab fixed to the left or right edge of the screen. Only a small arrow peeks in from the edge. Press the arrow to open the card (<em>icon, title with subtitle below, and an X</em>), then press the card to scroll to the tag's position.</p>
+  <table>
+    <tr><th>Attribute</th><th>Meaning</th></tr>
+    <tr><td><code>title</code>, <code>subtitle</code></td><td>Text on the card. The title defaults to the <code>type</code> label, or <code>Bookmark</code>.</td></tr>
+    <tr><td><code>icon</code></td><td>An icon name or an inline <code>&lt;svg&gt;</code>. Default: Bookmark. An unknown name falls back to the <code>type</code> icon, then Bookmark.</td></tr>
+    <tr><td><code>type</code></td><td>Any <code>notebox</code> type. Supplies the default icon, accent color and title.</td></tr>
+    <tr><td><code>accent</code></td><td>Color of the tab and card, such as <code>#c62828</code>.</td></tr>
+    <tr><td><code>side</code></td><td><code>left</code> or <code>right</code> (default).</td></tr>
+    <tr><td><code>userdefined</code></td><td>Adds the X button.</td></tr>
+  </table>
+  <h3>Dragging</h3>
+  <p>Open a bookmark and drag the card anywhere on screen. When you release it, it snaps to the nearest side edge at the height where you dropped it. Bookmarks may overlap, and the one dragged or opened most recently is on top. The X button sits on the same side as the bookmark: left edge, X on the left; right edge, X on the right.</p>
+  <h3>Editing and removing</h3>
+  <p>Right-click a bookmark (long-press on touch devices) to open a small editor next to it with <strong>Title</strong>, <strong>Subtitle</strong> and an <strong>Accent color</strong> picker (<code>input type="color"</code>). The accent also colors the line that flashes when you jump to the bookmark. Pressing X asks for confirmation in a modal before removing.</p>
+  <h3>Selection menu and saved bookmarks</h3>
+  <p>The browser's own context menu is replaced by a small toolbar that works like the native selection toolbar: it appears above the text when you release the pointer after selecting, and hides as soon as you start selecting again. It offers <strong>Copy</strong>, <strong>Select all</strong>, a divider, and <strong>Bookmark</strong>, and its text cannot be selected. Bookmark creates a <code>userdefined</code> bookmark from the selection with a random accent color from a built-in palette, and saves it, with its title, subtitle, accent and position, in <code>localStorage</code> under <code>sgmlBookmarks</code>. Inputs and the code editor keep the browser's menu.</p>
+  <div class="note"><strong>What is stored:</strong> only bookmarks created from the menu. Pressing X on one removes it from storage. Pressing X on a bookmark written in the SGML source only hides it; nothing records the removal, so it returns when the document is rendered again. Edits and dragged positions of source bookmarks are likewise not remembered.</div>
+  <h3>Standalone questions</h3>
+  <p><code>&lt;question type="choices|fillin|enumeration"&gt;</code> with <code>&lt;q&gt;</code>, <code>&lt;opt&gt;</code> and <code>&lt;ans&gt;</code> also works outside <code>&lt;questionaires&gt;</code>. It renders with its own Check button, like <code>&lt;Choices:()[]{}&gt;</code>.</p>
+</section>
+
 <section id="procedures">
   <h2>8b. Procedures, copy/paste, and terminals</h2>
+  <p><code>sgmlCopy</code> stores SGML and renders nothing; <code>sgmlPaste</code> renders the stored source at each paste location. Use <code>&lt;sgmlHolder id="..."&gt;default content&lt;/sgmlHolder&gt;</code> inside a copy to define a replaceable value. On each paste, an attribute whose name matches the holder ID replaces its content. Multiple holders can be replaced in one paste, and each paste can provide different values. The inserted SGML is rendered normally.</p>
+  <pre>&lt;sgmlCopy name="example"&gt;
+  Hello &lt;sgmlHolder id="txth"&gt;text here&lt;/sgmlHolder&gt;.
+&lt;/sgmlCopy&gt;
+
+&lt;sgmlPaste name="example" txth="sgmlhere"/&gt;
+&lt;sgmlPaste name="example" txth="another value"/&gt;</pre>
 
   <h3>Procedures — <code>procedure</code> and <code>step</code></h3>
   <pre>&lt;procedure type="wizard" title="Make a deck"&gt;
@@ -485,27 +554,73 @@ $EMC$
     <li><code>&lt;sgmlPaste name="x"&gt;&lt;/sgmlPaste&gt;</code> also works.</li>
   </ul>
 
-  <h3>Terminals — <code>terminalCode</code> and <code>terminalOutput</code></h3>
-  <pre>&lt;terminalCode title="JavaScript" accent="#22c55e"
-  style="#60a5fa if else function return; #f59e0b /\x22[^\x22]*\x22/; #6b7280 /\/\/.*$/m"
-  folding="start: [\[{(]; end: [\]})];"&gt;
-function add(a, b) {
-  return a + b; // sum
+  <h3>Terminals — <code>terminalCode</code>, <code>terminalOutput</code>, and <code>outCode</code></h3>
+  <pre>&lt;terminalCode title="JavaScript" runnable target="demo"&gt;
+const values = [2, 4, 6];
+&lt;/terminalCode&gt;
+
+&lt;terminalOutput title="Console" connect="demo" addCode allowInput maxHeight="240px"&gt;
+  &lt;outCode&gt;
+    terminalPrint("Values: " + [2, 4, 6].join(", ") + "\n");
+    const name = await terminalInput("Name: ");
+    terminalPrint("Hello, " + name + "\n");
+  &lt;/outCode&gt;
+&lt;/terminalOutput&gt;</pre>
+  <p>Ordinary terminal contents are literal text: they are not parsed as SGML, Markdown, or JavaScript. <code>outCode</code> is removed from the visible text and executed whenever its <code>terminalOutput</code> appears. It does not require a connected or runnable <code>terminalCode</code>.</p>
+  <p>Add the bare boolean attribute <code>editable</code> to <code>terminalCode</code> to make the displayed source editable without changing the terminal's normal appearance or behavior. Editable source keeps the same syntax coloring from <code>style</code>, fold controls from <code>folding</code>, line-number gutter, scroll behavior, Copy button, and terminal formatting as a read-only code block. Fold regions are recalculated as the source changes. Edits stay in that rendered instance only; they do not modify the original SGML document, and reloading the document restores the saved source. Use normal text selection and clipboard shortcuts, Enter for a new line, Tab for indentation, and Ctrl+Z / Ctrl+Y for local undo and redo.</p>
+  <p>The optional <code>suggestion</code> attribute defines custom completions for an editable code block. Each suggestion has three fields: <code>text</code> is the title shown in the list, <code>subtitle</code> is the explanation shown below it, and <code>insert</code> is the source text placed into the editor. Use JSON in a single-quoted SGML attribute so JSON keys and strings can use double quotes. Type part of a suggestion's text to filter the list, or press <code>Ctrl+Space</code> to show all suggestions. Use <code>ArrowUp</code>/<code>ArrowDown</code> to select and <code>Enter</code> or <code>Tab</code> to insert. The special marker <code>$0</code> in <code>insert</code> is removed and becomes the caret position after insertion. A readable shorthand is also supported, with one suggestion per line in the form <code>text|subtitle|inserted source</code>.</p>
+  <p><code>terminalCode</code> and <code>terminalOutput</code> preserve source whitespace, including repeated spaces, tabs, blank lines, and line breaks. Newlines appear as separate terminal lines. Removing an <code>outCode</code> element removes the tag and its executable body only; it does not add replacement whitespace or trim the surrounding terminal text.</p>
+  <pre>&lt;terminalCode editable
+  style="#60a5fa function const return; #f59e0b /\x22[^\x22]*\x22/"
+  folding="start: [\[{(]; end: [\]})];"
+  suggestion='[
+    {"text":"log","subtitle":"Write to the console","insert":"console.log($0)"},
+    {"text":"warn","subtitle":"Show a warning","insert":"console.warn($0)"}
+  ]'&gt;
+function greet(name) {
+  const message = "Hello " + name;
+  console.log(message);
 }
 &lt;/terminalCode&gt;
 
-&lt;terminalOutput title="Console" accent="#f97316" style="#22c55e OK; #ef4444 ERROR"&gt;
-OK 1 test passed
+&lt;terminalCode&gt;
+    first    line
+
+\tsecond\tline  
+&lt;/terminalCode&gt;
+
+&lt;terminalOutput&gt;
+    leading spaces
+\tindented with a tab
+
+&lt;outCode&gt;terminalPrint("generated");&lt;/outCode&gt;
+After the script
 &lt;/terminalOutput&gt;</pre>
-  <p>The contents are literal text: never parsed as SGML, Markdown, or JavaScript, so you can show any tag or code. Common leading indentation is removed. Both blocks have a <strong>Copy</strong> button that copies the full text (including folded lines). <code>terminalCode</code> shows line numbers; <code>terminalOutput</code> wraps long lines.</p>
+  <p>In the editor, <code>outCode</code> uses the same JavaScript syntax coloring, block folding, and code completions as <code>js</code>. Its completion list also includes the terminal-specific <code>terminalPrint</code>, <code>terminalInput</code>, and <code>getCode</code> built-ins.</p>
+  <ul>
+    <li><code>runnable</code> adds a <strong>Run</strong> button to <code>terminalCode</code>. <code>target</code> gives that code block its connection name.</li>
+    <li>When <code>connect</code> is present on <code>terminalOutput</code>, its value must match a code block's <code>target</code>. The output starts hidden. Run hides the code and reveals every output connected to that target. Each output gets a <strong>Stop</strong> button; Stop terminates its running scripts, hides the outputs, and shows the code again.</li>
+    <li>When <code>connect</code> is absent, the output is visible immediately and its <code>outCode</code> runs as soon as the output is created. A connected output runs when Run reveals it. Whenever an output is rendered again or revealed again, its scripts execute again.</li>
+    <li>Each output's scripts run as separate asynchronous IIFEs inside a dedicated Web Worker. They do not share local variables with the page or with another output. Do not run code you do not trust.</li>
+    <li><code>terminalPrint(value)</code> appends text to that output without adding a newline. Use <code>terminalPrint("first\nsecond")</code> to create a line break. Multiple calls append in order.</li>
+    <li><code>getCode</code> is a string variable, not a function. It contains the raw text of the connected <code>terminalCode</code>; when the output has no connection, it is an empty string.</li>
+    <li><code>allowInput</code> enables interactive line input for that output. Call <code>await terminalInput("Prompt: ")</code> to display an editable input at the terminal cursor. The user can type, select, paste, move the caret, and delete text normally; Enter submits the line and the returned Promise resolves to the entered string. The terminal echoes the submitted line. Because worker code is asynchronous, use <code>await</code> just like the example above.</li>
+    <li><code>maxHeight</code> sets the terminal body's maximum height, such as <code>240px</code>, <code>18rem</code>, or <code>50vh</code>. A plain number is treated as pixels. Both code and output bodies scroll vertically and horizontally when needed. The editor's <code>terminalOutput</code> snippet suggests <code>maxHeight="240px"</code>; it is only a snippet default, not a forced limit.</li>
+    <li><code>addCode</code> includes the connected source code at the beginning of that output's displayed text. It does not change the value of <code>getCode</code>.</li>
+    <li>Both code and output retain their Copy buttons; the output's Copy button copies its current displayed text, including anything printed by <code>terminalPrint</code> and submitted input.</li>
+  </ul>
+  <p>Existing display attributes remain available: <code>title</code> labels the terminal, <code>accent</code> sets its accent color, and <code>style</code> colors matching words or regex patterns. <code>folding</code> is available on code blocks and supports <code>collapsed</code> line/range/regex settings as described above.</p>
   <table>
-    <tr><th>Attribute</th><th>Meaning</th></tr>
-    <tr><td><code>title</code></td><td>Label in the title bar.</td></tr>
-    <tr><td><code>accent</code></td><td>Any CSS color. Colors the border, title bar, buttons, and fold carets.</td></tr>
-    <tr><td><code>style</code></td><td>Rules separated by <code>;</code>. Each rule is a color followed by words (matched as whole words) and/or <code>/regex/flags</code> patterns, separated by spaces. The leftmost match wins, so a string or comment rule protects keywords inside it.</td></tr>
-    <tr><td><code>folding</code> (code only)</td><td><code>start: regex; end: regex;</code> Each line with a start match whose counterpart end match is on a later line gets a fold caret. Bracket pairs are matched by type and nesting, so <code>[\[{(]</code> and <code>[\]})]</code> pair <code>(</code> with <code>)</code>, and so on. Strings, comments, and regex literals are ignored unless you add <code>ignore: none;</code>. Omit <code>start</code>/<code>end</code> (for example <code>folding="auto"</code>) to use brackets. Add <code>collapsed: …;</code> to start with regions folded: <code>all</code>, line numbers and ranges (<code>collapsed: 2, 8-12;</code>, counted on the line that has the caret), or a regex tested on that line (<code>collapsed: /^function/;</code>). <code>folding="collapsed"</code> alone folds every bracket block. Readers can still open any fold.</td></tr>
+    <tr><th>Tag / attribute</th><th>Meaning</th></tr>
+    <tr><td><code>terminalCode title accent style folding runnable target maxHeight editable suggestion</code></td><td>Displays source code. <code>runnable</code> enables Run; <code>target</code> identifies its matching outputs; <code>editable</code> enables temporary source editing with the regular styling, folding, and gutter; <code>suggestion</code> defines custom completions with display text, subtitle, and inserted source; <code>maxHeight</code> caps the scrollable body height.</td></tr>
+    <tr><td><code>terminalOutput title accent style connect addCode allowInput maxHeight</code></td><td>Displays output. <code>connect</code> pairs it with a code target; <code>addCode</code> includes the source; <code>allowInput</code> enables <code>terminalInput(prompt)</code>; <code>maxHeight</code> caps the scrollable body.</td></tr>
+    <tr><td><code>outCode</code></td><td>JavaScript run whenever its terminal output is created or shown again. Provides <code>terminalPrint</code>, <code>getCode</code>, and <code>terminalInput</code> when the output has <code>allowInput</code>.</td></tr>
+    <tr><td><code>title</code></td><td>Label shown in the terminal title bar.</td></tr>
+    <tr><td><code>accent</code></td><td>Any CSS color. Colors the border, title bar, controls, and fold carets.</td></tr>
+    <tr><td><code>style</code></td><td>Rules separated by <code>;</code>. Each rule is a color followed by words (matched as whole words) and/or <code>/regex/flags</code> patterns, separated by spaces. The leftmost match wins.</td></tr>
+    <tr><td><code>folding</code> (code only)</td><td><code>start: regex; end: regex;</code> adds fold carets. Brackets are paired by type and nesting; strings, comments, and regex literals are ignored unless <code>ignore: none;</code> is set. Add <code>collapsed: all;</code>, line numbers/ranges such as <code>collapsed: 2, 8-12;</code>, or a regex such as <code>collapsed: /^function/;</code> to start with regions folded. <code>folding="collapsed"</code> alone folds every bracket block.</td></tr>
   </table>
-  <div class="note"><strong>Quotes:</strong> an attribute value ends at its next matching quote and has no backslash escapes. Write <code>\x22</code> for a double quote and <code>\x27</code> for a single quote inside a regex. Folding keeps the carets in a fixed column and keeps the folded line where it was on screen, so the page does not jump.</div>
+  <div class="note"><strong>Quotes:</strong> an attribute value ends at its next matching quote and has no backslash escapes. Write <code>\x22</code> for a double quote and <code>\x27</code> for a single quote inside a regex.</div>
 </section>
 
 <section id="html">
@@ -569,6 +684,7 @@ $$</pre>
     <li>Question properties can suggest values like <code>true</code>, <code>false</code>, <code>order</code>, counts, and zero-based answer indexes.</li>
     <li>Use <strong>Find</strong>, <strong>Replace</strong>, <strong>Go to line</strong>, and <strong>Suggest</strong> for larger documents. The editor also supports indentation, bracket pairing, and syntax-aware templates.</li>
   </ul>
+  <p>Every attribute enabled for a tag is included in that tag's completion list, even when it has no separate entry in the shared attribute catalogue. Attribute names are matched case-insensitively. Boolean attributes are inserted bare (for example, <code>allowInput</code> or <code>editable</code>); attributes that take values use the appropriate insertion form, such as <code>maxHeight=</code>.</p>
   <p>The editor's language profile is in <code>js/editor-language.js</code>. Built-in tag names, attributes, snippets, and context-based suggestions are data-driven, so ordinary syntax additions can be made in that profile without rewriting the editor engine.</p>
   <div class="note">While the editor is open, browser/system Back navigation is held to prevent accidental exit. Use <strong>Close Editor</strong> to leave the editor normally.</div>
 </section>
@@ -596,9 +712,10 @@ $$</pre>
     <tr><td><code>&lt;cornell&gt;&lt;cue&gt;...&lt;/cue&gt;&lt;notes&gt;...&lt;/notes&gt;&lt;summary&gt;...&lt;/summary&gt;&lt;/cornell&gt;</code></td><td>Cornell notes page layout.</td></tr>
     <tr><td><code>&lt;procedure type="tutorial|wizard|solution"&gt;&lt;step title="..."&gt;...&lt;/step&gt;&lt;/procedure&gt;</code></td><td>Step-by-step tutorial, wizard, or revealable solution.</td></tr>
     <tr><td><code>&lt;sgmlCopy name="x"&gt;...&lt;/sgmlCopy&gt;</code></td><td>Stores SGML without rendering or running it.</td></tr>
-    <tr><td><code>&lt;sgmlPaste name="x"/&gt;</code></td><td>Renders the stored SGML normally at this position.</td></tr>
-    <tr><td><code>&lt;terminalCode title accent style folding&gt;...&lt;/terminalCode&gt;</code></td><td>Terminal-style code with regex coloring, copy button, and folding.</td></tr>
-    <tr><td><code>&lt;terminalOutput title accent style&gt;...&lt;/terminalOutput&gt;</code></td><td>Terminal-style output with regex coloring and copy button.</td></tr>
+    <tr><td><code>&lt;sgmlPaste name="x"/&gt;</code></td><td>Renders the stored SGML normally at this position, with optional holder-ID replacement attributes.</td></tr>
+    <tr><td><code>&lt;sgmlHolder id="x"&gt;default&lt;/sgmlHolder&gt;</code></td><td>Defines default content that a matching <code>sgmlPaste</code> attribute can replace.</td></tr>
+    <tr><td><code>&lt;terminalCode runnable target&gt;...&lt;/terminalCode&gt;</code></td><td>Terminal-style code; optional Run button connected to one or more outputs.</td></tr>
+    <tr><td><code>&lt;terminalOutput connect addCode&gt;...&lt;/terminalOutput&gt;</code></td><td>Terminal-style output; may contain an executable <code>outCode</code> block.</td></tr>
     <tr><td><code>&lt;st col:#hex bg:#hex display:block&gt;...&lt;/st&gt;</code></td><td>Styled text with optional color, background, font, and display settings.</td></tr>
     <tr><td><code>&lt;badge col:#hex bg:#hex&gt;...&lt;/badge&gt;</code></td><td>Compact inline label.</td></tr>
     <tr><td><code>&lt;icowarning scale:[1.5] color:"#hex" border:"2px #hex"/&gt;</code></td><td>Inline SVG icon with optional size and styles.</td></tr>
@@ -615,7 +732,73 @@ $$</pre>
     <tr><td><code>$...$</code> / <code>$$...$$</code></td><td>Inline / display math.</td></tr>
   </tbody></table>
 </section>
-<footer style="padding:18px 0;color:#69717c;font-size:12px">SGML Viewer Documentation · Stored alongside the viewer and included in the offline app-shell cache.</footer>
+<footer style="padding:18px 0;color:#69717c;font-size:12px">SGML Viewer v11 Documentation · Stored alongside the viewer and included in the offline app-shell cache.</footer>
 </main>
+
+<script>
+(function(){
+  const input=document.getElementById('doc-search-input');
+  const clear=document.getElementById('doc-search-clear');
+  const status=document.getElementById('doc-search-status');
+  const results=document.getElementById('doc-search-results');
+  const sections=Array.from(document.querySelectorAll('main > section'));
+  if(!input||!clear||!status||!results)return;
+
+  const normalize=value=>String(value||'').replace(/\s+/g,' ').trim();
+  const makeSnippet=(text,query)=>{
+    const clean=normalize(text);
+    const index=clean.toLowerCase().indexOf(query);
+    if(index<0)return clean.slice(0,180)+(clean.length>180?'…':'');
+    const start=Math.max(0,index-65);
+    const end=Math.min(clean.length,index+query.length+115);
+    return (start?'…':'')+clean.slice(start,end)+(end<clean.length?'…':'');
+  };
+  function search(){
+    const query=normalize(input.value).toLowerCase();
+    results.replaceChildren();
+    clear.hidden=!query;
+    if(!query){
+      results.hidden=true;
+      status.textContent='Search across all documentation sections.';
+      return;
+    }
+    const matches=[];
+    sections.forEach(section=>{
+      const sectionText=normalize(section.textContent);
+      if(!sectionText.toLowerCase().includes(query))return;
+      const blocks=Array.from(section.querySelectorAll('h2,h3,h4,p,li,pre,td,th,.note'));
+      const match=blocks.find(block=>normalize(block.textContent).toLowerCase().includes(query))||section;
+      const heading=section.querySelector('h2');
+      matches.push({section,title:normalize(heading?heading.textContent:section.id),snippet:makeSnippet(match.textContent,query)});
+    });
+    results.hidden=false;
+    status.textContent=matches.length
+      ? matches.length+' section'+(matches.length===1?'':'s')+' found. Press Enter to open the first result.'
+      : 'No documentation sections match “'+normalize(input.value)+'”.';
+    matches.forEach(match=>{
+      const link=document.createElement('a');
+      link.href='#'+match.section.id;
+      const title=document.createElement('strong');
+      title.textContent=match.title;
+      const excerpt=document.createElement('span');
+      excerpt.textContent=match.snippet;
+      link.append(title,excerpt);
+      results.appendChild(link);
+    });
+  }
+  input.addEventListener('input',search);
+  input.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      const first=results.querySelector('a');
+      if(first){event.preventDefault();first.click();}
+    }else if(event.key==='Escape'){
+      input.value='';
+      search();
+    }
+  });
+  clear.addEventListener('click',()=>{input.value='';search();input.focus();});
+})();
+</script>
+
 </body>
 </html>

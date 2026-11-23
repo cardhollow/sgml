@@ -14,8 +14,8 @@
 	 * Shared scanning helpers
 	 * ------------------------------------------------------------------ */
 
-	const EXT_TAGS=['sgmlCopy','sgmlPaste','terminalCode','terminalOutput'];
-	const EXT_TAG_PATTERN=/<(sgmlCopy|sgmlPaste|terminalCode|terminalOutput)(?=[\s/>])/iy;
+	const EXT_TAGS=['sgmlCopy','sgmlPaste','sgmlHolder','terminalCode','terminalOutput'];
+	const EXT_TAG_PATTERN=/<(sgmlCopy|sgmlPaste|sgmlHolder|terminalCode|terminalOutput)(?=[\s/>])/iy;
 	const MAX_PASTE_DEPTH=24;
 
 	// Quote-aware end of an opening tag. Values end at the next matching quote
@@ -89,8 +89,8 @@
 				}
 			}else if(!selfClosing){
 				let close=null;
-				if(name==='sgmlCopy'){
-					const token=/<(\/?)sgmlCopy(?=[\s/>])[^>]*>/gi;
+				if(name==='sgmlCopy'||name==='sgmlHolder'){
+					const token=new RegExp(`<(/?)${name}(?=[\\s/>])[^>]*>`,'ig');
 					token.lastIndex=openEnd;
 					let depth=1,m;
 					while((m=token.exec(source))!==null){
@@ -115,7 +115,15 @@
 	}
 
 	function parseAttrs(openTag){
-		return parseNotebookTagAttributes(String(openTag||'').replace(/\/\s*>$/,'>'));
+		const source=String(openTag||'').replace(/\/\s*>$/,'>');
+		const attrs=parseNotebookTagAttributes(source);
+		// These extension flags may be written as bare XML-style booleans.
+		['runnable','addcode','allowinput','editable'].forEach(name=>{
+			const bare=new RegExp('(?:^|\\s)'+name+'(?=\\s|/?>)','i');
+			const assigned=new RegExp('(?:^|\\s)'+name+'\\s*(?:=|:)','i');
+			if(bare.test(source)&&!assigned.test(source))attrs[name]=true;
+		});
+		return attrs;
 	}
 
 	function textAttr(value){
@@ -145,6 +153,24 @@
 		return `<span class="sgml-paste-error">sgmlPaste "${escapeHTMLText(name)}": ${escapeHTMLText(reason)}</span>`;
 	}
 
+	function substituteSGMLHolders(source,pasteAttrs){
+		const holders=findExtensionTags(String(source||''),['sgmlHolder']);
+		if(!holders.length)return String(source||'');
+		let out='';
+		let cursor=0;
+		holders.forEach(holder=>{
+			out+=source.slice(cursor,holder.index);
+			cursor=holder.end;
+			const id=String(textAttr(parseAttrs(holder.open).id)).trim().toLowerCase();
+			if(id&&Object.prototype.hasOwnProperty.call(pasteAttrs,id)){
+				const replacement=pasteAttrs[id];
+				out+=replacement===false?'false':replacement===true?'true':String(replacement??'');
+			}
+			else out+=holder.content;
+		});
+		return out+source.slice(cursor);
+	}
+
 	function expandCopyPaste(source,depth,stack){
 		source=String(source||'');
 		if(!/<sgml(?:Copy|Paste)/i.test(source))return source;
@@ -167,11 +193,13 @@
 			cursor=tag.end;
 			if(tag.name==='sgmlCopy')return;
 
-			const name=String(textAttr(parseAttrs(tag.open).name)).trim();
+			const pasteAttrs=parseAttrs(tag.open);
+			const name=String(textAttr(pasteAttrs.name)).trim();
 			if(!name){out+=missingPaste('','missing name attribute');return;}
 			if(!copyStore.has(name)){out+=missingPaste(name,'no sgmlCopy with that name');return;}
 			if(stack.includes(name)||depth>=MAX_PASTE_DEPTH){out+=missingPaste(name,'circular paste');return;}
-			out+=expandCopyPaste(copyStore.get(name),depth+1,stack.concat(name));
+			const substituted=substituteSGMLHolders(copyStore.get(name),pasteAttrs);
+			out+=expandCopyPaste(substituted,depth+1,stack.concat(name));
 		});
 		return out+source.slice(cursor);
 	}
@@ -180,9 +208,48 @@
 	 * <terminalCode> / <terminalOutput>
 	 * ------------------------------------------------------------------ */
 
+	const terminalCodeRoots=new Map();
+	const terminalOutputRoots=new Map();
+	const terminalRuns=new Map();
+
+	function isEnabledAttribute(value){
+		return value===true||/^(?:true|1|yes|on)$/i.test(String(value??'').trim());
+	}
+
+	function stopTerminalWorkers(target){
+		const records=terminalRuns.get(target)||[];
+		records.forEach(record=>{
+			const terminal=record.outputRoot&&record.outputRoot.__sgmlTerminal;
+			if(terminal&&terminal.clearInput)terminal.clearInput();
+			try{record.worker.terminate();}catch(_error){}
+			try{URL.revokeObjectURL(record.url);}catch(_error){}
+		});
+		terminalRuns.delete(target);
+	}
+
+	function stopAllTerminalWorkers(){
+		Array.from(terminalRuns.keys()).forEach(stopTerminalWorkers);
+	}
+
 	function terminalBlocks(){
 		window.__sgmlTerminalBlocks=window.__sgmlTerminalBlocks||[];
 		return window.__sgmlTerminalBlocks;
+	}
+
+	function extractOutCodes(text){
+		const scripts=[];
+		const source=String(text||'');
+		const pattern=/<outCode\s*>([\s\S]*?)<\/outCode\s*>/gi;
+		let visible='';
+		let cursor=0;
+		let match;
+		while((match=pattern.exec(source))!==null){
+			visible+=source.slice(cursor,match.index);
+			scripts.push(match[1].replace(/^\r?\n|\r?\n$/g,''));
+			cursor=pattern.lastIndex;
+		}
+		visible+=source.slice(cursor);
+		return{text:visible,scripts};
 	}
 
 	function extractTerminals(source){
@@ -197,11 +264,16 @@
 			out+=source.slice(cursor,tag.index);
 			cursor=tag.end;
 			const index=store.length;
-			store.push({kind:tag.name==='terminalCode'?'code':'output',attrs:parseAttrs(tag.open),text:dedent(tag.content)});
+			const attrs=parseAttrs(tag.open);
+			const kind=tag.name==='terminalCode'?'code':'output';
+			const extracted=kind==='output'?extractOutCodes(tag.content):{text:tag.content,scripts:[]};
+			store.push({index,kind,attrs,text:extracted.text,outCodes:extracted.scripts});
 			out+=`\n\n<div class="sgml-term-slot" data-term-index="${index}"></div>\n\n`;
 		});
 		return out+source.slice(cursor);
 	}
+
+	/* ---- style="#hex word word /regex/flags; #hex ..." ---- */
 
 	/* ---- style="#hex word word /regex/flags; #hex ..." ---- */
 
@@ -544,6 +616,67 @@
 		});
 	}
 
+	function renderTerminalOutputLines(lines,text,rules){
+		lines.replaceChildren();
+		const value=String(text??'');
+		const spans=rules.length?highlightSpans(value,rules):[];
+		const textLines=value.split('\n');
+		let offset=0;
+		let spanIndex=0;
+		textLines.forEach(lineText=>{
+			const lineStart=offset;
+			const lineEnd=offset+lineText.length;
+			offset=lineEnd+1;
+			const row=document.createElement('div');
+			row.className='sgml-term-row';
+			const code=document.createElement('code');
+			code.className='sgml-term-text';
+			let cursor=lineStart;
+			while(spanIndex<spans.length&&spans[spanIndex].end<=lineStart)spanIndex++;
+			for(let k=spanIndex;k<spans.length&&spans[k].start<lineEnd;k++){
+				const start=Math.max(spans[k].start,lineStart);
+				const end=Math.min(spans[k].end,lineEnd);
+				if(end<=start)continue;
+				if(start>cursor)code.appendChild(document.createTextNode(value.slice(cursor,start)));
+				const colored=document.createElement('span');
+				colored.style.color=spans[k].color;
+				colored.textContent=value.slice(start,end);
+				code.appendChild(colored);
+				cursor=end;
+			}
+			if(cursor<lineEnd)code.appendChild(document.createTextNode(value.slice(cursor,lineEnd)));
+			if(!lineText.length)code.appendChild(document.createTextNode('\u200b'));
+			row.appendChild(code);
+			lines.appendChild(row);
+		});
+	}
+
+	function parseTerminalSuggestions(value){
+		if(value===undefined||value===null||value===true)return [];
+		const raw=String(value).trim();
+		if(!raw)return [];
+		const normalizeItem=item=>{
+			if(typeof item==='string'){
+				const parts=item.split('|');
+				return{text:(parts[0]||'').trim(),subtitle:(parts[1]||'').trim(),insert:parts.slice(2).join('|')};
+			}
+			if(!item||typeof item!=='object')return null;
+			const text=String(item.text??item.label??item.name??'').trim();
+			const subtitle=String(item.subtitle??item.description??item.detail??'').trim();
+			const insert=String(item.insert??item.value??item.content??'');
+			return text&&insert!==''?{text,subtitle,insert}:null;
+		};
+		try{
+			const parsed=JSON.parse(raw);
+			const list=Array.isArray(parsed)?parsed:(Array.isArray(parsed.suggestions)?parsed.suggestions:[]);
+			return list.map(normalizeItem).filter(Boolean);
+		}catch(_error){}
+		// Readable shorthand: one suggestion per line, with three pipe-separated
+		// fields: display text | subtitle | inserted source. JSON is recommended
+		// whenever a suggestion contains line breaks or pipe characters.
+		return raw.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(normalizeItem).filter(item=>item&&item.text&&item.insert!=='');
+	}
+
 	function buildTerminal(block){
 		const isCode=block.kind==='code';
 		const attrs=block.attrs||{};
@@ -552,8 +685,7 @@
 		const accent=safeColor(attrs.accent,isCode?'#60a5fa':'#94a3b8');
 		const rules=parseTerminalStyle(textAttr(attrs.style));
 		const folding=isCode?parseTerminalFolding(attrs.folding):null;
-		const folds=folding?computeFolds(text,folding):{};
-		const foldStarts=Object.keys(folds).map(Number);
+		let folds=folding?computeFolds(text,folding):{};
 
 		const root=document.createElement('figure');
 		root.className='sgml-term tex2jax_ignore '+(isCode?'sgml-term-code':'sgml-term-output');
@@ -568,6 +700,7 @@
 		const label=document.createElement('span');
 		label.className='sgml-term-title';
 		label.textContent=title;
+		let currentText=text;
 		const copy=document.createElement('button');
 		copy.type='button';
 		copy.className='sgml-term-copy';
@@ -575,37 +708,97 @@
 		copy.setAttribute('aria-label','Copy '+title+' to clipboard');
 		let resetTimer=0;
 		copy.addEventListener('click',()=>{
-			copyText(text).then(()=>{copy.textContent='Copied';copy.classList.add('is-done');},()=>{copy.textContent='Copy failed';copy.classList.add('is-error');})
+			copyText(currentText).then(()=>{copy.textContent='Copied';copy.classList.add('is-done');},()=>{copy.textContent='Copy failed';copy.classList.add('is-error');})
 				.finally(()=>{clearTimeout(resetTimer);resetTimer=setTimeout(()=>{copy.textContent='Copy';copy.classList.remove('is-done','is-error');},1600);});
 		});
 		head.append(dots,label,copy);
+
+		const target=String(textAttr(attrs.target)).trim();
+		const connect=String(textAttr(attrs.connect)).trim();
+		const runnable=isCode&&isEnabledAttribute(attrs.runnable);
+		const hasConnect=!isCode&&Object.prototype.hasOwnProperty.call(attrs,'connect');
+		const linkedOutput=hasConnect;
+		if(isCode&&target)root.dataset.termTarget=target;
+		if(isCode&&runnable){
+			if(!root.dataset.termTarget)root.dataset.termTarget='__sgml_terminal_'+String(block.index??'auto');
+			root.dataset.termRunnable='true';
+			const run=document.createElement('button');
+			run.type='button';
+			run.className='sgml-term-run';
+			run.textContent='Run';
+			run.setAttribute('aria-label','Run '+title);
+			head.appendChild(run);
+		}
+		if(linkedOutput){
+			root.dataset.termHasConnect='true';
+			root.dataset.termConnect=connect;
+			root.hidden=true;
+			const stop=document.createElement('button');
+			stop.type='button';
+			stop.className='sgml-term-stop';
+			stop.textContent='Stop';
+			stop.setAttribute('aria-label','Stop running code and return to source');
+			head.appendChild(stop);
+		}
+		if(!isCode&&isEnabledAttribute(attrs.addcode))root.dataset.termAddCode='true';
 
 		const body=document.createElement('div');
 		body.className='sgml-term-body';
 		body.tabIndex=0;
 		body.setAttribute('role','region');
 		body.setAttribute('aria-label',title);
+		const maxHeight=textAttr(attrs.maxheight).trim();
+		if(maxHeight){
+			const cssValue=/^\d+(?:\.\d+)?$/.test(maxHeight)?maxHeight+'px':maxHeight;
+			if(typeof CSS==='undefined'||!CSS.supports||CSS.supports('max-height',cssValue))body.style.maxHeight=cssValue;
+		}
 		const lines=document.createElement('div');
 		lines.className='sgml-term-lines';
 		body.appendChild(lines);
 
-		// Highlight spans over the whole text, then clip them to each line.
-		const spans=rules.length?highlightSpans(text,rules):[];
-		const textLines=text.split('\n');
-		const numberWidth=String(textLines.length).length;
-		const rows=[];
-		let offset=0;
-		let spanIndex=0;
+		let rows=[];
+		const editableSource=isCode&&isEnabledAttribute(attrs.editable);
+		const collapsed=initialCollapsedLines(folds,currentText.split('\n'),folding&&folding.collapsed);
+		const terminalSuggestions=editableSource?parseTerminalSuggestions(attrs.suggestion):[];
+		let suggestionMenu=null;
+		let selectedTerminalSuggestion=0;
+		const terminalUndo=[];
+		const terminalRedo=[];
+		const pushTerminalUndo=()=>{terminalUndo.push(currentText);if(terminalUndo.length>120)terminalUndo.shift();terminalRedo.length=0;};
 
-		textLines.forEach((lineText,lineIndex)=>{
-			const lineStart=offset,lineEnd=offset+lineText.length;
-			offset=lineEnd+1;
+		const applyFoldVisibility=()=>{
+			const hidden=new Array(rows.length).fill(false);
+			collapsed.forEach(start=>{
+				if(!folds[start])return;
+				for(let k=start+1;k<folds[start].end&&k<rows.length;k++)hidden[k]=true;
+			});
+			rows.forEach((row,index)=>{
+				row.hidden=!!hidden[index];
+				const folded=collapsed.has(index)&&!hidden[index];
+				row.classList.toggle('is-folded',folded);
+				const caret=row.querySelector('.sgml-term-fold');
+				if(caret)caret.setAttribute('aria-expanded',String(!collapsed.has(index)));
+			});
+		};
 
-			const row=document.createElement('div');
-			row.className='sgml-term-row';
-			if(isCode){
+		const renderCodeLines=(restoreOffset)=>{
+			const sourceLines=currentText.split('\n');
+			folds=folding?computeFolds(currentText,folding):{};
+			Array.from(collapsed).forEach(line=>{if(!folds[line])collapsed.delete(line);});
+			const spans=rules.length?highlightSpans(currentText,rules):[];
+			const numberWidth=String(sourceLines.length).length;
+			rows=[];
+			lines.replaceChildren();
+			let offset=0,spanIndex=0;
+			sourceLines.forEach((lineText,lineIndex)=>{
+				const lineStart=offset,lineEnd=offset+lineText.length;
+				offset=lineEnd+1;
+				const row=document.createElement('div');
+				row.className='sgml-term-row';
+				row.dataset.line=String(lineIndex);
 				const gutter=document.createElement('span');
 				gutter.className='sgml-term-gutter';
+				gutter.setAttribute('contenteditable','false');
 				if(folding){
 					const slot=document.createElement('span');
 					slot.className='sgml-term-fold-slot';
@@ -617,6 +810,7 @@
 						caret.setAttribute('aria-label','Fold lines '+(lineIndex+2)+' to '+folds[lineIndex].end);
 						caret.dataset.line=String(lineIndex);
 						caret.innerHTML=CARET_SVG;
+						caret.setAttribute('contenteditable','false');
 						slot.appendChild(caret);
 					}
 					gutter.appendChild(slot);
@@ -627,77 +821,553 @@
 				number.textContent=String(lineIndex+1);
 				gutter.appendChild(number);
 				row.appendChild(gutter);
-			}
-
-			const code=document.createElement('code');
-			code.className='sgml-term-text';
-			let cursor=lineStart;
-			while(spanIndex<spans.length&&spans[spanIndex].end<=lineStart)spanIndex++;
-			for(let k=spanIndex;k<spans.length&&spans[k].start<lineEnd;k++){
-				const s=Math.max(spans[k].start,lineStart),e=Math.min(spans[k].end,lineEnd);
-				if(e<=s)continue;
-				if(s>cursor)code.appendChild(document.createTextNode(text.slice(cursor,s)));
-				const piece=document.createElement('span');
-				piece.style.color=spans[k].color;
-				piece.textContent=text.slice(s,e);
-				code.appendChild(piece);
-				cursor=e;
-			}
-			if(cursor<lineEnd)code.appendChild(document.createTextNode(text.slice(cursor,lineEnd)));
-			if(!lineText.length)code.appendChild(document.createTextNode('​'));
-			row.appendChild(code);
-
-			if(folds[lineIndex]){
-				const pill=document.createElement('button');
-				pill.type='button';
-				pill.className='sgml-term-pill';
-				pill.dataset.line=String(lineIndex);
-				const hiddenCount=folds[lineIndex].end-lineIndex-1;
+				const code=document.createElement('code');
+				code.className='sgml-term-text';
+				code.dataset.line=String(lineIndex);
+				let cursor=lineStart;
+				while(spanIndex<spans.length&&spans[spanIndex].end<=lineStart)spanIndex++;
+				for(let k=spanIndex;k<spans.length&&spans[k].start<lineEnd;k++){
+					const a=Math.max(spans[k].start,lineStart),b=Math.min(spans[k].end,lineEnd);
+					if(b<=a)continue;
+					if(a>cursor)code.appendChild(document.createTextNode(currentText.slice(cursor,a)));
+					const piece=document.createElement('span');
+					piece.style.color=spans[k].color;
+					piece.textContent=currentText.slice(a,b);
+					code.appendChild(piece);
+					cursor=b;
+				}
+				if(cursor<lineEnd)code.appendChild(document.createTextNode(currentText.slice(cursor,lineEnd)));
+				if(!lineText.length)code.appendChild(document.createTextNode('\u200b'));
+				row.appendChild(code);
+				if(folds[lineIndex]){
+					const pill=document.createElement('button');
+					pill.type='button';
+					pill.className='sgml-term-pill';
+					pill.dataset.line=String(lineIndex);
+					pill.setAttribute('contenteditable','false');
+					const hiddenCount=folds[lineIndex].end-lineIndex-1;
 					pill.textContent='⋯ '+hiddenCount+(hiddenCount===1?' line':' lines');
-				pill.setAttribute('aria-label','Unfold '+hiddenCount+(hiddenCount===1?' line':' lines'));
-				row.appendChild(pill);
+					pill.setAttribute('aria-label','Unfold '+hiddenCount+(hiddenCount===1?' line':' lines'));
+					row.appendChild(pill);
+				}
+				lines.appendChild(row);
+				rows.push(row);
+			});
+			applyFoldVisibility();
+			if(editableSource&&Number.isFinite(restoreOffset))setCaretAtOffset(restoreOffset);
+		};
+
+		function pointToSourceOffset(node,nodeOffset){
+			if(!node)return 0;
+			const element=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+			const code=element&&element.closest?element.closest('.sgml-term-text'):null;
+			if(!code||!lines.contains(code))return currentText.length;
+			const row=code.closest('.sgml-term-row');
+			const line=Number(row&&row.dataset.line)||0;
+			let local=0;
+			try{
+				const range=document.createRange();
+				range.selectNodeContents(code);
+				range.setEnd(node,nodeOffset);
+				local=range.toString().replace(/\u200b/g,'').length;
+			}catch(_error){local=0;}
+			let absolute=0;
+			for(let i=0;i<line;i++){
+				const previous=rows[i]&&rows[i].querySelector('.sgml-term-text');
+				absolute+=String(previous?previous.innerText??previous.textContent:'').replace(/\u200b/g,'').length+1;
 			}
+			return absolute+local;
+		}
 
-			lines.appendChild(row);
-			rows.push(row);
-		});
+		function selectionSourceOffsets(){
+			const selection=window.getSelection&&window.getSelection();
+			if(!selection||!selection.rangeCount)return{start:currentText.length,end:currentText.length,focus:currentText.length};
+			const a=pointToSourceOffset(selection.anchorNode,selection.anchorOffset);
+			const b=pointToSourceOffset(selection.focusNode,selection.focusOffset);
+			return{start:Math.min(a,b),end:Math.max(a,b),focus:b};
+		}
 
-		if(foldStarts.length){
-			const collapsed=initialCollapsedLines(folds,textLines,folding&&folding.collapsed);
-			const apply=()=>{
-				const hidden=new Array(rows.length).fill(false);
-				collapsed.forEach(start=>{for(let k=start+1;k<folds[start].end;k++)hidden[k]=true;});
-				rows.forEach((row,index)=>{
-					row.hidden=hidden[index];
-					const folded=collapsed.has(index)&&!hidden[index];
-					row.classList.toggle('is-folded',folded);
-					const caret=row.querySelector('.sgml-term-fold');
-					if(caret)caret.setAttribute('aria-expanded',collapsed.has(index)?'false':'true');
+		function setCaretAtOffset(offset){
+			if(!editableSource)return;
+			const target=Math.max(0,Math.min(currentText.length,Number(offset)||0));
+			const sourceLines=currentText.split('\n');
+			let line=0,column=target;
+			while(line<sourceLines.length-1&&column>sourceLines[line].length){column-=sourceLines[line].length+1;line++;}
+			const code=rows[line]&&rows[line].querySelector('.sgml-term-text');
+			if(!code)return;
+			let remaining=column,last=null,chosen=null,chosenOffset=0;
+			const walker=document.createTreeWalker(code,NodeFilter.SHOW_TEXT);
+			let node;
+			while((node=walker.nextNode())){
+				const value=node.nodeValue||'';
+				last=node;
+				if(remaining<=value.length){chosen=node;chosenOffset=remaining;break;}
+				remaining-=value.length;
+			}
+			if(!chosen){
+				if(last){chosen=last;chosenOffset=(last.nodeValue||'').length;}
+				else{chosen=document.createTextNode('');code.appendChild(chosen);chosenOffset=0;}
+			}
+			try{
+				const range=document.createRange();
+				range.setStart(chosen,Math.min(chosenOffset,(chosen.nodeValue||'').length));
+				range.collapse(true);
+				const selection=window.getSelection();
+				selection.removeAllRanges();
+				selection.addRange(range);
+			}catch(_error){}
+		}
+
+		function readEditableText(){
+			return rows.map(row=>{
+				const code=row.querySelector('.sgml-term-text');
+				return String(code?code.innerText??code.textContent:'').replace(/\u200b/g,'').replace(/\r\n?/g,'\n');
+			}).join('\n');
+		}
+
+		function replaceEditableRange(start,end,insert,caret){
+			const before=currentText;
+			const next=before.slice(0,start)+insert+before.slice(end);
+			if(next!==before)pushTerminalUndo();
+			currentText=next;
+			renderCodeLines(caret===undefined?start+insert.length:caret);
+			if(lines.focus)lines.focus({preventScroll:true});
+			updateTerminalSuggestions(false,caret===undefined?start+insert.length:caret);
+		}
+
+		function applyTerminalSuggestion(item){
+			if(!item)return;
+			const point=selectionSourceOffsets();
+			const prefix=currentText.slice(0,point.focus);
+			const match=prefix.match(/[\w$.-]+$/);
+			const start=point.start!==point.end?point.start:(match?point.focus-match[0].length:point.focus);
+			const end=point.start!==point.end?point.end:point.focus;
+			let insert=String(item.insert??'');
+			const marker=insert.indexOf('$0');
+			if(marker>=0)insert=insert.slice(0,marker)+insert.slice(marker+2);
+			const caret=start+(marker>=0?marker:insert.length);
+			closeTerminalSuggestions();
+			replaceEditableRange(start,end,insert,caret);
+		}
+
+		function closeTerminalSuggestions(){
+			if(suggestionMenu){suggestionMenu.hidden=true;suggestionMenu.replaceChildren();}
+		}
+
+		function updateTerminalSuggestions(force,explicitCaret){
+			if(!suggestionMenu||!terminalSuggestions.length)return closeTerminalSuggestions();
+			const caret=Number.isFinite(explicitCaret)?explicitCaret:selectionSourceOffsets().focus;
+			const before=currentText.slice(0,caret);
+			const token=(before.match(/[\w$.-]+$/)||[''])[0];
+			if(!force&&!token){closeTerminalSuggestions();return;}
+			const query=token.toLowerCase();
+			const matches=terminalSuggestions.filter(item=>force||item.text.toLowerCase().includes(query));
+			if(!matches.length){closeTerminalSuggestions();return;}
+			selectedTerminalSuggestion=0;
+			suggestionMenu.replaceChildren();
+			matches.slice(0,12).forEach((item,index)=>{
+				const button=document.createElement('button');
+				button.type='button';
+				button.className='sgml-term-suggestion'+(index===0?' is-selected':'');
+				button.setAttribute('contenteditable','false');
+				button.dataset.index=String(index);
+				const titleEl=document.createElement('strong');
+				titleEl.textContent=item.text;
+				const subtitleEl=document.createElement('span');
+				subtitleEl.className='sgml-term-suggestion-subtitle';
+				subtitleEl.textContent=item.subtitle;
+				const preview=document.createElement('code');
+				preview.className='sgml-term-suggestion-insert';
+				preview.textContent=item.insert.replace(/\$0/g,'');
+				button.append(titleEl,subtitleEl,preview);
+				button.addEventListener('pointerdown',event=>event.preventDefault());
+				button.addEventListener('click',()=>applyTerminalSuggestion(item));
+				suggestionMenu.appendChild(button);
+			});
+			suggestionMenu.hidden=false;
+			let anchorRect=null;
+			try{
+				const selection=window.getSelection();
+				if(selection&&selection.rangeCount){
+					const range=selection.getRangeAt(0).cloneRange();
+					range.collapse(true);
+					anchorRect=range.getBoundingClientRect();
+				}
+			}catch(_error){}
+			if(!anchorRect||(!anchorRect.width&&!anchorRect.height)){
+				const row=rows[Math.max(0,Math.min(rows.length-1,Number((currentText.slice(0,caret).match(/\n/g)||[]).length)))];
+				const code=row&&row.querySelector('.sgml-term-text');
+				if(code)anchorRect=code.getBoundingClientRect();
+			}
+			if(anchorRect){
+				const width=suggestionMenu.offsetWidth||260;
+				const height=Math.min(suggestionMenu.scrollHeight||200,220);
+				const left=Math.max(8,Math.min(window.innerWidth-width-8,anchorRect.left));
+				const below=anchorRect.bottom+6;
+				const top=below+height<=window.innerHeight-8?below:Math.max(8,anchorRect.top-height-6);
+				suggestionMenu.style.left=left+'px';
+				suggestionMenu.style.top=top+'px';
+			}
+		}
+
+		function moveTerminalSuggestion(direction){
+			if(!suggestionMenu||suggestionMenu.hidden)return false;
+			const options=Array.from(suggestionMenu.querySelectorAll('.sgml-term-suggestion'));
+			if(!options.length)return false;
+			selectedTerminalSuggestion=(selectedTerminalSuggestion+direction+options.length)%options.length;
+			options.forEach((option,index)=>option.classList.toggle('is-selected',index===selectedTerminalSuggestion));
+			options[selectedTerminalSuggestion].scrollIntoView({block:'nearest'});
+			return true;
+		}
+
+		if(isCode){
+			if(editableSource){
+				lines.classList.add('sgml-term-editable');
+				lines.setAttribute('contenteditable','true');
+				lines.setAttribute('role','textbox');
+				lines.setAttribute('aria-multiline','true');
+				lines.setAttribute('aria-label',title+' source editor');
+				lines.setAttribute('spellcheck','false');
+				lines.setAttribute('autocapitalize','off');
+				root.dataset.termEditable='true';
+				suggestionMenu=document.createElement('div');
+				suggestionMenu.className='sgml-term-suggestions';
+				suggestionMenu.hidden=true;
+				suggestionMenu.setAttribute('role','listbox');
+				body.appendChild(suggestionMenu);
+				lines.addEventListener('input',()=>{
+					const caret=selectionSourceOffsets().focus;
+					const nextText=readEditableText();
+					if(nextText!==currentText)pushTerminalUndo();
+					currentText=nextText;
+					const safeCaret=Math.min(caret,currentText.length);
+					renderCodeLines(safeCaret);
+					updateTerminalSuggestions(false,safeCaret);
 				});
+				lines.addEventListener('keydown',event=>{
+					if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){
+						event.preventDefault();
+						if(terminalUndo.length){terminalRedo.push(currentText);currentText=terminalUndo.pop();renderCodeLines(Math.min(selectionSourceOffsets().focus,currentText.length));}
+						return;
+					}
+					if((event.ctrlKey||event.metaKey)&&(event.key.toLowerCase()==='y'||(event.shiftKey&&event.key.toLowerCase()==='z'))){
+						event.preventDefault();
+						if(terminalRedo.length){terminalUndo.push(currentText);currentText=terminalRedo.pop();renderCodeLines(Math.min(selectionSourceOffsets().focus,currentText.length));}
+						return;
+					}
+					if(event.key==='Backspace'||event.key==='Delete'){
+						const point=selectionSourceOffsets();
+						if(point.start!==point.end){event.preventDefault();replaceEditableRange(point.start,point.end,'',point.start);return;}
+						if(event.key==='Backspace'&&point.focus>0&&currentText[point.focus-1]==='\n'){
+							event.preventDefault();replaceEditableRange(point.focus-1,point.focus,'',point.focus-1);return;
+						}
+						if(event.key==='Delete'&&currentText[point.focus]==='\n'){
+							event.preventDefault();replaceEditableRange(point.focus,point.focus+1,'',point.focus);return;
+						}
+					}
+					if((event.ctrlKey||event.metaKey)&&event.code==='Space'){
+						event.preventDefault();updateTerminalSuggestions(true);return;
+					}
+					if(suggestionMenu&&!suggestionMenu.hidden){
+						if(event.key==='ArrowDown'){event.preventDefault();moveTerminalSuggestion(1);return;}
+						if(event.key==='ArrowUp'){event.preventDefault();moveTerminalSuggestion(-1);return;}
+						if(event.key==='Escape'){event.preventDefault();closeTerminalSuggestions();return;}
+						if(event.key==='Enter'||event.key==='Tab'){
+							const item=terminalSuggestions.filter(candidate=>{
+								const query=(currentText.slice(0,selectionSourceOffsets().focus).match(/[\w$.-]+$/)||[''])[0].toLowerCase();
+								return query?candidate.text.toLowerCase().includes(query):true;
+							})[selectedTerminalSuggestion];
+							if(item){event.preventDefault();applyTerminalSuggestion(item);return;}
+						}
+					}
+					if(event.key==='Enter'){
+						event.preventDefault();const point=selectionSourceOffsets();replaceEditableRange(point.start,point.end,'\n',point.start+1);return;
+					}
+					if(event.key==='Tab'){
+						event.preventDefault();const point=selectionSourceOffsets();replaceEditableRange(point.start,point.end,'    ',point.start+4);return;
+					}
+				});
+				lines.addEventListener('beforeinput',event=>{
+					if(event.inputType!=='insertParagraph'&&event.inputType!=='insertLineBreak')return;
+					event.preventDefault();const point=selectionSourceOffsets();
+					replaceEditableRange(point.start,point.end,'\n',point.start+1);
+				});
+				lines.addEventListener('cut',event=>{
+					const point=selectionSourceOffsets();
+					if(point.start===point.end)return;
+					if(event.clipboardData)event.clipboardData.setData('text/plain',currentText.slice(point.start,point.end));
+					event.preventDefault();replaceEditableRange(point.start,point.end,'',point.start);
+				});
+				lines.addEventListener('paste',event=>{
+					const value=event.clipboardData&&event.clipboardData.getData('text/plain');
+					if(value===undefined)return;
+					event.preventDefault();const point=selectionSourceOffsets();
+					replaceEditableRange(point.start,point.end,value.replace(/\r\n?/g,'\n'),point.start+value.replace(/\r\n?/g,'\n').length);
+				});
+			}
+			renderCodeLines();
+			if(editableSource&&suggestionMenu){
+				suggestionMenu.addEventListener('keydown',event=>event.stopPropagation());
+				suggestionMenu.addEventListener('click',event=>event.stopPropagation());
+			}
+		}else{
+			renderTerminalOutputLines(lines,currentText,rules);
+		}
+
+		let activeInput=null;
+		let activeInputRequest=null;
+		const inputQueue=[];
+		const attachActiveInput=()=>{
+			if(!activeInput)return;
+			const lastLine=lines.lastElementChild;
+			const code=lastLine&&lastLine.querySelector('.sgml-term-text');
+			if(code&&activeInput.parentNode!==code)code.appendChild(activeInput);
+		};
+		const scrollToBottom=()=>{body.scrollTop=body.scrollHeight;};
+		const updateOutputText=nextText=>{
+			const input=activeInput&&activeInput.querySelector('.sgml-term-input');
+			const restoreFocus=!!input&&document.activeElement===input;
+			const selection=restoreFocus?{start:input.selectionStart,end:input.selectionEnd,direction:input.selectionDirection}:null;
+			currentText=String(nextText??'');
+			if(!isCode){
+				renderTerminalOutputLines(lines,currentText,rules);
+				attachActiveInput();
+				if(restoreFocus&&input.isConnected){
+					input.focus({preventScroll:true});
+					try{input.setSelectionRange(selection.start,selection.end,selection.direction||'none');}catch(_error){}
+				}
+				scrollToBottom();
+			}
+		};
+		const clearInput=()=>{
+			if(activeInput)activeInput.remove();
+			activeInput=null;
+			activeInputRequest=null;
+			inputQueue.length=0;
+		};
+		const showNextInput=()=>{
+			if(isCode||activeInputRequest||!inputQueue.length)return null;
+			activeInputRequest=inputQueue.shift();
+			currentText+=String(activeInputRequest.prompt??'');
+			renderTerminalOutputLines(lines,currentText,rules);
+			const wrap=document.createElement('span');
+			wrap.className='sgml-term-input-wrap';
+			const input=document.createElement('input');
+			input.type='text';
+			input.className='sgml-term-input';
+			input.autocomplete='off';
+			input.autocapitalize='off';
+			input.autocorrect='off';
+			input.inputMode='text';
+			input.spellcheck=false;
+			input.enterKeyHint='send';
+			input.setAttribute('aria-label','Terminal input');
+			input.setAttribute('placeholder','');
+			input.style.width='8ch';
+			wrap.appendChild(input);
+			activeInput=wrap;
+			attachActiveInput();
+			const focusInput=()=>{
+				if(!input.isConnected)return;
+				input.focus({preventScroll:true});
+				scrollToBottom();
 			};
-			apply();
-			// Toggling must not move what the reader is looking at: keep the
-			// clicked row at the same viewport position after the layout changes.
-			const toggle=(line,anchor)=>{
-				const before=anchor.getBoundingClientRect().top;
-				if(collapsed.has(line))collapsed.delete(line);else collapsed.add(line);
-				apply();
-				const delta=anchor.getBoundingClientRect().top-before;
-				if(delta)window.scrollBy(0,delta);
-				if(anchor.isConnected&&anchor.focus&&document.activeElement!==anchor)anchor.focus({preventScroll:true});
-			};
+			input.addEventListener('input',()=>{
+				input.style.width=Math.max(8,Math.min(64,input.value.length+1))+'ch';
+				input.scrollLeft=input.scrollWidth;
+			});
+			input.addEventListener('keydown',event=>{
+				if(event.key!=='Enter'||event.isComposing)return;
+				event.preventDefault();
+				const value=input.value;
+				const completed=activeInputRequest;
+				if(activeInput)activeInput.remove();
+				activeInput=null;
+				activeInputRequest=null;
+				updateOutputText(currentText+value+'\n');
+				if(completed&&typeof completed.onSubmit==='function')completed.onSubmit(value);
+				showNextInput();
+			});
+			if(typeof requestAnimationFrame==='function')requestAnimationFrame(focusInput);
+			else focusInput();
+			return input;
+		};
+		const requestInput=(prompt,onSubmit)=>{
+			if(isCode)return null;
+			inputQueue.push({prompt,onSubmit});
+			return activeInput||showNextInput();
+		};
+		root.__sgmlTerminal={block,body,updateText:updateOutputText,getText:()=>currentText,requestInput,clearInput};
+
+		if(isCode&&folding){
+			// Fold controls are delegated so the same behavior survives editable
+			// rerenders after every keystroke or custom completion insertion.
 			lines.addEventListener('click',event=>{
 				const control=event.target.closest('.sgml-term-fold,.sgml-term-pill');
 				if(!control||!lines.contains(control))return;
-				event.preventDefault();
+				event.preventDefault();event.stopPropagation();
 				const line=Number(control.dataset.line||control.closest('.sgml-term-row').querySelector('.sgml-term-fold').dataset.line);
-				const caret=rows[line].querySelector('.sgml-term-fold');
-				toggle(line,caret||control);
+				const anchor=rows[line]&&rows[line].querySelector('.sgml-term-fold')||control;
+				const before=anchor.getBoundingClientRect().top;
+				if(collapsed.has(line))collapsed.delete(line);else collapsed.add(line);
+				applyFoldVisibility();
+				const delta=anchor.getBoundingClientRect().top-before;
+				if(delta)window.scrollBy(0,delta);
+				if(anchor.isConnected&&anchor.focus&&document.activeElement!==anchor)anchor.focus({preventScroll:true});
 			});
 		}
 
+
 		root.append(head,body);
 		return root;
+	}
+
+	const TERMINAL_WORKER_SOURCE=`const __pendingTerminalInputs=new Map();
+let __nextTerminalInputId=0;
+self.onmessage=async function(event){
+	const data=event.data||{};
+	if(data.type==='input-result'){
+		const pending=__pendingTerminalInputs.get(data.id);
+		if(!pending)return;
+		__pendingTerminalInputs.delete(data.id);
+		if(data.error)pending.reject(new Error(String(data.error)));
+		else pending.resolve(String(data.value??''));
+		return;
+	}
+	if(data.type!=='run')return;
+	const getCode=String(data.getCode??'');
+	const terminalPrint=(...values)=>{
+		const text=values.map(value=>{
+			if(typeof value==='string')return value;
+			if(value===null)return 'null';
+			if(value===undefined)return 'undefined';
+			if(typeof value==='object'){try{return JSON.stringify(value);}catch(_error){return String(value);}}
+			return String(value);
+		}).join(' ');
+		self.postMessage({type:'print',text});
+	};
+	const terminalInput=(prompt='')=>{
+		if(!data.allowInput)return Promise.reject(new Error('terminalInput() requires allowInput on terminalOutput.'));
+		const id=++__nextTerminalInputId;
+		return new Promise((resolve,reject)=>{
+			__pendingTerminalInputs.set(id,{resolve,reject});
+			self.postMessage({type:'input',id,prompt:String(prompt??'')});
+		});
+	};
+	try{
+		for(const source of (Array.isArray(data.sources)?data.sources:[])){
+			const body=[
+				'"use strict";',
+				'const terminalPrint=__terminalPrint;',
+				'const terminalInput=__terminalInput;',
+				'const getCode=__getCode;',
+				'return (async function(){',
+				String(source),
+				'}).call(undefined);'
+			].join(String.fromCharCode(10));
+			const runner=new Function('__terminalPrint','__terminalInput','__getCode',body);
+			await runner(terminalPrint,terminalInput,getCode);
+		}
+		self.postMessage({type:'done'});
+	}catch(error){self.postMessage({type:'error',text:error&&error.stack?error.stack:String(error)});}
+};`;
+
+	function appendTerminalMessage(outputRoot,text,isError=false){
+		const terminal=outputRoot&&outputRoot.__sgmlTerminal;
+		if(!terminal)return;
+		const previous=terminal.getText();
+		const joiner=isError&&previous&&!previous.endsWith('\n')?'\n':'';
+		terminal.updateText(previous+joiner+String(text??''));
+	}
+
+	function startTerminalWorker(target,outputRoot,codeText){
+		const block=outputRoot.__sgmlTerminal&&outputRoot.__sgmlTerminal.block;
+		if(!block||!block.outCodes||!block.outCodes.length)return;
+		if(typeof Worker==='undefined'||typeof Blob==='undefined'||!URL.createObjectURL){
+			appendTerminalMessage(outputRoot,'[Execution unavailable: Web Workers are not supported.]',true);
+			return;
+		}
+		let url='';
+		let worker;
+		try{
+			url=URL.createObjectURL(new Blob([TERMINAL_WORKER_SOURCE],{type:'text/javascript'}));
+			worker=new Worker(url);
+		}catch(error){
+			if(url)URL.revokeObjectURL(url);
+			appendTerminalMessage(outputRoot,'[Could not start isolated execution: '+String(error&&error.message||error)+']',true);
+			return;
+		}
+		const record={worker,url,outputRoot};
+		const records=terminalRuns.get(target)||[];
+		records.push(record);
+		terminalRuns.set(target,records);
+		const release=()=>{
+			const terminal=outputRoot&&outputRoot.__sgmlTerminal;
+			if(terminal&&terminal.clearInput)terminal.clearInput();
+			try{worker.terminate();}catch(_error){}
+			try{URL.revokeObjectURL(url);}catch(_error){}
+			const current=terminalRuns.get(target)||[];
+			const remaining=current.filter(item=>item!==record);
+			if(remaining.length)terminalRuns.set(target,remaining);else terminalRuns.delete(target);
+		};
+		worker.addEventListener('message',event=>{
+			const message=event.data||{};
+			if(message.type==='print')appendTerminalMessage(outputRoot,message.text,false);
+			else if(message.type==='input'){
+				const terminal=outputRoot.__sgmlTerminal;
+				if(!terminal||!terminal.requestInput){
+					worker.postMessage({type:'input-result',id:message.id,error:'This terminal cannot receive input.'});
+					return;
+				}
+				terminal.requestInput(message.prompt,value=>{
+					try{worker.postMessage({type:'input-result',id:message.id,value});}catch(_error){}
+				});
+			}else if(message.type==='error'){
+				appendTerminalMessage(outputRoot,'[Error] '+message.text,true);
+				release();
+			}
+			// Keep a completed worker alive so timer/event callbacks inside outCode
+			// can still print or request input. The visible Stop button owns its lifetime.
+			if(message.type==='done')record.finished=true;
+		});
+		worker.addEventListener('error',event=>{
+			appendTerminalMessage(outputRoot,'[Worker error] '+String(event.message||'Execution failed.'),true);
+			release();
+		});
+		worker.postMessage({type:'run',sources:block.outCodes,getCode:codeText,allowInput:isEnabledAttribute(block.attrs&&block.attrs.allowinput)});
+	}
+
+	function returnTerminalToCode(target){
+		stopTerminalWorkers(target);
+		const codeRoot=terminalCodeRoots.get(target);
+		if(codeRoot)codeRoot.hidden=false;
+		(terminalOutputRoots.get(target)||[]).forEach(outputRoot=>{
+			outputRoot.hidden=true;
+			const terminal=outputRoot.__sgmlTerminal;
+			if(terminal)terminal.updateText(terminal.block.text);
+		});
+	}
+
+	function runTerminal(target){
+		const codeRoot=terminalCodeRoots.get(target);
+		if(!codeRoot||!codeRoot.__sgmlTerminal)return;
+		const outputs=terminalOutputRoots.get(target)||[];
+		if(!outputs.length)return;
+		stopTerminalWorkers(target);
+		const codeText=typeof codeRoot.__sgmlTerminal.getText==='function'?codeRoot.__sgmlTerminal.getText():codeRoot.__sgmlTerminal.block.text;
+		codeRoot.hidden=true;
+		outputs.forEach(outputRoot=>{
+			const terminal=outputRoot.__sgmlTerminal;
+			if(!terminal)return;
+			const block=terminal.block;
+			let displayText=block.text;
+			if(isEnabledAttribute(block.attrs&&block.attrs.addcode)){
+				displayText=(codeText?'// Connected source code\n'+codeText+'\n\n':'')+displayText;
+			}
+			outputRoot.hidden=false;
+			terminal.updateText(displayText);
+			startTerminalWorker(target,outputRoot,codeText);
+		});
 	}
 
 	function setupTerminals(root){
@@ -710,6 +1380,46 @@
 			try{slot.replaceWith(buildTerminal(block));}
 			catch(error){console.error('SGML terminal render failed:',error);}
 		});
+
+		terminalCodeRoots.clear();
+		terminalOutputRoots.clear();
+		const allTerminals=Array.from(document.querySelectorAll('.sgml-term-code,.sgml-term-output'));
+		allTerminals.forEach(element=>{
+			if(element.classList.contains('sgml-term-code')){
+				const target=element.dataset.termTarget;
+				if(target&&!terminalCodeRoots.has(target))terminalCodeRoots.set(target,element);
+			}else{
+				const hasConnect=element.dataset.termHasConnect==='true';
+				const target=element.dataset.termConnect||'';
+				if(hasConnect){
+					if(!terminalOutputRoots.has(target))terminalOutputRoots.set(target,[]);
+					terminalOutputRoots.get(target).push(element);
+				}else{
+					// An output without connect is visible immediately and its
+					// outCode runs as soon as this terminal output is created.
+					const block=element.__sgmlTerminal&&element.__sgmlTerminal.block;
+					const runKey='__sgml_terminal_output_'+String(block ? block.index : 'unlinked');
+					element.hidden=false;
+					stopTerminalWorkers(runKey);
+					startTerminalWorker(runKey,element,'');
+				}
+			}
+		});
+
+		terminalCodeRoots.forEach((codeRoot,target)=>{
+			const run=codeRoot.querySelector('.sgml-term-run');
+			if(run&&!run.dataset.bound){
+				run.dataset.bound='true';
+				run.addEventListener('click',()=>runTerminal(target));
+			}
+		});
+		terminalOutputRoots.forEach((outputs,target)=>outputs.forEach(outputRoot=>{
+			const stop=outputRoot.querySelector('.sgml-term-stop');
+			if(stop&&!stop.dataset.bound){
+				stop.dataset.bound='true';
+				stop.addEventListener('click',()=>returnTerminalToCode(target));
+			}
+		}));
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -1039,6 +1749,9 @@
 	 * ------------------------------------------------------------------ */
 
 	function resetSGMLExtensionState(){
+		stopAllTerminalWorkers();
+		terminalCodeRoots.clear();
+		terminalOutputRoots.clear();
 		copyStore=new Map();
 		window.__sgmlTerminalBlocks=[];
 	}
@@ -1060,5 +1773,5 @@
 	window.buildProcedureHTML=buildProcedureHTML;
 	window.setupProcedures=setupProcedures;
 	window.setupTerminals=setupTerminals;
-	window.SGMLExtensions={parseTerminalStyle,highlightSpans,parseTerminalFolding,parseCollapsedSpec,initialCollapsedLines,computeFolds,maskNonCode,findExtensionTags};
+	window.SGMLExtensions={parseTerminalStyle,parseTerminalSuggestions,highlightSpans,parseTerminalFolding,parseCollapsedSpec,initialCollapsedLines,computeFolds,maskNonCode,findExtensionTags};
 })();

@@ -45,9 +45,25 @@ const Editor = (() => {
   // The document root is an ordinary, valid HTML element, not an unknown SGML tag.
   HTML_TAG_NAMES.add("html");
   const ATTR_MAP = new Map(ATTRS.map(attr => [String(attr.name).toLowerCase(), attr]));
+  const TAG_ATTR_MAP = new Map(Object.entries(LANG.tagAttributes || {}).map(([name, attrs]) => [String(name).toLowerCase(), attrs]));
+  // Native HTML, SVG, MathML, and custom HTML elements use equals-sign
+  // attributes. SGML component tags retain their language-profile insertion
+  // syntax unless they are explicitly listed as XML-style components.
+  const XML_ATTRIBUTE_TAGS = new Set([
+    ...(LANG.xmlAttributeTags || []).map(name => String(name).toLowerCase()),
+    ...HTML_TAG_NAMES
+  ]);
+  const BOOLEAN_ATTRIBUTES = new Set([
+    "caseSensitive", "ignoreWhitespace", "ignoreNewline", "ignoreSpace", "ignoreSGML",
+    "allowFirsttextMatching", "editable", "runnable", "addCode", "allowInput",
+    "controls", "autoplay", "loop", "muted", "required", "disabled", "selected",
+    "multiple", "readonly", "hidden", "open", "autofocus", "defer", "async",
+    "download", "novalidate", "formnovalidate", "reversed", "ismap", "playsinline",
+    "allowfullscreen", "inert"
+  ].map(name => name.toLowerCase()));
   const SNIPPET_MAP = new Map(SNIPPETS.map(item => [String(item.trigger).toLowerCase(), item]));
   const LH = 18, PL = 8, PC = 72;
-  const TOKEN_LEXICAL = /<!--[\s\S]*?(?:-->|$)|```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|<\s*\/?\s*[A-Za-z][\w:-]*|#[\da-fA-F]{3,8}\b|\b(?:true|false|null)\b|\b[A-Za-z_][\w:-]*(?=\s*[:=])/g;
+  const TOKEN_LEXICAL = /<!--[\s\S]*?(?:-->|$)|```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|<\s*\/?\s*[A-Za-z][\w:-]*|#[\da-fA-F]{3,8}\b|\b(?:true|false|null)\b|\b[A-Za-z_][\w:-]*(?=\s*[:=])|\b[A-Za-z_][\w:-]*\b/g;
   let CHAR_W = measureCharWidth();
   let onRun = () => {}, onChange = () => {};
   let suggestions = [], selectedSuggestion = 0, popOpen = false, replaceTokenStart = 0, replaceTokenEnd = 0;
@@ -226,9 +242,9 @@ const Editor = (() => {
     return out + esc(text.slice(offset));
   }
 
-  // Find </js> without mistaking the same text inside a JavaScript string or
-  // comment for the SGML closing tag. Template strings are treated as strings.
-  function findJsClose(text, start) {
+  // Find the matching SGML closing tag without mistaking the same text inside
+  // a JavaScript string, template literal, comment, or regular expression.
+  function findCodeBlockClose(text, start, tagName = "js") {
     let quote = "", escaped = false, lineComment = false, blockComment = false;
     let canStartRegex = true;
     const regexPrefixKeywords = new Set(["await", "case", "delete", "do", "else", "in", "instanceof", "of", "return", "throw", "typeof", "void", "yield"]);
@@ -270,7 +286,7 @@ const Editor = (() => {
         if (closed) { canStartRegex = false; continue; }
       }
       if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
-      if (ch === "<" && /^<\/js\s*>/i.test(text.slice(i))) return i;
+      if (ch === "<" && new RegExp("^<\\/" + tagName + "\\s*>", "i").test(text.slice(i))) return i;
       if (/[a-z_$]/i.test(ch)) {
         const word = text.slice(i).match(/^[a-z_$][\w$]*/i)[0];
         i += word.length - 1;
@@ -310,7 +326,7 @@ const Editor = (() => {
   function sgmlTokenHtml(text) {
     const spans = [];
     TOKEN_LEXICAL.lastIndex = 0;
-    let match, tagEnd = 0;
+    let match, tagEnd = 0, tagStart = -1;
     while ((match = TOKEN_LEXICAL.exec(text))) {
       let raw = match[0];
       let cls = "";
@@ -332,22 +348,42 @@ const Editor = (() => {
           raw = sameLine[0];
           TOKEN_LEXICAL.lastIndex = match.index + raw.length;
         }
+        cls = "str";
       } else if (raw[0] === "<" && !raw.startsWith("<!--")) {
         const end = boundedTagEnd(text, match.index);
+        tagStart = match.index;
         tagEnd = end < 0 ? match.index + raw.length : end;
-      }
-      if (raw.startsWith("<!--") || raw.startsWith("```") || raw.startsWith("~~~")) cls = "com";
-      else if (raw[0] === '"' || raw[0] === "'" || raw[0] === '`') cls = "str";
-      else if (raw[0] === "<") {
         const nameMatch = /<\s*\/?\s*([A-Za-z][\w:-]*)/.exec(raw);
         const name = nameMatch ? nameMatch[1] : "";
         const normalizedName = name.toLowerCase();
         cls = normalizedName === "html" || TAG_MAP.has(normalizedName) || HTML_TAG_NAMES.has(normalizedName) || normalizedName.includes("-")
           ? "tagname"
           : "unknown-tag";
-      } else if (raw[0] === "#") cls = "value";
-      else if (/^(?:true|false|null)$/i.test(raw)) cls = "num";
-      else cls = "attr";
+      } else if (raw.startsWith("<!--") || raw.startsWith("```") || raw.startsWith("~~~")) {
+        cls = "com";
+      } else if (match.index < tagEnd && /^[A-Za-z_][\w:-]*$/.test(raw)) {
+        const before = text.slice(Math.max(tagStart, 0), match.index);
+        const after = text.slice(match.index + raw.length, tagEnd);
+        const separatedFromPrevious = /\s$/.test(before);
+        const followsAssignment = /(?:=|:)\s*$/.test(before);
+        const endsAsAttribute = /^\s*(?:=|:|[\w:-]+\s*(?:=|:)|\/?\s*>|\s+)/.test(after);
+        if (separatedFromPrevious && !followsAssignment && endsAsAttribute) cls = "attr";
+      }
+      if (!cls) {
+        if (raw[0] === "#") cls = "value";
+        else if (/^(?:true|false|null)$/i.test(raw)) cls = "num";
+        else if (/^[A-Za-z_][\w:-]*$/.test(raw)) {
+          // Plain prose is not an attribute. Keep identifier coloring only for
+          // explicit key/value syntax outside a tag; inside tags, bare boolean
+          // attributes are colored by the branch above.
+          const after = text.slice(match.index + raw.length);
+          if (!/^\s*[:=]/.test(after)) {
+            TOKEN_LEXICAL.lastIndex = match.index + raw.length;
+            continue;
+          }
+          cls = "attr";
+        } else cls = "attr";
+      }
       spans.push({ start: match.index, end: match.index + raw.length, raw, cls });
     }
     let out = "", offset = 0;
@@ -366,25 +402,103 @@ const Editor = (() => {
     return out + esc(text.slice(offset));
   }
 
+  // Markdown code spans and fenced blocks are literal SGML. All editor scans
+  // share these ranges so a tag-looking string inside quoted code cannot start
+  // a JavaScript range, an XML fold, or consume following source text.
+  function collectMarkdownCodeRanges(text) {
+    const ranges = [];
+    const lines = text.split("\n");
+    const starts = [];
+    let offset = 0;
+    for (const line of lines) { starts.push(offset); offset += line.length + 1; }
+
+    // Fenced blocks (both backticks and tildes) are collected first.
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+      const open = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      if (!open) continue;
+      const marker = open[1];
+      const char = marker[0];
+      const minLength = marker.length;
+      let closeIndex = -1;
+      for (let j = lineIndex + 1; j < lines.length; j++) {
+        const candidate = lines[j];
+        const close = new RegExp("^[ \t]{0,3}" + (char === "`" ? "`" : "~") + "{" + minLength + ",}[ \t]*$");
+        if (close.test(candidate)) { closeIndex = j; break; }
+      }
+      const endLine = closeIndex < 0 ? lines.length - 1 : closeIndex;
+      const end = starts[endLine] + lines[endLine].length + (endLine < lines.length - 1 ? 1 : 0);
+      ranges.push({ start: starts[lineIndex], end, kind: "fence" });
+      lineIndex = endLine;
+    }
+
+    const fenced = ranges.slice();
+    const insideFence = index => fenced.some(range => index >= range.start && index < range.end);
+    // Inline backtick spans may use one or more matching backticks and may
+    // cross a source line. Unclosed runs remain ordinary text.
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] !== '`' || insideFence(i) || (i > 0 && text[i - 1] === '\\')) continue;
+      let runEnd = i + 1;
+      while (text[runEnd] === '`') runEnd++;
+      const length = runEnd - i;
+      let found = -1;
+      for (let j = runEnd; j < text.length; j++) {
+        if (text[j] !== '`') continue;
+        let candidateEnd = j + 1;
+        while (text[candidateEnd] === '`') candidateEnd++;
+        if (candidateEnd - j === length) { found = candidateEnd; break; }
+        j = candidateEnd - 1;
+      }
+      if (found >= 0) {
+        ranges.push({ start: i, end: found, kind: "inline" });
+        i = found - 1;
+      } else {
+        i = runEnd - 1;
+      }
+    }
+    return mergeRanges(ranges);
+  }
+
+  function findNextCodeOpening(text, fromIndex = 0) {
+    const literalRanges = collectMarkdownCodeRanges(text);
+    const opening = /<(js|outCode)\s*>/ig;
+    opening.lastIndex = fromIndex;
+    let match;
+    let rangeIndex = 0;
+    while ((match = opening.exec(text))) {
+      while (rangeIndex < literalRanges.length && literalRanges[rangeIndex].end <= match.index) rangeIndex++;
+      const range = literalRanges[rangeIndex];
+      if (range && match.index >= range.start && match.index < range.end) {
+        opening.lastIndex = range.end;
+        continue;
+      }
+      return { match, opening };
+    }
+    return null;
+  }
+
   function tokenHtml(text) {
-    const openTag = /<js\s*>/ig;
-    let out = "", cursor = 0, opening;
-    while ((opening = openTag.exec(text))) {
+    let out = "", cursor = 0, searchFrom = 0;
+    while (searchFrom < text.length) {
+      const found = findNextCodeOpening(text, searchFrom);
+      if (!found) break;
+      const opening = found.match;
+      const tagName = opening[1].toLowerCase();
       out += sgmlTokenHtml(text.slice(cursor, opening.index));
-      const bodyStart = openTag.lastIndex;
+      const bodyStart = opening.index + opening[0].length;
       out += sgmlTokenHtml(text.slice(opening.index, bodyStart));
-      const closeStart = findJsClose(text, bodyStart);
+      const closeStart = findCodeBlockClose(text, bodyStart, tagName);
       if (closeStart < 0) {
         out += jsTokenHtml(text.slice(bodyStart));
         cursor = text.length;
         break;
       }
       out += jsTokenHtml(text.slice(bodyStart, closeStart));
-      const closeEndMatch = /^<\/js\s*>/i.exec(text.slice(closeStart));
+      const closeEndMatch = new RegExp("^<\\/" + tagName + "\\s*>", "i").exec(text.slice(closeStart));
       const closeEnd = closeStart + (closeEndMatch ? closeEndMatch[0].length : 0);
       out += sgmlTokenHtml(text.slice(closeStart, closeEnd));
       cursor = closeEnd;
-      openTag.lastIndex = closeEnd;
+      searchFrom = closeEnd;
     }
     return out + (cursor < text.length ? sgmlTokenHtml(text.slice(cursor)) : "");
   }
@@ -444,16 +558,19 @@ const Editor = (() => {
 
   function collectJsRanges(text) {
     const ranges = [];
-    const opening = /<js\s*>/ig;
-    let match;
-    while ((match = opening.exec(text))) {
-      const bodyStart = opening.lastIndex;
-      const closeStart = findJsClose(text, bodyStart);
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      const found = findNextCodeOpening(text, searchFrom);
+      if (!found) break;
+      const opening = found.match;
+      const tagName = opening[1].toLowerCase();
+      const bodyStart = opening.index + opening[0].length;
+      const closeStart = findCodeBlockClose(text, bodyStart, tagName);
       const end = closeStart < 0 ? text.length : closeStart;
-      ranges.push({ start: match.index, bodyStart, end, closeStart });
+      ranges.push({ start: opening.index, bodyStart, end, closeStart, tagName });
       if (closeStart < 0) break;
-      const close = /^<\/js\s*>/i.exec(text.slice(closeStart));
-      opening.lastIndex = closeStart + (close ? close[0].length : 1);
+      const close = new RegExp("^<\\/" + tagName + "\\s*>", "i").exec(text.slice(closeStart));
+      searchFrom = closeStart + (close ? close[0].length : 1);
     }
     return ranges;
   }
@@ -648,12 +765,14 @@ const Editor = (() => {
   function collectFoldCandidates(text) {
     if (!text) return [];
     const jsRanges = collectJsRanges(text);
+    const markdownCodeRanges = collectMarkdownCodeRanges(text);
     const fenceResult = findFencedRanges(text, jsRanges);
-    const commentResult = collectXmlComments(text, mergeRanges(jsRanges.map(range => ({ start: range.bodyStart, end: range.end })).concat(fenceResult.skipped)));
-    const nonTagRanges = mergeRanges(
+    const excludedCode = mergeRanges(
       jsRanges.map(range => ({ start: range.bodyStart, end: range.end }))
-        .concat(fenceResult.skipped, commentResult.skipped)
+        .concat(markdownCodeRanges, fenceResult.skipped)
     );
+    const commentResult = collectXmlComments(text, excludedCode);
+    const nonTagRanges = mergeRanges(excludedCode.concat(commentResult.skipped));
     const folds = [
       ...fenceResult.folds,
       ...commentResult.folds,
@@ -1389,7 +1508,8 @@ const Editor = (() => {
       Number: "numberConstructor", Math: "math", JSON: "json", Date: "dateConstructor",
       RegExp: "regexpConstructor", Map: "mapConstructor", Set: "setConstructor", Promise: "promiseConstructor",
       console: "console", document: "document", window: "window", navigator: "navigator",
-      localStorage: "storage", sessionStorage: "storage", URL: "urlConstructor", URLSearchParams: "urlSearchParamsConstructor"
+      localStorage: "storage", sessionStorage: "storage", URL: "urlConstructor", URLSearchParams: "urlSearchParamsConstructor",
+      terminalPrint: "function", terminalInput: "function", getCode: "string"
     };
     if (known[name]) return known[name];
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1446,6 +1566,9 @@ const Editor = (() => {
     } else if (word || force) {
       candidates = extractJSSymbols(code);
       (config.globals || []).forEach(item => candidates.push(jsCompletionItem(item[0], item[1], "js-builtin")));
+      if (range.tagName === "outcode") {
+        (config.terminalGlobals || []).forEach(item => candidates.push(jsCompletionItem(item[0], item[1], "js-builtin")));
+      }
       (config.keywords || []).forEach(item => candidates.push(jsCompletionItem(item, "JavaScript keyword", "js-keyword")));
     }
     return { candidates, replaceStart: wordStart, replaceEnd: caret };
@@ -1509,14 +1632,25 @@ const Editor = (() => {
         // HTML-style attributes while the user is writing the question body.
         candidates = [];
       } else if (!/["'`][^"'`]*$/.test(afterOpen.slice(tagNameMatch ? tagNameMatch[0].length : 0))) {
-        const allowed = (LANG.tagAttributes || {})[tagName] || (LANG.tagAttributes || {})[String(tagName).toLowerCase()];
-        const attrDefs = allowed ? allowed.map(name => ATTR_MAP.get(String(name).toLowerCase())).filter(Boolean) : ATTRS;
-        const xmlAttributeTags = new Set((LANG.xmlAttributeTags || []).map(name => String(name).toLowerCase()));
+        const allowed = TAG_ATTR_MAP.get(String(tagName).toLowerCase());
+        const attrDefs = allowed ? allowed.map(name => {
+          const existing = ATTR_MAP.get(String(name).toLowerCase());
+          if (existing) return existing;
+          const booleanAttribute = BOOLEAN_ATTRIBUTES.has(String(name).toLowerCase());
+          const usesEquals = XML_ATTRIBUTE_TAGS.has(String(tagName).toLowerCase()) || String(tagName).includes("-");
+          return {
+            name: String(name),
+            description: "Supported " + (booleanAttribute ? "boolean" : "value") + " attribute for <" + tagName + ">",
+            insert: booleanAttribute ? String(name) : String(name) + (usesEquals ? "=" : ":")
+          };
+        }) : ATTRS;
+        const xmlAttributeTags = XML_ATTRIBUTE_TAGS;
         candidates = attrDefs.map(attr => {
           const candidate = asCandidate(attr, { k: "attr" });
-          if (xmlAttributeTags.has(String(tagName).toLowerCase())) {
-            candidate.insert = String(attr.name) + "=";
-          }
+          const attrName = String(attr.name);
+          const booleanAttribute = BOOLEAN_ATTRIBUTES.has(attrName.toLowerCase());
+          if (booleanAttribute) candidate.insert = attrName;
+          else if (xmlAttributeTags.has(String(tagName).toLowerCase())) candidate.insert = attrName + "=";
           return candidate;
         });
         const emptyParameter = /(?:^|\s)([A-Za-z_][\w-]*)\s*:\s*$/.exec(linePrefix);

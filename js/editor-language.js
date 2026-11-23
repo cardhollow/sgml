@@ -28,6 +28,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "card", description: "One flashcard inside a flashcards deck", insert: "card" },
     { name: "front", description: "Flashcard question side", insert: "front" },
     { name: "back", description: "Flashcard answer side", insert: "back" },
+    { name: "bookmark", description: "Self-closing side bookmark that scrolls to its position", insert: "bookmark" },
     { name: "notebox", description: "Notebook callout with 126 built-in styles and custom labels", insert: "notebox" },
     { name: "checklist", description: "Interactive notebook checklist", insert: "checklist" },
     { name: "item", description: "Checklist item", insert: "item" },
@@ -43,8 +44,10 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "step", description: "One step inside a procedure", insert: "step" },
     { name: "sgmlCopy", description: "Store SGML under a name without rendering it", insert: "sgmlCopy" },
     { name: "sgmlPaste", description: "Render SGML stored by sgmlCopy", insert: "sgmlPaste" },
-    { name: "terminalCode", description: "Terminal-style code block with colors, copy button and folding", insert: "terminalCode" },
-    { name: "terminalOutput", description: "Terminal-style output block with colors and copy button", insert: "terminalOutput" },
+    { name: "sgmlHolder", description: "Replacement placeholder inside sgmlCopy", insert: "sgmlHolder" },
+    { name: "terminalCode", description: "Terminal-style code block with optional Run button, colors and folding", insert: "terminalCode" },
+    { name: "terminalOutput", description: "Terminal output with optional code connection, executable outCode and interactive input", insert: "terminalOutput" },
+    { name: "outCode", description: "JavaScript executed inside a terminal output", insert: "outCode" },
     { name: "dictDef", description: "Dictionary definition target", insert: "dictDef" },
     { name: "dictWord", description: "Clickable word that jumps to its matching definition", insert: "dictWord" },
     { name: "questionaires", description: "Grouped questions with shared checking and progress", insert: "questionaires" },
@@ -97,6 +100,16 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "type", description: "Component or input type", insert: "type:" },
     { name: "width", description: "Width", insert: "width:" },
     { name: "height", description: "Height", insert: "height:" },
+    { name: "maxHeight", description: "Maximum scrollable height for a terminal body (CSS value; numbers are pixels)", insert: "maxHeight=" },
+    { name: "editable", description: "Allow temporary editing of terminalCode in the viewer", insert: "editable" },
+    { name: "suggestion", description: "Custom editor completions: JSON items with text, subtitle, and insert fields", insert: "suggestion=" },
+    { name: "allowInput", description: "Enable interactive terminalInput() on an output", insert: "allowInput" },
+    { name: "addCode", description: "Include connected source code in the output", insert: "addCode" },
+    { name: "runnable", description: "Show a Run button for connected terminal output", insert: "runnable" },
+    { name: "ignoreSGML", description: "Compare dictionary content using rendered visible text", insert: "ignoreSGML" },
+    { name: "allowFirsttextMatching", description: "Also match the first rendered line of a dictWord", insert: "allowFirsttextMatching" },
+    { name: "target", description: "Connection name for a runnable terminalCode", insert: "target=" },
+    { name: "connect", description: "Connect terminalOutput to a terminalCode target", insert: "connect=" },
     { name: "src", description: "Source URL", insert: "src:" },
     { name: "alt", description: "Alternative text", insert: "alt:" },
     { name: "href", description: "Link URL", insert: "href:" },
@@ -140,7 +153,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { name: "rotate", description: "Icon rotation in degrees", insert: "rotate:" },
     { name: "fill", description: "SVG fill color", insert: "fill:" }
   ],
-  xmlAttributeTags: ["procedure", "step", "sgmlCopy", "sgmlPaste", "terminalCode", "terminalOutput", "flashcards", "card", "notebox", "checklist", "item", "glossary", "term", "quickreview", "fact", "cornell"],
+  xmlAttributeTags: ["procedure", "step", "sgmlCopy", "sgmlPaste", "sgmlHolder", "terminalCode", "terminalOutput", "outCode", "flashcards", "card", "notebox", "checklist", "item", "glossary", "term", "quickreview", "fact", "cornell", "bookmark"],
   tagAttributes: {
     st: ["bg", "col", "display", "fontSize", "fontFamily"],
     encircle: ["col"],
@@ -160,6 +173,7 @@ window.SGML_EDITOR_LANGUAGE = {
     flashcards: ["title", "shuffle"],
     card: ["front", "back"],
     notebox: ["title", "type", "icon", "accent", "color", "bg"],
+    bookmark: ["title", "subtitle", "icon", "type", "accent", "side", "userdefined"],
     checklist: ["title"],
     item: ["checked"],
     glossary: ["title"],
@@ -171,9 +185,11 @@ window.SGML_EDITOR_LANGUAGE = {
     step: ["title"],
     sgmlCopy: ["name"],
     sgmlPaste: ["name"],
-    terminalCode: ["title", "accent", "style", "folding"],
-    terminalOutput: ["title", "accent", "style"],
-    dictDef: ["caseSensitive", "ignoreWhitespace", "ignoreNewline", "ignoreSpace"],
+    sgmlHolder: ["id"],
+    terminalCode: ["title", "accent", "style", "folding", "runnable", "target", "maxHeight", "editable", "suggestion"],
+    terminalOutput: ["title", "accent", "style", "connect", "addCode", "allowInput", "maxHeight"],
+    outCode: [],
+    dictDef: ["caseSensitive", "ignoreWhitespace", "ignoreNewline", "ignoreSpace", "ignoreSGML", "allowFirsttextMatching"],
     dictWord: [],
     questionaires: ["requiredCompletion"],
     question: ["type", "count", "caseSensitive", "case", "ignoreWhitespace", "ignoreNewline", "ignoreSpace", "inorder", "mode", "enumType", "order"],
@@ -220,7 +236,9 @@ window.SGML_EDITOR_LANGUAGE = {
     { trigger: "sgmlCopy", description: "Store SGML without rendering it", insert: "<sgmlCopy name=\"$0\">\n  SGML to store.\n</sgmlCopy>" },
     { trigger: "sgmlPaste", description: "Render stored SGML", insert: "<sgmlPaste name=\"$0\"/>" },
     { trigger: "terminalCode", description: "Terminal code block with colors and folding", insert: "<terminalCode title=\"JavaScript\" accent=\"#22c55e\" style=\"#60a5fa if else function return const let; #f59e0b /\\x22[^\\x22]*\\x22/; #6b7280 /\\/\\/.*$/m\" folding=\"start: [\\[{(]; end: [\\]})];\">\n$0\n</terminalCode>" },
-    { trigger: "terminalOutput", description: "Terminal output block", insert: "<terminalOutput title=\"Output\" accent=\"#94a3b8\" style=\"#22c55e OK; #ef4444 ERROR\">\n$0\n</terminalOutput>" },
+    { trigger: "terminalOutput", description: "Terminal output block (default 240px cap; add allowInput for input())", insert: "<terminalOutput title=\"Output\" accent=\"#94a3b8\" maxHeight=\"240px\" style=\"#22c55e OK; #ef4444 ERROR\">\n$0\n</terminalOutput>" },
+    { trigger: "outCode", description: "Run JavaScript whenever its terminal output appears", insert: "<outCode>\n  terminalPrint(\"Hello\\n\");\n</outCode>" },
+    { trigger: "terminalRun", description: "Runnable code with a connected output", insert: "<terminalCode title=\"JavaScript\" runnable target=\"demo\">\nconst value = 17;\nterminalPrint(value);\n</terminalCode>\n\n<terminalOutput title=\"Output\" connect=\"demo\">\n<outCode>\n  terminalPrint(\`Value: ${getCode.includes(\"17\")}\\n\`);\n</outCode>\n</terminalOutput>" },
     { trigger: "dictDef", description: "Dictionary term definition", insert: "<dictDef>$0</dictDef>" },
     { trigger: "dictWord", description: "Clickable word linking to a dictionary definition", insert: "<dictWord>$0</dictWord>" },
     { trigger: "questionaires", description: "Question group with shared progress and checking", insert: "<questionaires requiredCompletion>\n  <question type:\"Choices\">\n    <q>$0</q>\n    <opt>Option A</opt>\n    <opt>Option B</opt>\n    <ans>Option A</ans>\n  </question>\n</questionaires>" },
@@ -239,6 +257,7 @@ window.SGML_EDITOR_LANGUAGE = {
     { trigger: "connect", description: "Matching question", insert: "<connect:($0)[[Left A,Left B][Right A,Right B]]{answers:[[idx:0][idx:0]],[[idx:1][idx:1]]}>" },
     { trigger: "flashcard", description: "Flashcard set (legacy compact syntax)", insert: "<flashcard(Review)[[Question 1][Question 2]]{answers:[Answer 1,Answer 2]}>" },
     { trigger: "flashcards", description: "Flashcard deck with XML-style card/front/back tags", insert: "<flashcards title=\"$0\" shuffle=\"false\">\n  <card>\n    <front>Question 1</front>\n    <back>Answer 1</back>\n  </card>\n  <card>\n    <front>Question 2</front>\n    <back>Answer 2</back>\n  </card>\n</flashcards>" },
+    { trigger: "bookmark", description: "Self-closing bookmark tab (left/right side of the screen)", insert: "<bookmark title=\"$0\" subtitle=\"\" icon=\"bookmark\" accent=\"#2563eb\" userdefined/>" },
     { trigger: "notebox", description: "Notebook callout box with optional custom SVG icon and accent", insert: "<notebox type=\"important\" title=\"$0\" accent=\"#2563eb\">\n  Write the note here.\n</notebox>" },
     { trigger: "checklist", description: "Interactive study checklist", insert: "<checklist title=\"$0\">\n  <item>Topic 1</item>\n  <item>Topic 2</item>\n  <item checked=\"true\">Completed topic</item>\n</checklist>" },
     { trigger: "glossary", description: "Glossary of key terms", insert: "<glossary title=\"$0\">\n  <term name=\"Term 1\">Definition of the term.</term>\n  <term name=\"Term 2\">Definition of the term.</term>\n</glossary>" },
@@ -463,7 +482,7 @@ window.SGML_EDITOR_LANGUAGE = {
       ]
     }
   },
-  // Static JavaScript completions used only while the caret is inside <js>.
+  // Static JavaScript completions used inside <js> and <outCode>.
   // The editor also discovers user declarations and simple variable types from
   // the current block, so local names and their common members appear naturally.
   javascriptCompletions: {
@@ -491,6 +510,11 @@ window.SGML_EDITOR_LANGUAGE = {
       ["setInterval", "Repeat a callback at an interval"], ["clearInterval", "Cancel a repeating callback"],
       ["requestAnimationFrame", "Run before the next browser repaint"], ["cancelAnimationFrame", "Cancel an animation frame"],
       ["queueMicrotask", "Queue a microtask"], ["structuredClone", "Create a deep clone"], ["crypto", "Cryptographic utilities"]
+    ],
+    terminalGlobals: [
+      ["terminalPrint", "Append text to this terminal output (no newline is added)"],
+      ["terminalInput", "Wait for a line of user input; use await and enable allowInput"],
+      ["getCode", "Raw source text of the connected terminalCode; an empty string when unconnected"]
     ],
     keywords: [
       "async", "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete",

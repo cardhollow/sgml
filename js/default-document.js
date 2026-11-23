@@ -129,6 +129,20 @@ The XML-style deck is an additional way to write flashcards. The earlier compact
   <summary>Variables hold values that a program can read or update.</summary>
 </cornell>
 
+### Bookmarks
+
+<bookmark title="Bookmarks" subtitle="Notebook Components" type="learn" userdefined/>
+
+A self-closing bookmark tab sits at the edge of the screen. Press the peeking arrow to open it, press the card to jump here, and drag the open card anywhere and it snaps to the nearest edge on release. The most recently dragged one stays on top.
+
+<bookmark title="Study Plan" subtitle="Left side, custom accent" icon="star" accent="#c62828" side="left" userdefined/>
+
+Select text and release to get Copy, Select all and Bookmark. New bookmarks get a random accent color and are saved in this browser. Right-click (or long-press) a bookmark to edit its title, subtitle and accent; X asks before removing.
+
+### Standalone Question
+
+<question type="choices"><q>A question tag outside a questionnaire has its own Check button.</q><opt>True</opt><opt>False</opt><ans>True</ans></question>
+
 ### Spoiler
 
 The \`<spoiler>...</spoiler>\` element places a plain overlay directly over its rendered content. It behaves as an inline element like \`<st>\` or ordinary text, so it does not insert paragraph breaks or generated newlines around the content. The overlay automatically follows the rendered width and height of the content. Clicking the overlay reveals the content.
@@ -185,9 +199,33 @@ Reveal one step at a time and try each step yourself before you open it.
 
 <sgmlPaste name="dice"/>
 
+<sgmlCopy name="example">
+Hello <sgmlHolder id="txth">text here</sgmlHolder>. <sgmlHolder id="tail">default tail</sgmlHolder>
+</sgmlCopy>
+
+<sgmlPaste name="example" txth="sgmlhere" tail="first paste"/>
+
+<sgmlPaste name="example" txth="another value" tail="second paste"/>
+
+### Dictionary Matching
+
+A word can contain Markdown or SGML. Tap a linked word to highlight its definition; tap the same word again or tap this sentence elsewhere to clear the highlight.
+
+<dictWord>
+## Apple
+
+Apple Falls
+</dictWord>
+
+<dictDef ignoreSGML allowFirsttextMatching>Apple</dictDef> — matches the first rendered line, even though the whole word block contains more text.
+
+<dictWord><span>HELL</span></dictWord> and <dictDef ignoreSGML>**HELL**</dictDef> — visible text is matched, not the source formatting.
+
+<dictDef ignoreWhitespace>New York</dictDef> also matches <dictWord>NewYork</dictWord>.
+
 ### Terminal Blocks
 
-\`<terminalCode>\` and \`<terminalOutput>\` show text in a terminal-style box with a **Copy** button. Their contents are never parsed as SGML, Markdown, or JavaScript. \`accent\` colors the terminal. \`style\` is a list of rules separated by \`;\`. Each rule starts with a color followed by words or \`/regex/flags\` patterns to color. \`folding\` adds fold carets: \`start\` matches an opening token and \`end\` matches its closing counterpart. Add \`collapsed: all;\` (or line numbers such as \`collapsed: 2, 8-12;\`, or a regex such as \`collapsed: /^function/;\`) to start with those regions folded. Use \`\\\\x22\` for a double quote inside a regex, because an attribute value ends at its next quote.
+terminalCode and terminalOutput show terminal-style text with a **Copy** button. Add runnable and a target to a code block, then use the same value in an output's connect. Run switches from source to the connected output; Stop switches back. Every terminalOutput runs its outCode whenever that output appears, even when it has no connect attribute; connected outputs run each time Run reveals them. Each script runs in an isolated worker and receives terminalPrint("text"), getCode, and (when allowInput is set) await terminalInput("Prompt: "), which returns the text submitted with Enter. maxHeight caps the scrollable terminal body; a plain number means pixels. Existing accent, style, and folding attributes still work.
 
 <terminalCode title="JavaScript" accent="#22c55e" style="#60a5fa if else function return const let for while new; #f59e0b /\\x22[^\\x22]*\\x22|'[^']*'/; #6b7280 /\\/\\/.*$/m; #c084fc /\\b\\d+(\\.\\d+)?\\b/" folding="start: [\\[{(]; end: [\\]})];">
 function grade(scores) {
@@ -210,6 +248,62 @@ $ node grade.js
 A
 PASS 3 of 3 checks
 FAIL 0 checks
+</terminalOutput>
+
+This output is not connected to any code block. Its script runs automatically when the output appears.
+
+<terminalOutput title="Standalone output" accent="#0ea5e9" style="#22c55e Automatic">
+<outCode>
+  terminalPrint("Automatic output: no terminalCode connection needed.\\n");
+  terminalPrint("This script runs whenever this output is rendered again.");
+</outCode>
+</terminalOutput>
+
+<terminalCode title="Editable JavaScript" editable accent="#22c55e" style="#60a5fa function const return; #f59e0b /Hello/; #6b7280 /greet/" folding="start: [\\[{(]; end: [\\]})];" suggestion='[
+  {"text":"log","subtitle":"Write a message to the console","insert":"console.log($0)"},
+  {"text":"warn","subtitle":"Show a warning in the console","insert":"console.warn($0)"},
+  {"text":"error","subtitle":"Show an error in the console","insert":"console.error($0)"}
+]'>
+function greet(name) {
+  const greeting = "Hello, " + name;
+  console.log(greeting);
+  return greeting;
+}
+
+greet("SGML");
+</terminalCode>
+
+<terminalCode title="Whitespace preserved">
+    first    line
+
+	second	line  
+</terminalCode>
+
+<terminalOutput title="Whitespace preserved">
+    leading spaces
+	indented with a tab
+
+trailing spaces    
+</terminalOutput>
+
+Here is a runnable terminal. Press **Run** to hide the source and reveal its connected output. Press **Stop** to return to the source.
+
+<terminalCode title="Runnable JavaScript" accent="#22c55e" runnable target="sample-run" style="#60a5fa const let for of; #f59e0b /\\x22[^\\x22]*\\x22/; #c084fc /\\b\\d+\\b/">
+const values = [4, 8, 12];
+const total = values.reduce((sum, value) => sum + value, 0);
+</terminalCode>
+
+<terminalOutput title="Interactive output" accent="#f97316" connect="sample-run" addCode allowInput maxHeight="240px" style="#22c55e Total; #60a5fa Source">
+This output is connected to the runnable code above.
+<outCode>
+  terminalPrint("Source length: " + getCode.length + " characters\\n");
+  const values = [4, 8, 12];
+  const total = values.reduce((sum, value) => sum + value, 0);
+  terminalPrint("Values: " + values.join(", ") + "\\n");
+  terminalPrint("Total: " + total + "\\n");
+  const name = await terminalInput("Your name: ");
+  terminalPrint("Hello, " + name + "\\n");
+</outCode>
 </terminalOutput>
 
 Here is the source of the examples above. It is shown inside a terminal block, so the tags display as plain text.

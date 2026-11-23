@@ -2051,9 +2051,8 @@ table{max-width:none}
 			}
 		}
 
-		function buildNotebookBoxHTML(component){
-			const attrs=parseNotebookTagAttributes(component.open);
-			const presets={
+		function getNotebookPresets(){
+			return{
 				'note':{label:'NOTE',icon:'note',color:'#475569',bg:'#f8fafc'},
 				'important':{label:'IMPORTANT',icon:'alert-circle',color:'#b45309',bg:'#fffbeb'},
 				'reminder':{label:'REMINDER',icon:'bell',color:'#a21caf',bg:'#fdf4ff'},
@@ -2181,6 +2180,11 @@ table{max-width:none}
 				'draft':{label:'DRAFT',icon:'edit',color:'#64748b',bg:'#f8fafc'},
 				'final':{label:'FINAL',icon:'check-circle',color:'#15803d',bg:'#f0fdf4'},
 			};
+		}
+
+		function buildNotebookBoxHTML(component){
+			const attrs=parseNotebookTagAttributes(component.open);
+			const presets=getNotebookPresets();
 			const requested=String(attrs.type||attrs.kind||'note').trim().toLowerCase();
 			const kind=Object.prototype.hasOwnProperty.call(presets,requested)?requested:'custom';
 			// Unknown type names remain useful custom labels instead of silently
@@ -2208,6 +2212,62 @@ table{max-width:none}
 			return `<aside class="sgml-notebox sgml-notebox-${kind}" style="--sgml-notebox-accent:${escapeHTMLAttribute(accent)};--sgml-notebox-bg:${escapeHTMLAttribute(background)}">`+
 				`<div class="sgml-notebox-heading">${icon?`<span class="sgml-notebox-icon" data-icon="${safeMotionIcon}" style="color:${escapeHTMLAttribute(accent)}">${icon}</span>`:''}<span>${renderMarkdown(String(title),{inline:true})}</span></div>`+
 				`<div class="sgml-notebox-content">${content}</div></aside>`;
+		}
+
+		// ---- <bookmark .../> --------------------------------------------------
+		// A self-closing tag. It renders a zero-height anchor at its position;
+		// js/sgml-bookmarks.js turns every anchor into a fixed side tab.
+		let sgmlBookmarkCounter=0;
+
+		function extractBookmarkTags(text,store){
+			let out='';
+			let cursor=0;
+			while(cursor<text.length){
+				const found=findTagStart(text,'bookmark',cursor);
+				if(!found)break;
+				out+=text.slice(cursor,found.index);
+				let end=found.end;
+				if(!/\/\s*>$/.test(found.open)){
+					const close=text.slice(end).match(/^\s*<\/bookmark\s*>/i);
+					if(close)end+=close[0].length;
+				}
+				store.push(found.open);
+				out+=`\n\n<div data-sgml-bookmark-slot="${store.length-1}"></div>\n\n`;
+				cursor=end;
+			}
+			return out+text.slice(cursor);
+		}
+
+		// Resolves icon markup for a bookmark. `icon` may be an inline <svg> or an
+		// icon name; unknown names fall back to the notebox `type` icon, then to
+		// the default Bookmark icon.
+		function resolveBookmarkIconHTML(requestedIcon,preset,accent){
+			requestedIcon=String(requestedIcon||'').trim();
+			if(requestedIcon&&/^<svg\b/i.test(requestedIcon)){
+				const svg=sanitizeNotebookSVGIcon(requestedIcon,accent);
+				if(svg)return svg;
+			}
+			const known=name=>window.SGMLICON&&window.SGMLICON[String(name||'').toLowerCase()];
+			const name=known(requestedIcon)?requestedIcon.toLowerCase():(preset&&known(preset.icon)?preset.icon:'bookmark');
+			return typeof window.renderSGMLIcon==='function'
+				?window.renderSGMLIcon(name,`scale:[18] color:"${accent}"`)
+				:'';
+		}
+
+		function buildBookmarkAnchorHTML(open){
+			const attrs=parseNotebookTagAttributes(open);
+			const requestedType=String(attrs.type||attrs.kind||'').trim().toLowerCase();
+			const preset=getNotebookPresets()[requestedType]||null;
+			const accent=sanitizeSGMLColor(attrs.accent||attrs.color||attrs.col)||(preset?preset.color:'#2563eb');
+			const title=String(attrs.title||(preset?preset.label:'Bookmark'));
+			const subtitle=String(attrs.subtitle||'');
+			const side=String(attrs.side||'right').trim().toLowerCase()==='left'?'left':'right';
+			const userDefined=readSGMLBooleanAttribute(open,'userdefined');
+			const iconHTML=resolveBookmarkIconHTML(attrs.icon,preset,accent);
+			const knownIcon=name=>window.SGMLICON&&window.SGMLICON[String(name||'').toLowerCase()];
+			const iconName=/^<svg\b/i.test(String(attrs.icon||'').trim())?'':(knownIcon(attrs.icon)?String(attrs.icon).toLowerCase():(preset&&knownIcon(preset.icon)?preset.icon:'bookmark'));
+			const id=`sgml-bookmark-${sgmlBookmarkCounter++}`;
+			return `<div class="sgml-bookmark-anchor" id="${id}" data-sgml-bookmark="true" data-title="${escapeHTMLAttribute(title)}" data-subtitle="${escapeHTMLAttribute(subtitle)}" data-accent="${escapeHTMLAttribute(accent)}" data-side="${side}" data-icon="${escapeHTMLAttribute(iconName)}" data-userdefined="${userDefined}"><template class="sgml-bookmark-icon-src">${iconHTML}</template></div>`;
 		}
 
 		function buildNotebookChecklistHTML(component){
@@ -2315,23 +2375,39 @@ table{max-width:none}
 			return renderEmbeddedSGML(String(source||'')).replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/i,'$1');
 		}
 
+		function renderedDictionaryText(source){
+			const template=document.createElement('template');
+			template.innerHTML=renderInlineComponentContent(source);
+			return String(template.content.textContent||'').replace(/\u200b/g,'').normalize('NFC');
+		}
+
 		function buildDictionaryInlineHTML(component){
-			const content=renderInlineComponentContent(component.content||'');
+			const rawContent=String(component.content||'');
+			const content=renderInlineComponentContent(rawContent);
 			if(component.type==='dict-definition'){
 				const id=`sgml-dict-def-${dictDefinitionCounter++}`;
 				const flags={
 					caseSensitive:readSGMLBooleanAttribute(component.open,'caseSensitive'),
 					ignoreWhitespace:readSGMLBooleanAttribute(component.open,'ignoreWhitespace'),
 					ignoreNewline:readSGMLBooleanAttribute(component.open,'ignoreNewline'),
-					ignoreSpace:readSGMLBooleanAttribute(component.open,'ignoreSpace')
+					ignoreSpace:readSGMLBooleanAttribute(component.open,'ignoreSpace'),
+					ignoreSGML:readSGMLBooleanAttribute(component.open,'ignoreSGML'),
+					allowFirsttextMatching:readSGMLBooleanAttribute(component.open,'allowFirsttextMatching')
 				};
-				return `<span class="sgml-dict-definition" id="${id}" data-case-sensitive="${flags.caseSensitive}" data-ignore-whitespace="${flags.ignoreWhitespace}" data-ignore-newline="${flags.ignoreNewline}" data-ignore-space="${flags.ignoreSpace}">${content}</span>`;
+				return `<span class="sgml-dict-definition" id="${id}" data-case-sensitive="${flags.caseSensitive}" data-ignore-whitespace="${flags.ignoreWhitespace}" data-ignore-newline="${flags.ignoreNewline}" data-ignore-space="${flags.ignoreSpace}" data-ignore-sgml="${flags.ignoreSGML}" data-allow-first-text="${flags.allowFirsttextMatching}">${content}</span>`;
 			}
-			return `<span class="sgml-dict-word" data-dict-word="true">${content}</span>`;
+			// The first non-empty source line is retained separately. Its rendered
+			// text is used as an additional term only when a definition opts in.
+			const firstSourceLine=rawContent.replace(/^\s+/,'').split(/\r?\n/,1)[0]||'';
+			const firstText=firstSourceLine.trim()?renderedDictionaryText(firstSourceLine):'';
+			return `<span class="sgml-dict-word" data-dict-word="true" data-first-text="${escapeHTMLAttribute(firstText)}">${content}</span>`;
 		}
 
 		function normalizeDictionaryText(value,flags={}){
-			let text=String(value||'').replace(/\r\n?/g,'\n');
+			// Dictionary comparisons always use rendered DOM text, never source
+			// Markdown/SGML syntax or the type of Markdown element that contained it.
+			let text=String(value||'').replace(/\r\n?/g,'\n').replace(/[\u200b-\u200d\ufeff]/g,'').normalize('NFC');
+			if(flags.ignoreSGML)text=text.replace(/\u00a0/g,' ');
 			if(flags.ignoreWhitespace)text=text.replace(/\s+/g,'');
 			else{
 				if(flags.ignoreNewline)text=text.replace(/\n/g,'');
@@ -2341,34 +2417,73 @@ table{max-width:none}
 			return text;
 		}
 
+		let activeDictionaryLink=null;
+		let activeDictionaryDefinition=null;
+		let dictionaryEventsBound=false;
+
+		function clearDictionaryHighlight(){
+			if(activeDictionaryDefinition)activeDictionaryDefinition.classList.remove('sgml-dict-definition-active');
+			if(activeDictionaryLink)activeDictionaryLink.setAttribute('aria-pressed','false');
+			activeDictionaryLink=null;
+			activeDictionaryDefinition=null;
+		}
+
 		function setupDictionaryLinks(target){
 			if(!target)return;
 			const definitions=[...document.querySelectorAll('.sgml-dict-definition[id]')];
-			// Scan the rendered document rather than only the latest fragment. This
-			// also resolves earlier unmatched words when a definition is appended
-			// later through renderSGMLInto().
+			// Resolve against the entire rendered document so a definition appended
+			// later can link words from an earlier renderSGMLInto() fragment.
 			const words=[...document.querySelectorAll('.sgml-dict-word')];
 			words.forEach(word=>{
 				if(word.dataset.linked==='true')return;
-				const text=word.textContent||'';
-				const definition=definitions.find(definition=>{
+				const visibleText=word.textContent||'';
+				const firstText=word.dataset.firstText||'';
+				const definition=definitions.find(item=>{
 					const flags={
-						caseSensitive:definition.dataset.caseSensitive==='true',
-						ignoreWhitespace:definition.dataset.ignoreWhitespace==='true',
-						ignoreNewline:definition.dataset.ignoreNewline==='true',
-						ignoreSpace:definition.dataset.ignoreSpace==='true'
+						caseSensitive:item.dataset.caseSensitive==='true',
+						ignoreWhitespace:item.dataset.ignoreWhitespace==='true',
+						ignoreNewline:item.dataset.ignoreNewline==='true',
+						ignoreSpace:item.dataset.ignoreSpace==='true',
+						ignoreSGML:item.dataset.ignoreSgml==='true'
 					};
-					return normalizeDictionaryText(text,flags)===normalizeDictionaryText(definition.textContent,flags);
+					const terms=[visibleText];
+					if(item.dataset.allowFirstText==='true'&&firstText)terms.push(firstText);
+					const expected=normalizeDictionaryText(item.textContent,flags);
+					return terms.some(term=>normalizeDictionaryText(term,flags)===expected);
 				});
 				if(!definition){word.classList.add('sgml-dict-word-unmatched');return;}
 				const link=document.createElement('a');
 				link.className='sgml-dict-link';
 				link.href=`#${definition.id}`;
 				link.setAttribute('aria-label',`Go to definition: ${definition.textContent.trim()}`);
-				link.title='Go to definition';
+				link.setAttribute('aria-pressed','false');
+				link.title='Show definition';
+				link.dataset.definitionId=definition.id;
 				link.append(...word.childNodes);
 				word.replaceWith(link);
 			});
+
+			if(!dictionaryEventsBound){
+				dictionaryEventsBound=true;
+				document.addEventListener('pointerdown',event=>{
+					if(event.target&&event.target.closest&&event.target.closest('.sgml-dict-link'))return;
+					clearDictionaryHighlight();
+				});
+				document.addEventListener('click',event=>{
+					const link=event.target&&event.target.closest?event.target.closest('.sgml-dict-link'):null;
+					if(!link)return;
+					event.preventDefault();
+					const definition=document.getElementById(link.dataset.definitionId||'');
+					if(!definition)return;
+					if(activeDictionaryLink===link){clearDictionaryHighlight();return;}
+					clearDictionaryHighlight();
+					activeDictionaryLink=link;
+					activeDictionaryDefinition=definition;
+					link.setAttribute('aria-pressed','true');
+					definition.classList.add('sgml-dict-definition-active');
+					definition.scrollIntoView({behavior:'smooth',block:'center'});
+				});
+			}
 		}
 
 		function revealSpoiler(id){
@@ -2587,6 +2702,19 @@ table{max-width:none}
 			return{questions,errors};
 		}
 
+		// A <question> outside <questionaires> behaves like the compact
+		// <Choices:(...)[...]{...}> syntax: it renders on its own with its own
+		// Check button and is not part of any questionnaire progress group.
+		function buildStandaloneQuestionHTML(component){
+			const parsed=parseQuestionaireQuestion({open:component.open,content:component.content||''},null);
+			if(parsed.error){
+				return `<div class="sgml-notebook-error"><strong>Question error.</strong> ${escapeHTMLText(parsed.error)}</div>`;
+			}
+			parsed.suppressIndividualCheck=false;
+			parsed.questionaireId=null;
+			return buildQuestionUI(parsed);
+		}
+
 		function buildQuestionairesHTML(component){
 			const id=`sgml-questionaires-${questionaireCounter++}`;
 			const extracted=extractQuestionaireQuestions(component.content||'',id);
@@ -2604,7 +2732,7 @@ table{max-width:none}
 				<section class="sgml-questionaires" id="${id}" data-question-ids="${questionIds}" data-total="${extracted.questions.length}" data-required-completion="${requiredCompletion}">
 					<div class="sgml-questionaires-progress">
 						<div class="sgml-questionaires-progress-track" role="progressbar" aria-label="Questionnaire progress" aria-valuemin="0" aria-valuemax="${extracted.questions.length}" aria-valuenow="0"><div class="sgml-questionaires-progress-fill"></div></div>
-						<span class="sgml-questionaires-progress-label">0 / ${extracted.questions.length}</span>
+						<span class="sgml-questionaires-progress-label">0 / ${extracted.questions.length} · 0%</span>
 					</div>
 					<div class="sgml-questionaires-body">${questionHTML||'<p class="sgml-questionaires-empty">No valid questions were found in this questionnaire.</p>'}${errorsHTML}</div>
 					<div class="sgml-questionaires-actions"><button class="sgml-questionaires-check" id="check_${id}" type="button" onclick="checkQuestionaireAnswers('${id}')">Check Answers</button><span class="sgml-questionaires-feedback" aria-live="polite"></span></div>
@@ -3384,7 +3512,7 @@ table{max-width:none}
 
 				[
 					'info','root','line','spoiler','encircle',
-					'flashcards','notebox','checklist','glossary','quickreview','cornell','questionaires','procedure'
+					'flashcards','notebox','checklist','glossary','quickreview','cornell','questionaires','question','procedure'
 				].forEach(tag=>{
 					const found=findTagStart(text,tag,cursor);
 					if(found)candidates.push({...found,tag});
@@ -3471,6 +3599,9 @@ table{max-width:none}
 
 			rebuilt+=text.slice(cursor);
 
+			const bookmarkStore=[];
+			rebuilt=extractBookmarkTags(rebuilt,bookmarkStore);
+
 			const qResult=parseQuestionBlocks(rebuilt);
 			let result=renderMarkdown(qResult.processedText);
 
@@ -3497,9 +3628,14 @@ table{max-width:none}
 				else if(component.type==='quickreview')html=buildQuickReviewHTML(component);
 				else if(component.type==='cornell')html=buildCornellNotesHTML(component);
 				else if(component.type==='questionaires')html=buildQuestionairesHTML(component);
+				else if(component.type==='question')html=buildStandaloneQuestionHTML(component);
 				else if(component.type==='procedure')html=buildProcedureHTML(component);
 				else if(component.type==='encircle')html=buildEncircleHTML(component,true);
 				result=result.replace(`<div data-sgml-block-slot="${index}"></div>`,html);
+			});
+
+			bookmarkStore.forEach((open,index)=>{
+				result=result.replace(`<div data-sgml-bookmark-slot="${index}"></div>`,()=>buildBookmarkAnchorHTML(open));
 			});
 
 			return result;
@@ -3540,6 +3676,7 @@ table{max-width:none}
                 parsedQuestions={};
                 questionCounter=0;
                 dictDefinitionCounter=0;
+                sgmlBookmarkCounter=0;
                 questionaireCounter=0;
                 sgmlSpoilerIdCounter=0;
                 infoCounter=0;
@@ -3593,6 +3730,7 @@ table{max-width:none}
             setupConnectComponents();
             setupQuestionaires(target);
             setupDictionaryLinks(target);
+            if(typeof setupBookmarks==='function')setupBookmarks();
 
             if(window.MathJax&&window.MathJax.typesetPromise){
                 window.MathJax.typesetPromise([target]).catch(error=>{
@@ -3831,7 +3969,7 @@ table{max-width:none}
 			const label=group.querySelector('.sgml-questionaires-progress-label');
 			if(track)track.setAttribute('aria-valuenow',String(answered));
 			if(fill)fill.style.width=(total?Math.min(100,answered/total*100):0)+'%';
-			if(label)label.textContent=`${answered} / ${total}`;
+			if(label)label.textContent=`${answered} / ${total} · ${total?Math.round(Math.min(100,answered/total*100)):0}%`;
 			const ready=answered>=required;
 			const checkButton=group.querySelector('.sgml-questionaires-check');
 			if(checkButton)checkButton.disabled=!ready;
